@@ -12907,5 +12907,111 @@ if(document.readyState==='loading'){
 })();
 </script>
 
+
+<!-- PATCH: Requested top horizontal + vertical scrollbars for Promotion/List/CRM/Seeding/Celeb/Organic only -->
+<style id="requested-table-scrollbars-style">
+  .imc-requested-top-scroll{
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    height:12px!important;
+    margin:0 0 2px 0!important;
+  }
+  .imc-requested-top-scroll-inner{height:1px!important;}
+  #pg-promotion .imc-requested-scroll-wrap,
+  #pg-list .imc-requested-scroll-wrap,
+  #pg-crm .imc-requested-scroll-wrap,
+  #pg-seeding .imc-requested-scroll-wrap,
+  #pg-celeb .imc-requested-scroll-wrap,
+  #pg-organic .imc-requested-scroll-wrap{
+    overflow:auto!important;
+    max-height:70vh!important;
+  }
+</style>
+<script id="requested-table-scrollbars-script">
+(function(){
+  'use strict';
+  const targets=[
+    {page:'#pg-promotion', wrap:'#pg-promotion .tbl-wrap', key:'promotion'},
+    {page:'#pg-list', wrap:'#pg-list .list-card-stable .tbl-wrap', key:'list'},
+    {page:'#pg-crm', wrap:'#crm-table-wrap', key:'crm'},
+    {page:'#pg-seeding', wrap:'#seed-table-wrap', key:'seeding'},
+    {page:'#pg-celeb', wrap:'#pg-celeb > div:nth-of-type(3) > div[style*="overflow-x"]', key:'celeb'},
+    {page:'#pg-organic', wrap:'#org-list-view', key:'organic'}
+  ];
+
+  function getTableWidth(wrap){
+    if(!wrap) return 0;
+    const table=wrap.querySelector('table');
+    if(!table) return wrap.scrollWidth || 0;
+    return Math.max(table.scrollWidth, table.offsetWidth, wrap.scrollWidth);
+  }
+
+  function ensureTopScrollbar(cfg){
+    const page=document.querySelector(cfg.page);
+    const wrap=document.querySelector(cfg.wrap);
+    if(!page || !wrap) return;
+    wrap.classList.add('imc-requested-scroll-wrap');
+    let top=page.querySelector('.imc-requested-top-scroll[data-scroll-key="'+cfg.key+'"]');
+    if(!top){
+      top=document.createElement('div');
+      top.className='imc-requested-top-scroll';
+      top.setAttribute('data-scroll-key', cfg.key);
+      const inner=document.createElement('div');
+      inner.className='imc-requested-top-scroll-inner';
+      top.appendChild(inner);
+      wrap.parentNode.insertBefore(top, wrap);
+    }
+    const inner=top.querySelector('.imc-requested-top-scroll-inner');
+    const width=getTableWidth(wrap);
+    if(inner) inner.style.width=(width || wrap.scrollWidth || wrap.clientWidth)+'px';
+    if(!wrap.__imcRequestedScrollSynced){
+      let syncing=false;
+      top.addEventListener('scroll', function(){
+        if(syncing) return;
+        syncing=true;
+        wrap.scrollLeft=top.scrollLeft;
+        syncing=false;
+      });
+      wrap.addEventListener('scroll', function(){
+        if(syncing) return;
+        syncing=true;
+        top.scrollLeft=wrap.scrollLeft;
+        syncing=false;
+      });
+      wrap.__imcRequestedScrollSynced=true;
+    }
+    top.scrollLeft=wrap.scrollLeft;
+  }
+
+  function refreshRequestedScrollbars(){
+    targets.forEach(ensureTopScrollbar);
+  }
+
+  window.refreshRequestedScrollbars=refreshRequestedScrollbars;
+  document.addEventListener('DOMContentLoaded', function(){
+    refreshRequestedScrollbars();
+    setTimeout(refreshRequestedScrollbars, 200);
+    setTimeout(refreshRequestedScrollbars, 800);
+  });
+  window.addEventListener('resize', refreshRequestedScrollbars);
+  document.addEventListener('click', function(e){
+    if(e.target && e.target.closest && e.target.closest('.top-tab, #org-view-list, #org-view-feed, #pg-promotion, #pg-list, #pg-crm, #pg-seeding, #pg-celeb, #pg-organic')){
+      setTimeout(refreshRequestedScrollbars, 0);
+      setTimeout(refreshRequestedScrollbars, 150);
+    }
+  }, true);
+  const observer=new MutationObserver(function(){
+    if(window.__imcRequestedScrollTimer) clearTimeout(window.__imcRequestedScrollTimer);
+    window.__imcRequestedScrollTimer=setTimeout(refreshRequestedScrollbars, 80);
+  });
+  document.addEventListener('DOMContentLoaded', function(){
+    ['#promo-body','#creator-body','#crm-tbody','#seed-tbody','#celeb-tbody','#org-tbody'].forEach(function(sel){
+      const node=document.querySelector(sel);
+      if(node) observer.observe(node,{childList:true,subtree:true});
+    });
+  });
+})();
+</script>
+
 </body>
 </html>
