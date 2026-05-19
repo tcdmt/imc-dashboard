@@ -14126,8 +14126,10 @@ if(document.readyState==='loading'){
     lfRow.innerHTML='';
     var box=document.createElement('div');
     box.className='slicer-box list-filter-v75';
-    var row=document.createElement('div');
-    row.className='list-filter-v75-row list-filter-v75-row-1';
+    var row1=document.createElement('div');
+    row1.className='list-filter-v75-row list-filter-v75-row-1';
+    var row2=document.createElement('div');
+    row2.className='list-filter-v75-row list-filter-v75-row-2';
 
     var month=makeMonthButtons();
     var contact=makePillButtons('lf-contact',CONTACT_OPTS,'ff-mbtn');
@@ -14136,14 +14138,15 @@ if(document.readyState==='loading'){
     var type=makeDropdown();
     var name=makeSearch();
 
-    addGroup(row,'월 선택',month,'lf-month-group');
-    addGroup(row,'컨택 상황',contact,'lf-contact-group');
-    addGroup(row,'플랫폼 구분',platform,'lf-platform-group');
-    addGroup(row,'채널 구분',channel,'lf-channel-group');
-    addGroup(row,'콘텐츠 유형',type,'lf-type-group');
-    addGroup(row,'크리에이터 검색',name,'lf-name-group');
+    addGroup(row1,'월 선택',month,'lf-month-group');
+    addGroup(row1,'컨택 상황',contact,'lf-contact-group');
+    addGroup(row2,'플랫폼 구분',platform,'lf-platform-group');
+    addGroup(row2,'채널 구분',channel,'lf-channel-group');
+    addGroup(row2,'콘텐츠 유형',type,'lf-type-group');
+    addGroup(row2,'크리에이터 검색',name,'lf-name-group');
 
-    box.appendChild(row);
+    box.appendChild(row1);
+    box.appendChild(row2);
     lfRow.appendChild(box);
   }
   function monthOf(ds){
