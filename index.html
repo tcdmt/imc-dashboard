@@ -13038,5 +13038,227 @@ if(document.readyState==='loading'){
 </script>
 
 
+
+
+<!-- CHOI PATCH: List dropdown upward positioning + preserve scroll position on edit -->
+<style id="list-v72-dropdown-scroll-position-fix-style">
+  #list-v72-select-popup{
+    position:fixed;
+    z-index:90000;
+    min-width:120px;
+    max-width:280px;
+    max-height:min(320px, calc(100vh - 16px));
+    overflow-y:auto;
+    padding:6px;
+    border-radius:13px;
+    background:var(--color-background-primary);
+    border:0.5px solid var(--color-border-secondary);
+    box-shadow:0 12px 32px rgba(0,0,0,.20);
+    animation:listDdIn .12s ease-out;
+  }
+  #list-v72-select-popup.open-up{animation:listDdUpIn .12s ease-out;}
+  #list-v72-select-popup .list-v72-item{
+    display:block;
+    width:100%;
+    border:none;
+    outline:none;
+    text-align:left;
+    padding:7px 11px;
+    border-radius:8px;
+    font-size:11px;
+    font-weight:600;
+    line-height:1.2;
+    cursor:pointer;
+    margin:3px 0;
+    font-family:inherit;
+    white-space:nowrap;
+    color:var(--color-text-primary);
+    background:var(--color-background-secondary);
+  }
+  #list-v72-select-popup .list-v72-item:hover{filter:brightness(.985);transform:translateX(1px);}
+  #list-v72-select-popup .list-v72-item.selected{box-shadow:inset 0 0 0 1.5px currentColor;}
+  #pg-list .imc-requested-scroll-wrap,
+  #pg-list .tbl-wrap{overflow-anchor:none!important;}
+</style>
+<script id="list-v72-dropdown-scroll-position-fix-script">
+(function(){
+  'use strict';
+
+  function getListScrollWrap(){
+    return document.querySelector('#pg-list .imc-requested-scroll-wrap') || document.querySelector('#pg-list .tbl-wrap');
+  }
+  function rememberListScroll(){
+    const wrap=getListScrollWrap();
+    return wrap ? {wrap:wrap, left:wrap.scrollLeft||0, top:wrap.scrollTop||0} : null;
+  }
+  function restoreListScroll(pos){
+    if(!pos) return;
+    function apply(){
+      const wrap=getListScrollWrap() || pos.wrap;
+      if(wrap){ wrap.scrollLeft=pos.left; wrap.scrollTop=pos.top; }
+      const topBar=document.querySelector('#pg-list .imc-requested-top-scroll');
+      if(topBar) topBar.scrollLeft=pos.left;
+    }
+    apply();
+    requestAnimationFrame(function(){
+      apply();
+      requestAnimationFrame(function(){
+        apply();
+        setTimeout(apply,0);
+        setTimeout(apply,80);
+        setTimeout(apply,220);
+      });
+    });
+  }
+
+  function closePopup(){
+    const old=document.getElementById('list-v72-select-popup');
+    if(old) old.remove();
+    const oldLegacy=document.getElementById('list-dc-select-popup');
+    if(oldLegacy) oldLegacy.remove();
+    if(window.__listV72Cleanup){ window.__listV72Cleanup(); window.__listV72Cleanup=null; }
+  }
+
+  function colorFor(opt){
+    if(window.LIST_CH_COLOR && window.LIST_CH_COLOR[opt]) return window.LIST_CH_COLOR[opt];
+    if(window.PROMO_PLT_COLOR && window.PROMO_PLT_COLOR[opt]) return window.PROMO_PLT_COLOR[opt];
+    if(window.LIST_PROG_COLOR && window.LIST_PROG_COLOR[opt]) return window.LIST_PROG_COLOR[opt];
+    if(window.LIST_USE2_COLOR && window.LIST_USE2_COLOR[opt]) return window.LIST_USE2_COLOR[opt];
+    if(opt==='Offline') return {bg:'#FEF3C7', color:'#92400E'};
+    if(opt==='선택') return {bg:'#F3F4F6', color:'#6B7280'};
+    return null;
+  }
+
+  function positionPopup(popup, anchor){
+    if(!popup || !anchor) return;
+    const a=anchor.getBoundingClientRect();
+    const wrap=getListScrollWrap();
+    const w=wrap ? wrap.getBoundingClientRect() : {top:8,bottom:window.innerHeight-8,left:8,right:window.innerWidth-8};
+    const margin=8;
+    const gap=4;
+    popup.style.minWidth=Math.max(a.width,120)+'px';
+    popup.style.maxHeight='320px';
+
+    const width=popup.offsetWidth || Math.max(a.width,120);
+    const rawHeight=popup.offsetHeight || 180;
+    let left=a.left;
+    left=Math.max(margin, Math.min(left, window.innerWidth-width-margin));
+
+    const viewportBelow=window.innerHeight-a.bottom-margin;
+    const viewportAbove=a.top-margin;
+    const wrapBelow=w.bottom-a.bottom-gap;
+    const wrapAbove=a.top-w.top-gap;
+    const shouldOpenUp=(wrapBelow < rawHeight && wrapAbove > wrapBelow) || (viewportBelow < rawHeight && viewportAbove > viewportBelow);
+
+    let top;
+    popup.classList.toggle('open-up', shouldOpenUp);
+    if(shouldOpenUp){
+      const usable=Math.max(90, Math.min(320, viewportAbove, Math.max(wrapAbove, 90)));
+      popup.style.maxHeight=usable+'px';
+      top=Math.max(margin, a.top-Math.min(rawHeight, usable)-gap);
+    }else{
+      const usable=Math.max(90, Math.min(320, viewportBelow, Math.max(wrapBelow, 90)));
+      popup.style.maxHeight=usable+'px';
+      top=Math.min(a.bottom+gap, window.innerHeight-Math.min(rawHeight, usable)-margin);
+    }
+    popup.style.left=left+'px';
+    popup.style.top=top+'px';
+  }
+
+  function openListSelect(anchor, opts, curVal, onPick){
+    closePopup();
+    const scrollPos=rememberListScroll();
+    const popup=document.createElement('div');
+    popup.id='list-v72-select-popup';
+    (opts||[]).forEach(function(opt){
+      const item=document.createElement('button');
+      item.type='button';
+      item.className='list-v72-item'+(opt===curVal?' selected':'');
+      item.textContent=opt;
+      const c=colorFor(opt);
+      if(c){ item.style.background=c.bg; item.style.color=c.color; }
+      item.onclick=function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        const keep=rememberListScroll() || scrollPos;
+        closePopup();
+        onPick(opt, keep);
+        restoreListScroll(keep);
+      };
+      popup.appendChild(item);
+    });
+    document.body.appendChild(popup);
+    positionPopup(popup, anchor);
+    restoreListScroll(scrollPos);
+
+    function outside(e){ if(!popup.contains(e.target) && e.target!==anchor && !(anchor.contains && anchor.contains(e.target))) closePopup(); }
+    function move(){ if(document.body.contains(popup)) positionPopup(popup, anchor); }
+    function key(e){ if(e.key==='Escape') closePopup(); }
+    setTimeout(function(){ document.addEventListener('mousedown', outside, true); },0);
+    window.addEventListener('resize', move, true);
+    window.addEventListener('scroll', move, true);
+    const wrap=getListScrollWrap();
+    if(wrap) wrap.addEventListener('scroll', move, true);
+    document.addEventListener('keydown', key, true);
+    window.__listV72Cleanup=function(){
+      document.removeEventListener('mousedown', outside, true);
+      window.removeEventListener('resize', move, true);
+      window.removeEventListener('scroll', move, true);
+      if(wrap) wrap.removeEventListener('scroll', move, true);
+      document.removeEventListener('keydown', key, true);
+    };
+  }
+
+  const previousDcStartSel=window.dcStartSel;
+  window.dcStartSel=function(span, opts, curVal, onSave){
+    if(!span || !span.closest || !span.closest('#pg-list')){
+      if(typeof previousDcStartSel==='function') return previousDcStartSel(span, opts, curVal, onSave);
+      return;
+    }
+    openListSelect(span, opts, curVal, function(opt, keep){
+      span.textContent=opt || '-';
+      try{ eval(onSave.replace('__VAL__', JSON.stringify(opt))); }catch(err){ console.error(err); }
+      restoreListScroll(keep);
+    });
+  };
+
+  window.listChDrop=function(cell, ri){
+    if(!cell || !cell.closest || !cell.closest('#pg-list')) return;
+    const row=(window.creators||[])[ri];
+    if(!row) return;
+    openListSelect(cell, ['Instagram','Youtube','Tiktok','X','Blog'], row.ch, function(opt, keep){
+      row.ch=opt;
+      if(window.fbSaveCreators) window.fbSaveCreators();
+      if(window.buildCal) window.buildCal();
+      if(window.applyListFilter) window.applyListFilter();
+      if(window.updateSummary) window.updateSummary();
+      restoreListScroll(keep);
+    });
+  };
+
+  function wrapScrollSafe(fnName){
+    const fn=window[fnName];
+    if(typeof fn!=='function' || fn.__listV72ScrollSafe) return;
+    const wrapped=function(){
+      const keep=rememberListScroll();
+      const ret=fn.apply(this, arguments);
+      restoreListScroll(keep);
+      return ret;
+    };
+    wrapped.__listV72ScrollSafe=true;
+    window[fnName]=wrapped;
+  }
+
+  function boot(){
+    wrapScrollSafe('applyListFilter');
+    wrapScrollSafe('renderCreatorRows');
+  }
+  boot();
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot);
+  else setTimeout(boot,0);
+  window.addEventListener('load', boot);
+})();
+</script>
+
 </body>
 </html>
