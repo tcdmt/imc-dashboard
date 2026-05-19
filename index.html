@@ -329,6 +329,8 @@
         metaUrlAdp:        window.metaSheetUrlAdp || '',
         metaUrlSales:      window.metaSheetUrlSales || '',
         budgetSheetUrl:    window.budgetSheetUrl || '',
+        monthlyBudgetSheetUrl: window.monthlyBudgetSheetUrl || '',
+        dailySpendSheetUrl:    window.dailySpendSheetUrl || '',
       };
       await db.collection('settings').doc('sheetUrls').set(urls);
       return true;
@@ -486,6 +488,9 @@
             if (data.metaUrlAd)      window.metaSheetUrlAd       = data.metaUrlAd;
             if (data.metaUrlAdp)     window.metaSheetUrlAdp      = data.metaSheetUrlAdp;
             if (data.metaUrlSales)   window.metaSheetUrlSales    = data.metaSheetUrlSales;
+            if (data.budgetSheetUrl) window.budgetSheetUrl = data.budgetSheetUrl;
+            if (data.monthlyBudgetSheetUrl) window.monthlyBudgetSheetUrl = data.monthlyBudgetSheetUrl;
+            if (data.dailySpendSheetUrl) window.dailySpendSheetUrl = data.dailySpendSheetUrl;
           }
           if (d.id === 'budgetMemos') {
             window.budgetMemos = data.values || {};
@@ -1789,8 +1794,12 @@ html[data-user-role="viewer"] [data-delete]{opacity:.35!important;cursor:not-all
         <input id="item-sheet-url" type="text" placeholder="CSV 링크 입력" style="font-size:12px;padding:7px 9px;border:0.5px solid var(--color-border-secondary);border-radius:8px;background:var(--color-background-primary);color:var(--color-text-primary);width:100%;">
       </div>
       <div style="display:grid;grid-template-columns:180px minmax(0,1fr);gap:10px;align-items:center;">
-        <label for="budget-sheet-url" style="font-size:12px;color:var(--color-text-secondary);font-weight:500;">예산 연동<br><span style="font-size:10px;color:var(--color-text-tertiary);">2026 TCM Budget Sheets</span></label>
-        <input id="budget-sheet-url" type="text" placeholder="CSV 링크 입력" style="font-size:12px;padding:7px 9px;border:0.5px solid var(--color-border-secondary);border-radius:8px;background:var(--color-background-primary);color:var(--color-text-primary);width:100%;">
+        <label for="monthly-budget-sheet-url" style="font-size:12px;color:var(--color-text-secondary);font-weight:500;">Monthly 탭 연동<br><span style="font-size:10px;color:var(--color-text-tertiary);">2026 TCM Monthly Budget Sheets</span></label>
+        <input id="monthly-budget-sheet-url" type="text" placeholder="CSV 링크 입력" style="font-size:12px;padding:7px 9px;border:0.5px solid var(--color-border-secondary);border-radius:8px;background:var(--color-background-primary);color:var(--color-text-primary);width:100%;">
+      </div>
+      <div style="display:grid;grid-template-columns:180px minmax(0,1fr);gap:10px;align-items:center;">
+        <label for="daily-spend-sheet-url" style="font-size:12px;color:var(--color-text-secondary);font-weight:500;">Daily 탭 연동<br><span style="font-size:10px;color:var(--color-text-tertiary);">2026 TCM Daily spend Sheets</span></label>
+        <input id="daily-spend-sheet-url" type="text" placeholder="CSV 링크 입력" style="font-size:12px;padding:7px 9px;border:0.5px solid var(--color-border-secondary);border-radius:8px;background:var(--color-background-primary);color:var(--color-text-primary);width:100%;">
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px;">
         <div id="sheet-sync-status" style="font-size:11px;color:var(--color-text-tertiary);">시트 링크를 입력해주세요.</div>
@@ -3058,6 +3067,11 @@ let selectedDailyEndDate=&#x27;2026-04-07&#x27;;
 
 const monthlyBudget={};
 const spendRate={};
+for(let m=1;m&lt;=12;m++){
+  monthlyBudget[m]={};
+  spendRate[m]=0;
+  cols.forEach(c=&gt;monthlyBudget[m][c.key]=0);
+}
 let monthlyNotes={}, dailyNotes={}, dailySpend={};
 window.__getDailySpend=function(){return dailySpend;};
 window.__getBudgetGroups=function(){return groups;};
@@ -3112,8 +3126,17 @@ function formatDateKorean(dateStr){
 
 function sumObj(o){return cols.reduce((s,c)=&gt;s+(o[c.key]||0),0)}
 function makeSpend(b,r){const o={};cols.forEach((c,i)=&gt;o[c.key]=Math.round((b[c.key]||0)*r*(.85+(i%5)*.07)));return o}
-function getSpend(m){return makeSpend(monthlyBudget[m],spendRate[m]||0)}
-function getUsage(m){const b=monthlyBudget[m],s=getSpend(m),u={};cols.forEach(c=&gt;u[c.key]=b[c.key]?s[c.key]/b[c.key]*100:0);return u}
+function getSpend(m){
+  const o={}; cols.forEach(c=&gt;o[c.key]=0);
+  Object.entries(dailySpend||{}).forEach(([date,row])=&gt;{
+    const d=new Date(date);
+    if(!isNaN(d) &amp;&amp; d.getFullYear()===2026 &amp;&amp; d.getMonth()+1===Number(m)){
+      cols.forEach(c=&gt;o[c.key]+=Number((row||{})[c.key])||0);
+    }
+  });
+  return o;
+}
+function getUsage(m){const b=monthlyBudget[m]||{},s=getSpend(m),u={};cols.forEach(c=&gt;u[c.key]=b[c.key]?s[c.key]/b[c.key]*100:0);return u}
 
 function buildHead(target, monthLabel){
   const row1 = [
@@ -3727,6 +3750,26 @@ function submitProjectModal(){
   renderProjects(renderType);
   renderKpis();
 }
+
+window.addEventListener(&#x27;message&#x27;,function(e){
+  const data=e.data||{};
+  if(data.type===&#x27;TCM_BUDGET_MONTHLY_IMPORT&#x27;){
+    const incoming=data.monthlyBudget||{};
+    for(let m=1;m&lt;=12;m++){
+      monthlyBudget[m]=monthlyBudget[m]||{};
+      cols.forEach(c=&gt;monthlyBudget[m][c.key]=Number((incoming[m]||{})[c.key])||0);
+    }
+    renderAll();
+  }
+  if(data.type===&#x27;TCM_BUDGET_DAILY_IMPORT&#x27;){
+    const incoming=data.dailySpend||{};
+    Object.keys(incoming).forEach(date=&gt;{
+      dailySpend[date]=dailySpend[date]||{};
+      cols.forEach(c=&gt;dailySpend[date][c.key]=Number((incoming[date]||{})[c.key])||0);
+    });
+    renderAll();
+  }
+});
 document.addEventListener(&#x27;DOMContentLoaded&#x27;,()=&gt;{
   seedDaily();
   document.querySelectorAll(&#x27;.tab&#x27;).forEach(b=&gt;b.addEventListener(&#x27;click&#x27;,()=&gt;switchTab(b.dataset.tab)));
@@ -5693,7 +5736,8 @@ function openSheetSyncPanel(){
     'meta-url-adp': window.metaSheetUrlAdp || localStorage.getItem('meta_url_adp') || '',
     'meta-url-sales': window.metaSheetUrlSales || localStorage.getItem('meta_url_sales') || '',
     'item-sheet-url': window.itemSheetUrl || localStorage.getItem('item_sheet_url') || '',
-    'budget-sheet-url': window.budgetSheetUrl || localStorage.getItem('budget_sheet_url') || ''
+    'monthly-budget-sheet-url': window.monthlyBudgetSheetUrl || localStorage.getItem('monthly_budget_sheet_url') || window.budgetSheetUrl || localStorage.getItem('budget_sheet_url') || '',
+    'daily-spend-sheet-url': window.dailySpendSheetUrl || localStorage.getItem('daily_spend_sheet_url') || ''
   };
   Object.entries(map).forEach(([id,val])=>{const el=document.getElementById(id);if(el&&!el.value)el.value=val;});
 }
@@ -5712,52 +5756,91 @@ function parseCSVObjects(text){
   const headers=parseLine(lines[0]);
   return lines.slice(1).map(line=>{const vals=parseLine(line);const obj={};headers.forEach((h,i)=>obj[h]=(vals[i]||'').trim());return obj;}).filter(r=>Object.values(r).some(Boolean));
 }
+const budgetSheetColAliases={
+  branding_celeb:['branding_celeb','Branding_Celeb','Branding Celeb','Celeb','셀럽'],
+  meta_store:['meta_store','Meta STORE','Meta Store','STORE','Store','자사몰'],
+  meta_musinsa:['meta_musinsa','Meta MUSINSA','MUSINSA','무신사'],
+  meta_29cm:['meta_29cm','Meta 29CM','29CM'],
+  paid_naver:['paid_naver','Paid Naver','Naver','네이버'],
+  paid_x:['paid_x','Paid X','X'],
+  crm_kakao:['crm_kakao','CRM Kakao','Kakao','카카오','CRM'],
+  influencer_free:['influencer_free','Influencer Free','Free','인플루언서 Free','무상'],
+  influencer_paid:['influencer_paid','Influencer Paid','Paid','인플루언서 Paid','유상'],
+  earned_youtube:['earned_youtube','Earned Youtube','Youtube','YouTube','유튜브'],
+  earned_instagram:['earned_instagram','Earned Instagram','Instagram','인스타그램'],
+  earned_x:['earned_x','Earned X','X'],
+  earned_tiktok:['earned_tiktok','Earned Tiktok','TikTok','Tiktok','틱톡'],
+  earned_viral:['earned_viral','Earned Viral','Viral','바이럴'],
+  etc:['etc','ETC','기타','부대']
+};
+const budgetSheetColKeys=Object.keys(budgetSheetColAliases);
+function budgetRawNumber(v){return Math.round(parseFloat(String(v||'').replace(/[^0-9.-]/g,'')))||0;}
+function budgetFindValue(row, aliases){
+  for(const a of aliases){ if(row[a]!==undefined && row[a]!=='' && row[a]!==null) return row[a]; }
+  return '';
+}
+function budgetParseMonth(row, fallbackIndex){
+  const raw=budgetFindValue(row,['월','month','Month','MONTH','월별','Month No']) || row[Object.keys(row)[0]] || String(fallbackIndex+1);
+  const n=parseInt(String(raw).replace(/[^0-9]/g,''),10);
+  return (n>=1&&n<=12)?n:null;
+}
+function budgetParseDate(row){
+  const raw=budgetFindValue(row,['날짜','일자','date','Date','DATE','기준일']);
+  if(!raw)return '';
+  const s=String(raw).trim();
+  const m=s.match(/(20\d{2})[^0-9]?(\d{1,2})[^0-9]?(\d{1,2})/);
+  if(m)return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+  const md=s.match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
+  if(md)return `2026-${String(md[1]).padStart(2,'0')}-${String(md[2]).padStart(2,'0')}`;
+  return '';
+}
+function getBudgetFrame(){return document.getElementById('budget-module-frame')?.contentWindow;}
+async function loadMonthlyBudgetFromSheet(){
+  const url=document.getElementById('monthly-budget-sheet-url')?.value?.trim();
+  if(!url)return false;
+  window.monthlyBudgetSheetUrl=url; localStorage.setItem('monthly_budget_sheet_url',url);
+  setSheetSyncStatus('Monthly Budget 시트 불러오는 중...','loading');
+  const res=await fetch(url); if(!res.ok)throw new Error('Monthly Budget 시트 URL에 접근할 수 없어요.');
+  const rows=parseCSVObjects(await res.text()); if(!rows.length)throw new Error('Monthly Budget 시트 데이터가 없어요.');
+  const monthlyBudget={};
+  for(let m=1;m<=12;m++){monthlyBudget[m]={}; budgetSheetColKeys.forEach(k=>monthlyBudget[m][k]=0);}
+  rows.forEach((r,idx)=>{
+    const m=budgetParseMonth(r,idx); if(!m)return;
+    budgetSheetColKeys.forEach(k=>{monthlyBudget[m][k]=budgetRawNumber(budgetFindValue(r,budgetSheetColAliases[k]));});
+  });
+  getBudgetFrame()?.postMessage({type:'TCM_BUDGET_MONTHLY_IMPORT', monthlyBudget}, '*');
+  window.fbSaveSheetUrls&&window.fbSaveSheetUrls();
+  return true;
+}
+async function loadDailySpendFromSheet(){
+  const url=document.getElementById('daily-spend-sheet-url')?.value?.trim();
+  if(!url)return false;
+  window.dailySpendSheetUrl=url; localStorage.setItem('daily_spend_sheet_url',url);
+  setSheetSyncStatus('Daily Spend 시트 불러오는 중...','loading');
+  const res=await fetch(url); if(!res.ok)throw new Error('Daily Spend 시트 URL에 접근할 수 없어요.');
+  const rows=parseCSVObjects(await res.text()); if(!rows.length)throw new Error('Daily Spend 시트 데이터가 없어요.');
+  const dailySpend={};
+  rows.forEach((r)=>{
+    const date=budgetParseDate(r); if(!date)return;
+    if(!dailySpend[date]){dailySpend[date]={}; budgetSheetColKeys.forEach(k=>dailySpend[date][k]=0);}
+    budgetSheetColKeys.forEach(k=>{dailySpend[date][k]+=budgetRawNumber(budgetFindValue(r,budgetSheetColAliases[k]));});
+  });
+  getBudgetFrame()?.postMessage({type:'TCM_BUDGET_DAILY_IMPORT', dailySpend}, '*');
+  window.fbSaveSheetUrls&&window.fbSaveSheetUrls();
+  return true;
+}
 async function loadBudgetFromSheet(){
-  const url=document.getElementById('budget-sheet-url')?.value?.trim();
-  if(!url){return;}
-  window.budgetSheetUrl=url; localStorage.setItem('budget_sheet_url',url);
-  setSheetSyncStatus('예산 시트 불러오는 중...','loading');
-  try{
-    const res=await fetch(url); if(!res.ok)throw new Error('예산 시트 URL에 접근할 수 없어요.');
-    const rows=parseCSVObjects(await res.text()); if(!rows.length)throw new Error('예산 시트 데이터가 없어요.');
-    const keyMap={
-      '대행사_셀럽':['대행사_셀럽','셀럽','대행사 셀럽'],
-      '대행사_바이럴':['대행사_바이럴','바이럴','대행사 바이럴'],
-      'META_자사몰':['META_자사몰','Meta 자사몰','메타 자사몰','자사몰'],
-      'META_무신사':['META_무신사','Meta 무신사','메타 무신사','무신사'],
-      'META_29CM':['META_29CM','Meta 29CM','메타 29CM','29CM'],
-      'META_글로벌':['META_글로벌','Meta 글로벌','메타 글로벌','글로벌'],
-      'CRM':['CRM'],
-      'Earned_Media':['Earned_Media','Earned Media','EM'],
-      'Influencer':['Influencer','IF','인플루언서'],
-      'Offline_Store':['Offline_Store','Offline Store','Offline','오프라인'],
-      'ETC':['ETC','부대','기타']
-    };
-    const monthKeys=['월','month','Month','MONTH'];
-    const budgets=Array.from({length:12},()=>Array(BROWS.length).fill(0));
-    rows.forEach((r,idx)=>{
-      const mRaw=monthKeys.map(k=>r[k]).find(Boolean) || r[Object.keys(r)[0]] || String(idx+1);
-      const mi=(parseInt(String(mRaw).replace(/[^0-9]/g,''),10)||idx+1)-1;
-      if(mi<0||mi>11)return;
-      BROWS.forEach((key,ri)=>{
-        const aliases=keyMap[key]||[key];
-        const found=aliases.map(a=>r[a]).find(v=>v!==undefined&&v!=='');
-        budgets[mi][ri]=Math.round(parseFloat(String(found||'').replace(/[^0-9.-]/g,'')))||0;
-      });
-    });
-    window.budgets=budgets;
-    if(window.renderBudget)window.renderBudget();
-    if(window.updateSummary)window.updateSummary();
-    if(window.fbSaveBudgetRow) budgets.forEach((_,mi)=>window.fbSaveBudgetRow(mi));
-    window.fbSaveSheetUrls&&window.fbSaveSheetUrls();
+  const loadedMonthly=await loadMonthlyBudgetFromSheet();
+  const loadedDaily=await loadDailySpendFromSheet();
+  if(loadedMonthly||loadedDaily){
     const btn=document.getElementById('sheet-sync-refresh'); if(btn)btn.style.display='inline-block';
-    setSheetSyncStatus('✅ 예산 연동 완료!','ok');
-  }catch(e){setSheetSyncStatus('❌ '+e.message,'error');}
+    setSheetSyncStatus('✅ Budget 연동 완료!','ok');
+  }
 }
 async function loadUnifiedSheets(){
   const hasMeta=['meta-url-ad','meta-url-adp','meta-url-sales'].every(id=>document.getElementById(id)?.value?.trim());
   const hasItem=!!document.getElementById('item-sheet-url')?.value?.trim();
-  const hasBudget=!!document.getElementById('budget-sheet-url')?.value?.trim();
+  const hasBudget=!!(document.getElementById('monthly-budget-sheet-url')?.value?.trim() || document.getElementById('daily-spend-sheet-url')?.value?.trim());
   if(!hasMeta&&!hasItem&&!hasBudget){setSheetSyncStatus('URL을 입력해주세요.','error');return;}
   setSheetSyncStatus('시트 연동 중...','loading');
   try{
@@ -5771,7 +5854,7 @@ async function loadUnifiedSheets(){
 async function refreshUnifiedSheets(){
   const hasMeta=!!(window.metaSheetUrlAd&&window.metaSheetUrlAdp&&window.metaSheetUrlSales);
   const hasItem=!!(window.itemSheetUrl||localStorage.getItem('item_sheet_url'));
-  const hasBudget=!!(window.budgetSheetUrl||localStorage.getItem('budget_sheet_url'));
+  const hasBudget=!!(window.monthlyBudgetSheetUrl||window.dailySpendSheetUrl||localStorage.getItem('monthly_budget_sheet_url')||localStorage.getItem('daily_spend_sheet_url')||window.budgetSheetUrl||localStorage.getItem('budget_sheet_url'));
   setSheetSyncStatus('새로고침 중...','loading');
   try{
     if(hasMeta) await refreshMetaFromSheets();
@@ -9094,11 +9177,15 @@ if(window._injectTestData && typeof isFirebaseReady === 'undefined'){
       const btn=document.getElementById('meta-sheet-refresh');if(btn)btn.style.display='inline-block';
     }
   }
-  if(!window.budgetSheetUrl){
-    const sbg=localStorage.getItem('budget_sheet_url');
-    if(sbg){const el=document.getElementById('budget-sheet-url');if(el)el.value=sbg;window.budgetSheetUrl=sbg;}
+  if(!window.monthlyBudgetSheetUrl){
+    const sm=localStorage.getItem('monthly_budget_sheet_url') || localStorage.getItem('budget_sheet_url');
+    if(sm){const el=document.getElementById('monthly-budget-sheet-url');if(el)el.value=sm;window.monthlyBudgetSheetUrl=sm;}
   }
-  if(window.itemSheetUrl || window.metaSheetUrlAd || window.budgetSheetUrl){
+  if(!window.dailySpendSheetUrl){
+    const sd=localStorage.getItem('daily_spend_sheet_url');
+    if(sd){const el=document.getElementById('daily-spend-sheet-url');if(el)el.value=sd;window.dailySpendSheetUrl=sd;}
+  }
+  if(window.itemSheetUrl || window.metaSheetUrlAd || window.monthlyBudgetSheetUrl || window.dailySpendSheetUrl || window.budgetSheetUrl){
     const btn=document.getElementById('sheet-sync-refresh');if(btn)btn.style.display='inline-block';
   }
 })();
