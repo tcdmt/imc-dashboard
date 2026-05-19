@@ -331,6 +331,7 @@
         budgetSheetUrl:    window.budgetSheetUrl || '',
         monthlyBudgetSheetUrl: window.monthlyBudgetSheetUrl || '',
         dailySpendSheetUrl:    window.dailySpendSheetUrl || '',
+        salesGoalSheetUrl:     window.salesGoalSheetUrl || '',
       };
       await db.collection('settings').doc('sheetUrls').set(urls);
       return true;
@@ -491,6 +492,7 @@
             if (data.budgetSheetUrl) window.budgetSheetUrl = data.budgetSheetUrl;
             if (data.monthlyBudgetSheetUrl) window.monthlyBudgetSheetUrl = data.monthlyBudgetSheetUrl;
             if (data.dailySpendSheetUrl) window.dailySpendSheetUrl = data.dailySpendSheetUrl;
+            if (data.salesGoalSheetUrl) window.salesGoalSheetUrl = data.salesGoalSheetUrl;
           }
           if (d.id === 'budgetMemos') {
             window.budgetMemos = data.values || {};
@@ -1800,6 +1802,10 @@ html[data-user-role="viewer"] [data-delete]{opacity:.35!important;cursor:not-all
       <div style="display:grid;grid-template-columns:180px minmax(0,1fr);gap:10px;align-items:center;">
         <label for="daily-spend-sheet-url" style="font-size:12px;color:var(--color-text-secondary);font-weight:500;">Daily 탭 연동<br><span style="font-size:10px;color:var(--color-text-tertiary);">2026 TCM Daily spend Sheets</span></label>
         <input id="daily-spend-sheet-url" type="text" placeholder="CSV 링크 입력" style="font-size:12px;padding:7px 9px;border:0.5px solid var(--color-border-secondary);border-radius:8px;background:var(--color-background-primary);color:var(--color-text-primary);width:100%;">
+      </div>
+      <div style="display:grid;grid-template-columns:180px minmax(0,1fr);gap:10px;align-items:center;">
+        <label for="sales-goal-sheet-url" style="font-size:12px;color:var(--color-text-secondary);font-weight:500;">목표 매출 연동<br><span style="font-size:10px;color:var(--color-text-tertiary);">2026 TCM Sales goal</span></label>
+        <input id="sales-goal-sheet-url" type="text" placeholder="CSV 링크 입력" style="font-size:12px;padding:7px 9px;border:0.5px solid var(--color-border-secondary);border-radius:8px;background:var(--color-background-primary);color:var(--color-text-primary);width:100%;">
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px;">
         <div id="sheet-sync-status" style="font-size:11px;color:var(--color-text-tertiary);">시트 링크를 입력해주세요.</div>
@@ -5784,7 +5790,8 @@ function openSheetSyncPanel(){
     'meta-url-sales': window.metaSheetUrlSales || localStorage.getItem('meta_url_sales') || '',
     'item-sheet-url': window.itemSheetUrl || localStorage.getItem('item_sheet_url') || '',
     'monthly-budget-sheet-url': window.monthlyBudgetSheetUrl || localStorage.getItem('monthly_budget_sheet_url') || window.budgetSheetUrl || localStorage.getItem('budget_sheet_url') || '',
-    'daily-spend-sheet-url': window.dailySpendSheetUrl || localStorage.getItem('daily_spend_sheet_url') || ''
+    'daily-spend-sheet-url': window.dailySpendSheetUrl || localStorage.getItem('daily_spend_sheet_url') || '',
+    'sales-goal-sheet-url': window.salesGoalSheetUrl || localStorage.getItem('sales_goal_sheet_url') || ''
   };
   Object.entries(map).forEach(([id,val])=>{const el=document.getElementById(id);if(el&&!el.value)el.value=val;});
 }
@@ -5888,6 +5895,29 @@ async function loadDailySpendFromSheet(){
   window.fbSaveSheetUrls&&window.fbSaveSheetUrls();
   return true;
 }
+function salesGoalParseValue(row){
+  return budgetRawNumber(budgetFindValue(row,[
+    '목표 매출','목표매출','매출 목표','매출목표','Target Sales','Sales Goal','sales_goal','target_sales','goal','target','목표'
+  ]));
+}
+async function loadSalesGoalFromSheet(){
+  const url=document.getElementById('sales-goal-sheet-url')?.value?.trim();
+  if(!url)return false;
+  window.salesGoalSheetUrl=url; localStorage.setItem('sales_goal_sheet_url',url);
+  setSheetSyncStatus('목표 매출 시트 불러오는 중...','loading');
+  const res=await fetch(url); if(!res.ok)throw new Error('목표 매출 시트 URL에 접근할 수 없어요.');
+  const rows=parseCSVObjects(await res.text()); if(!rows.length)throw new Error('목표 매출 시트 데이터가 없어요.');
+  const targets=Array(12).fill(0);
+  rows.forEach((r,idx)=>{
+    const m=budgetParseMonth(r,idx); if(!m)return;
+    targets[m-1]=salesGoalParseValue(r);
+  });
+  OV_DATA.targets=targets;
+  if(window.OV_CHANNEL_DATA) window.OV_CHANNEL_DATA.targets=targets;
+  window.fbSaveSheetUrls&&window.fbSaveSheetUrls();
+  if(window.ovRender) window.ovRender(window._ovCurrentView || 'total');
+  return true;
+}
 async function loadBudgetFromSheet(){
   const loadedMonthly=await loadMonthlyBudgetFromSheet();
   const loadedDaily=await loadDailySpendFromSheet();
@@ -5900,12 +5930,14 @@ async function loadUnifiedSheets(){
   const hasMeta=['meta-url-ad','meta-url-adp','meta-url-sales'].some(id=>document.getElementById(id)?.value?.trim());
   const hasItem=!!document.getElementById('item-sheet-url')?.value?.trim();
   const hasBudget=!!(document.getElementById('monthly-budget-sheet-url')?.value?.trim() || document.getElementById('daily-spend-sheet-url')?.value?.trim());
-  if(!hasMeta&&!hasItem&&!hasBudget){setSheetSyncStatus('URL을 입력해주세요.','error');return;}
+  const hasSalesGoal=!!document.getElementById('sales-goal-sheet-url')?.value?.trim();
+  if(!hasMeta&&!hasItem&&!hasBudget&&!hasSalesGoal){setSheetSyncStatus('URL을 입력해주세요.','error');return;}
   setSheetSyncStatus('시트 연동 중...','loading');
   try{
     if(hasMeta) await loadMetaFromSheets();
     if(hasItem) await loadItemFromSheet();
     if(hasBudget) await loadBudgetFromSheet();
+    if(hasSalesGoal) await loadSalesGoalFromSheet();
     const btn=document.getElementById('sheet-sync-refresh'); if(btn)btn.style.display='inline-block';
     setSheetSyncStatus('✅ 시트 연동 완료!','ok');
   }catch(e){setSheetSyncStatus('❌ '+(e.message||e),'error');}
@@ -5914,11 +5946,13 @@ async function refreshUnifiedSheets(){
   const hasMeta=!!(window.metaSheetUrlAd||window.metaSheetUrlAdp||window.metaSheetUrlSales||localStorage.getItem('meta_url_ad')||localStorage.getItem('meta_url_adp')||localStorage.getItem('meta_url_sales'));
   const hasItem=!!(window.itemSheetUrl||localStorage.getItem('item_sheet_url'));
   const hasBudget=!!(window.monthlyBudgetSheetUrl||window.dailySpendSheetUrl||localStorage.getItem('monthly_budget_sheet_url')||localStorage.getItem('daily_spend_sheet_url')||window.budgetSheetUrl||localStorage.getItem('budget_sheet_url'));
+  const hasSalesGoal=!!(window.salesGoalSheetUrl||localStorage.getItem('sales_goal_sheet_url'));
   setSheetSyncStatus('새로고침 중...','loading');
   try{
     if(hasMeta) await refreshMetaFromSheets();
     if(hasItem) await refreshItemFromSheet();
     if(hasBudget) await loadBudgetFromSheet();
+    if(hasSalesGoal) await loadSalesGoalFromSheet();
     setSheetSyncStatus('✅ 새로고침 완료!','ok');
   }catch(e){setSheetSyncStatus('❌ '+(e.message||e),'error');}
 }
@@ -9351,7 +9385,11 @@ if(window._injectTestData && typeof isFirebaseReady === 'undefined'){
     const sd=localStorage.getItem('daily_spend_sheet_url');
     if(sd){const el=document.getElementById('daily-spend-sheet-url');if(el)el.value=sd;window.dailySpendSheetUrl=sd;}
   }
-  if(window.itemSheetUrl || window.metaSheetUrlAd || window.monthlyBudgetSheetUrl || window.dailySpendSheetUrl || window.budgetSheetUrl){
+  if(!window.salesGoalSheetUrl){
+    const sg=localStorage.getItem('sales_goal_sheet_url');
+    if(sg){const el=document.getElementById('sales-goal-sheet-url');if(el)el.value=sg;window.salesGoalSheetUrl=sg;}
+  }
+  if(window.itemSheetUrl || window.metaSheetUrlAd || window.monthlyBudgetSheetUrl || window.dailySpendSheetUrl || window.salesGoalSheetUrl || window.budgetSheetUrl){
     const btn=document.getElementById('sheet-sync-refresh');if(btn)btn.style.display='inline-block';
   }
 })();
