@@ -13978,5 +13978,229 @@ if(document.readyState==='loading'){
 })();
 </script>
 
+
+
+<!-- v75 List filter layout/contact filter patch: requested only -->
+<style id="list-v75-two-row-contact-filter-style">
+#pg-list #lf-row{
+  width:100%!important;
+  display:block!important;
+  margin-bottom:12px!important;
+}
+#pg-list #lf-row .list-filter-v75{
+  width:100%!important;
+  max-width:none!important;
+  display:flex!important;
+  flex-direction:column!important;
+  gap:10px!important;
+  padding:10px 12px!important;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  box-sizing:border-box!important;
+  margin-bottom:10px!important;
+}
+#pg-list #lf-row .list-filter-v75-row{
+  display:flex!important;
+  flex-wrap:nowrap!important;
+  align-items:flex-start!important;
+  gap:14px!important;
+  min-width:max-content!important;
+}
+#pg-list #lf-row .list-filter-v75 .slicer-group{
+  flex:0 0 auto!important;
+  min-width:0!important;
+  width:auto!important;
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:flex-start!important;
+  gap:4px!important;
+}
+#pg-list #lf-row .list-filter-v75 .slicer-label{
+  display:block!important;
+  white-space:nowrap!important;
+  margin-bottom:6px!important;
+  font-size:10px!important;
+  font-weight:500!important;
+  color:var(--color-text-secondary)!important;
+  line-height:14px!important;
+}
+#pg-list #lf-row .list-filter-v75 .slicer-div{
+  width:0.5px!important;
+  min-width:0.5px!important;
+  background:var(--color-border-tertiary)!important;
+  align-self:stretch!important;
+  margin:0 4px!important;
+  flex:0 0 0.5px!important;
+}
+#pg-list #lf-row .list-filter-v75 #lf-type{
+  width:130px!important;
+  max-width:130px!important;
+}
+#pg-list #lf-row .list-filter-v75 #lf-name{
+  width:140px!important;
+  max-width:140px!important;
+}
+#pg-list #lf-row .list-filter-v75 .lf-month-group{min-width:525px!important;}
+#pg-list #lf-row .list-filter-v75 .lf-contact-group{min-width:225px!important;}
+#pg-list #lf-row .list-filter-v75 .lf-platform-group{min-width:225px!important;}
+#pg-list #lf-row .list-filter-v75 .lf-channel-group{min-width:290px!important;}
+#pg-list #lf-row .list-filter-v75 .lf-type-group{min-width:130px!important;}
+#pg-list #lf-row .list-filter-v75 .lf-name-group{min-width:140px!important;}
+</style>
+<script id="list-v75-two-row-contact-filter-script">
+(function(){
+  'use strict';
+  var CONTACT_OPTS=['리스트업','컨택 완료','진행가능','DROP'];
+  var LIST_PLT_OPTS=['무신사','29CM','자사몰','Offline'];
+  var CHANNEL_OPTS=['Instagram','Youtube','Tiktok','X','Blog'];
+  var CONTENT_TYPE_OPTS=['YT 브랜디드','YT PPL','YT 쇼츠','YT 쇼츠 PPL','IG 릴스 브랜디드','IG 릴스 PPL','IG 피드 브랜디드','IG 스토리','X 브랜디드','TT 브랜디드','YT 쇼츠+IG 릴스','YT 쇼츠+IG 릴스+TT 브랜디드'];
+
+  function makeHiddenSelect(id, values){
+    var sel=document.createElement('select');
+    sel.id=id;
+    sel.style.display='none';
+    values.forEach(function(v){var o=document.createElement('option');o.value=v;sel.appendChild(o);});
+    return sel;
+  }
+  function makeMonthButtons(){
+    var wrap=document.createElement('div');
+    wrap.style.cssText='display:flex;flex-wrap:wrap;gap:4px;';
+    var sel=makeHiddenSelect('lf-month',['0','1','2','3','4','5','6','7','8','9','10','11','12']);
+    ['전체','1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'].forEach(function(label,i){
+      var btn=document.createElement('button');
+      btn.className='ff-mbtn'+(i===0?' active':'');
+      btn.textContent=label;
+      btn.onclick=function(){wrap.querySelectorAll('.ff-mbtn').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');sel.value=String(i);if(window.applyListFilter)window.applyListFilter();};
+      wrap.appendChild(btn);
+    });
+    return [wrap,sel];
+  }
+  function makePillButtons(id, opts, cls){
+    var wrap=document.createElement('div');
+    wrap.style.cssText='display:flex;flex-wrap:wrap;gap:4px;';
+    var sel=makeHiddenSelect(id,['0'].concat(opts));
+    ['전체'].concat(opts).forEach(function(label,i){
+      var btn=document.createElement('button');
+      btn.className=cls+(i===0?' active':'');
+      btn.textContent=label;
+      btn.onclick=function(){wrap.querySelectorAll('.'+cls).forEach(function(b){b.classList.remove('active');});btn.classList.add('active');sel.value=i===0?'0':label;if(window.applyListFilter)window.applyListFilter();};
+      wrap.appendChild(btn);
+    });
+    return [wrap,sel];
+  }
+  function makeDropdown(){
+    var sel=document.createElement('select');
+    sel.id='lf-type';
+    sel.onchange=function(){if(window.applyListFilter)window.applyListFilter();};
+    sel.style.cssText='font-size:11px;padding:4px 6px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-secondary);width:130px;';
+    ['콘텐츠 유형 전체'].concat(CONTENT_TYPE_OPTS).forEach(function(label,i){var o=document.createElement('option');o.value=i===0?'0':label;o.textContent=label;sel.appendChild(o);});
+    return sel;
+  }
+  function makeSearch(){
+    var inp=document.createElement('input');
+    inp.type='text';
+    inp.id='lf-name';
+    inp.placeholder='크리에이터 검색...';
+    inp.oninput=function(){if(window.applyListFilter)window.applyListFilter();};
+    inp.style.cssText='font-size:11px;padding:4px 8px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-primary);width:140px;';
+    return inp;
+  }
+  function addGroup(row, label, content, extraClass){
+    if(row.children.length){
+      var div=document.createElement('div');
+      div.className='slicer-div';
+      row.appendChild(div);
+    }
+    var grp=document.createElement('div');
+    grp.className='slicer-group '+(extraClass||'');
+    var lbl=document.createElement('div');
+    lbl.className='slicer-label';
+    lbl.textContent=label;
+    grp.appendChild(lbl);
+    (Array.isArray(content)?content:[content]).forEach(function(el){grp.appendChild(el);});
+    row.appendChild(grp);
+  }
+  function rebuildListFilters(){
+    var lfRow=document.getElementById('lf-row');
+    if(!lfRow) return;
+    lfRow.innerHTML='';
+    var box=document.createElement('div');
+    box.className='slicer-box list-filter-v75';
+    var row1=document.createElement('div');
+    row1.className='list-filter-v75-row list-filter-v75-row-1';
+    var row2=document.createElement('div');
+    row2.className='list-filter-v75-row list-filter-v75-row-2';
+
+    var month=makeMonthButtons();
+    var contact=makePillButtons('lf-contact',CONTACT_OPTS,'ff-mbtn');
+    var platform=makePillButtons('lf-plt',LIST_PLT_OPTS,'ov-pbtn');
+    var channel=makePillButtons('lf-ch',CHANNEL_OPTS,'ov-sbtn');
+    var type=makeDropdown();
+    var name=makeSearch();
+
+    addGroup(row1,'월 선택',month,'lf-month-group');
+    addGroup(row1,'컨택 상황',contact,'lf-contact-group');
+    addGroup(row2,'플랫폼 구분',platform,'lf-platform-group');
+    addGroup(row2,'채널 구분',channel,'lf-channel-group');
+    addGroup(row2,'콘텐츠 유형',type,'lf-type-group');
+    addGroup(row2,'크리에이터 검색',name,'lf-name-group');
+
+    box.appendChild(row1);
+    box.appendChild(row2);
+    lfRow.appendChild(box);
+  }
+  function monthOf(ds){
+    if(typeof window.dMonth==='function') return window.dMonth(ds);
+    if(!ds) return 0;
+    var d=new Date(ds);
+    return isNaN(d.getTime())?0:(d.getMonth()+1);
+  }
+  function applyListFilterV75(){
+    var tw=document.querySelector('#pg-list .tbl-wrap');
+    var sl=tw?tw.scrollLeft:0;
+    var m=parseInt((document.getElementById('lf-month')||{}).value||'0',10)||0;
+    var contact=((document.getElementById('lf-contact')||{}).value||'');
+    var ch=((document.getElementById('lf-ch')||{}).value||'');
+    var tp=((document.getElementById('lf-type')||{}).value||'');
+    var pl=((document.getElementById('lf-plt')||{}).value||'');
+    var nm=((document.getElementById('lf-name')||{}).value||'').toLowerCase();
+    var rows=(window.creators||[]).filter(function(r){
+      if(m!==0 && monthOf(r.uploadDate)!==m) return false;
+      if(contact && contact!=='0' && r.contact!==contact) return false;
+      if(ch && ch!=='0' && r.ch!==ch) return false;
+      if(tp && tp!=='0' && r.contentType!==tp) return false;
+      if(pl && pl!=='0' && r.platform!==pl) return false;
+      if(nm && !String(r.name||'').toLowerCase().includes(nm)) return false;
+      return true;
+    });
+    if(!window.creators || !window.creators.length){
+      var body=document.getElementById('creator-body');
+      if(body) body.innerHTML='<tr><td colspan="31" style="text-align:center;padding:24px;color:var(--color-text-tertiary);font-size:12px;">+ 추가 버튼을 눌러 추가해주세요</td></tr>';
+    }else if(typeof window.renderCreatorRows==='function'){
+      window.renderCreatorRows(rows);
+    }
+    if(tw) requestAnimationFrame(function(){tw.scrollLeft=sl;});
+  }
+  function boot(){
+    rebuildListFilters();
+    window.applyListFilter=applyListFilterV75;
+    applyListFilterV75();
+  }
+  var oldBuild=window.buildFilters;
+  if(typeof oldBuild==='function' && !oldBuild.__listV75Patched){
+    window.buildFilters=function(){
+      var ret=oldBuild.apply(this,arguments);
+      rebuildListFilters();
+      window.applyListFilter=applyListFilterV75;
+      return ret;
+    };
+    window.buildFilters.__listV75Patched=true;
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){setTimeout(boot,0);});
+  else setTimeout(boot,0);
+  window.addEventListener('load',function(){setTimeout(boot,200);});
+})();
+</script>
+
 </body>
 </html>
