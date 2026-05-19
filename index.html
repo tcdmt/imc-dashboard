@@ -5430,13 +5430,14 @@ const C_RED='#e04e3c',C_BLUE='#5584f1',C_YELL='#f4be28';
 const C_RED_A='rgba(224,78,60,0.70)',C_YELL_A='rgba(244,190,40,0.70)',C_BLUE_A='rgba(85,132,241,0.10)';
 const M_MONTHS=['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
 const M_LABELS=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+function mIsAllMonth(){return mMonth==='all';}
 function mSd(s){let x=Math.sin(s)*10000;return x-Math.floor(x);}
 function mGetDays(m){const[y,mo]=m.split('-').map(Number);return new Date(y,mo,0).getDate();}
 function mFW(n){return '₩'+Math.round(n).toLocaleString('ko-KR');}
 function mFN(n){return Math.round(n).toLocaleString('ko-KR');}
 function mPadD(m,d){const[y,mo]=m.split('-');return y+'-'+mo+'-'+String(d).padStart(2,'0');}
-function mMonthStart(){const[y,m]=mMonth.split('-');return y+'-'+m+'-01';}
-function mMonthEnd(){return mPadD(mMonth,mGetDays(mMonth));}
+function mMonthStart(){if(mIsAllMonth())return '2026-01-01';const[y,m]=mMonth.split('-');return y+'-'+m+'-01';}
+function mMonthEnd(){if(mIsAllMonth())return '2026-12-31';return mPadD(mMonth,mGetDays(mMonth));}
 function mFmtDateKo(ds){const[,m,d]=ds.split('-').map(Number);return m+'월 '+d+'일';}
 function mRoasPct(spend,convVal){if(spend<=0)return '0%';return Math.round(convVal/spend*100)+'%';}
 /* ── 주차 계산 (ISO 8601: 월~일, 목요일 포함 월 기준) ── */
@@ -5476,6 +5477,7 @@ function mBuildWeekChips(){
   const allEl=document.createElement('div');allEl.className='chip range-chip active';allEl.textContent='전체';
   allEl.onclick=()=>{document.querySelectorAll('#m-week-chips .chip').forEach(x=>x.classList.remove('active'));allEl.classList.add('active');mFrom=mMonthStart();mTo=mMonthEnd();mSyncInputs();mRender();};
   c.appendChild(allEl);
+  if(mIsAllMonth()) return;
   mGetWeeks(mMonth).forEach((w,i)=>{
     const el=document.createElement('div');el.className='chip';el.textContent=w.label;
     el.onclick=()=>{document.querySelectorAll('#m-week-chips .chip').forEach(x=>x.classList.remove('active'));el.classList.add('active');mFrom=mPadD(mMonth,w.start);mTo=mPadD(mMonth,w.end);mSyncInputs();mRender();};
@@ -5692,7 +5694,7 @@ function mBuildDailyFromRaw(){
   const map = {};
   (metaRawAd||[]).forEach(row=>{
     const date = String(mRawVal(row, ['날짜'])||'').trim();
-    if(!date || date.slice(0,7)!==mMonth || !mRowMatches(row, mPlatform, mBrand)) return;
+    if(!date || (!mIsAllMonth() && date.slice(0,7)!==mMonth) || !mRowMatches(row, mPlatform, mBrand)) return;
     if(!map[date]) map[date] = {date, dateKo:mFmtDateKo(date), spend:0, imp:0, linkClicks:0, purchase:0, convVal:0, cart:0, postSave:0, dailyPurch:0, dailySales:0};
     const r = map[date];
     r.spend += mRawNum(row, ['지출 금액','지출금액','spend']);
@@ -5756,6 +5758,11 @@ function mRender(){
 }
 function mBuildMonthTabs(){
   const row=document.getElementById('m-month-row');if(!row)return;row.innerHTML='';
+  const allEl=document.createElement('div');
+  allEl.className='month-tab'+(mIsAllMonth()?' active':'');
+  allEl.textContent='전체';
+  allEl.onclick=()=>{mMonth='all';document.querySelectorAll('#m-month-row .month-tab').forEach(t=>t.classList.remove('active'));allEl.classList.add('active');mFrom=mMonthStart();mTo=mMonthEnd();mSyncInputs();mBuildWeekChips();mRender();};
+  row.appendChild(allEl);
   M_MONTHS.forEach((m,i)=>{
     const el=document.createElement('div');el.className='month-tab'+(m===mMonth?' active':'');el.textContent=M_LABELS[i];
     el.onclick=()=>{mMonth=m;document.querySelectorAll('#m-month-row .month-tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');mFrom=mMonthStart();mTo=mMonthEnd();mSyncInputs();mBuildWeekChips();mRender();};
@@ -6045,7 +6052,7 @@ async function refreshMetaFromSheets(){
   }catch(e){setMetaSheetStatus('❌ '+e.message,'error');}
 }
 function buildMetaBrandTabs(){const brands=[...new Set(getMetaAllRows().map(r=>r['브랜드']))].filter(Boolean);const bt=document.getElementById('meta-brand-tabs');if(!bt)return;bt.innerHTML='';brands.forEach((b,i)=>{const el=document.createElement('div');el.className='brand-tab'+(i===0?' active':'');el.textContent=b;el.onclick=()=>{mBrand=b;document.querySelectorAll('#meta-brand-tabs .brand-tab').forEach(x=>x.classList.remove('active'));el.classList.add('active');mResetFilter();};bt.appendChild(el);});if(brands.length)mBrand=brands[0];}
-function mBuildMonthTabsFromData(months){const row=document.getElementById('m-month-row');if(!row)return;row.innerHTML='';months.forEach(m=>{const[,mo]=m.split('-');const el=document.createElement('div');el.className='month-tab'+(m===mMonth?' active':'');el.textContent=parseInt(mo)+'월';el.onclick=()=>{mMonth=m;document.querySelectorAll('#m-month-row .month-tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');mFrom=mMonthStart();mTo=mMonthEnd();mSyncInputs();mBuildWeekChips();mRender();};row.appendChild(el);});}
+function mBuildMonthTabsFromData(months){mBuildMonthTabs();}
 
 /* ══ Feedback 업로드 링크 ══ */
 function fbEditUploadLink(ci){const r=window.creators[ci];const cur=r.uploadLink||'';const url=prompt('['+r.name+'] 업로드 링크를 입력해주세요.(비워두면 삭제됩니다)',cur);if(url===null)return;window.creators[ci].uploadLink=url.trim();fbSaveCreators();window.applyFeedbackFilter&&window.applyFeedbackFilter();}
