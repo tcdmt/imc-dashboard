@@ -8,6 +8,7 @@
 <!-- Firebase compat SDK (module import 불필요, 로컬/GitHub 모두 동작) -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js" crossorigin="anonymous"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js" crossorigin="anonymous"></script>
 <script>
 (function() {
   'use strict';
@@ -22,7 +23,32 @@
   };
 
   let db = null;
+  let auth = null;
+  let currentUser = null;
   let isFirebaseReady = false;
+  let realtimeUnsubs = [];
+
+  // ★ 팀 내부용 허용 이메일 목록
+  // - 실제 보안은 Firebase Console > Firestore Database > Rules에서 반드시 설정해야 합니다.
+  // - 아래 목록은 화면 안내용 1차 차단입니다. 빈 배열([])이면 클라이언트에서는 차단하지 않고 Rules에 맡깁니다.
+  const TEAM_ALLOWED_EMAILS = [
+    // "team1@example.com",
+    // "team2@example.com"
+  ].map(function(email){ return String(email).trim().toLowerCase(); });
+
+  function isAllowedTeamEmail(user) {
+    if (!user || !user.email) return false;
+    if (!TEAM_ALLOWED_EMAILS.length) return true;
+    return TEAM_ALLOWED_EMAILS.indexOf(String(user.email).trim().toLowerCase()) !== -1;
+  }
+
+  function cleanupRealtimeListeners() {
+    realtimeUnsubs.forEach(function(unsub) {
+      try { if (typeof unsub === 'function') unsub(); } catch(e) {}
+    });
+    realtimeUnsubs = [];
+  }
+
 
   // ── initFirebase ──
   async function initFirebase() {
@@ -30,17 +56,54 @@
       if (typeof firebase === 'undefined') {
         throw new Error('Firebase SDK 로드 실패 — CDN 연결 확인 필요');
       }
+      if (typeof firebase.auth !== 'function') {
+        throw new Error('Firebase Auth SDK 로드 실패 — firebase-auth-compat.js 확인 필요');
+      }
       if (!firebase.apps.length) {
         firebase.initializeApp(FIREBASE_CONFIG);
       }
+
+      auth = firebase.auth();
       db = firebase.firestore();
+      window.auth = auth;
       window.db = db;
-      isFirebaseReady = true;
-      window.isFirebaseReady = true;
-      console.log('Firebase 연결 성공');
-      updateFirebaseStatus(true);
-      await loadAllFromFirebase();
-      setupRealtimeListeners();
+
+      auth.onAuthStateChanged(async function(user) {
+        cleanupRealtimeListeners();
+
+        if (!user) {
+          currentUser = null;
+          window.currentUser = null;
+          isFirebaseReady = false;
+          window.isFirebaseReady = false;
+          updateFirebaseStatus(false, 'Google 로그인이 필요합니다.');
+          updateAuthUi(null);
+          return;
+        }
+
+        if (!isAllowedTeamEmail(user)) {
+          currentUser = null;
+          window.currentUser = null;
+          isFirebaseReady = false;
+          window.isFirebaseReady = false;
+          updateFirebaseStatus(false, '허용되지 않은 계정입니다: ' + (user.email || ''));
+          updateAuthUi(user, false);
+          try { await auth.signOut(); } catch(e) {}
+          return;
+        }
+
+        currentUser = user;
+        window.currentUser = user;
+        isFirebaseReady = true;
+        window.isFirebaseReady = true;
+
+        console.log('Firebase 연결 성공:', user.email);
+        updateFirebaseStatus(true, user.email);
+        updateAuthUi(user, true);
+
+        await loadAllFromFirebase();
+        setupRealtimeListeners();
+      });
     } catch(e) {
       console.error('Firebase 연결 실패:', e);
       updateFirebaseStatus(false, e.message);
@@ -51,11 +114,61 @@
     const el = document.getElementById('fb-status');
     if (!el) return;
     if (ok) {
-      el.innerHTML = '<span style="color:#2d8c5a;">● Firebase 연결됨</span>';
+      el.innerHTML = '<span style="color:#2d8c5a;">● Firebase 연결됨</span>' +
+        (msg ? '<span style="color:var(--color-text-tertiary);margin-left:6px;">' + String(msg) + '</span>' : '');
     } else {
-      el.innerHTML = '<span style="color:#c0392b;">● Firebase 오류: '+(msg||'')+'</span>';
+      el.innerHTML = '<span style="color:#c0392b;">● Firebase 대기/오류: '+(msg||'')+'</span>';
     }
   }
+
+  function updateAuthUi(user, allowed) {
+    const authBox = document.getElementById('fb-auth-box');
+    const userEl = document.getElementById('fb-auth-user');
+    const loginBtn = document.getElementById('fb-login-btn');
+    const logoutBtn = document.getElementById('fb-logout-btn');
+    if (!authBox || !userEl || !loginBtn || !logoutBtn) return;
+
+    if (user && allowed !== false) {
+      userEl.textContent = user.email || '로그인됨';
+      userEl.style.color = '#2d8c5a';
+      loginBtn.style.display = 'none';
+      logoutBtn.style.display = 'inline-flex';
+    } else if (user && allowed === false) {
+      userEl.textContent = '허용되지 않은 계정: ' + (user.email || '');
+      userEl.style.color = '#c0392b';
+      loginBtn.style.display = 'inline-flex';
+      logoutBtn.style.display = 'none';
+    } else {
+      userEl.textContent = '로그인 필요';
+      userEl.style.color = 'var(--color-text-tertiary)';
+      loginBtn.style.display = 'inline-flex';
+      logoutBtn.style.display = 'none';
+    }
+  }
+
+  window.fbSignInWithGoogle = async function() {
+    if (!auth) {
+      alert('Firebase Auth가 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+    try {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      await auth.signInWithPopup(provider);
+    } catch(e) {
+      console.error('Google 로그인 실패:', e);
+      alert('Google 로그인 실패: ' + (e.message || e));
+    }
+  };
+
+  window.fbSignOut = async function() {
+    if (!auth) return;
+    try {
+      await auth.signOut();
+    } catch(e) {
+      console.error('로그아웃 실패:', e);
+    }
+  };
 
   // ── Firestore CRUD 함수 (window에 노출) ──
   window.fbSave = async function(collName, id, data) {
@@ -286,60 +399,60 @@
         window[localName].length > 0;
     };
 
-    db.collection('creators').onSnapshot(snap => {
+    realtimeUnsubs.push(db.collection('creators').onSnapshot(snap => {
       if (shouldSkipEmptyFirstSnapshot('creators', 'creators', snap)) return;
       window.creators = toRows(snap);
       if (window.applyListFilter) window.applyListFilter();
       if (window.buildCal) window.buildCal();
       if (window.applyFeedbackFilter) window.applyFeedbackFilter();
-    });
-    db.collection('promos').onSnapshot(snap => {
+    }));
+    realtimeUnsubs.push(db.collection('promos').onSnapshot(snap => {
       if (shouldSkipEmptyFirstSnapshot('promos', 'promos', snap)) return;
       window.promos = toRows(snap);
       if (window.applyPromoFilter) window.applyPromoFilter();
       if (window.buildCal) window.buildCal();
-    });
-    db.collection('products').onSnapshot(snap => {
+    }));
+    realtimeUnsubs.push(db.collection('products').onSnapshot(snap => {
       if (shouldSkipEmptyFirstSnapshot('products', 'products', snap)) return;
       window.products = toRows(snap);
       if (window.renderModalItems) window.renderModalItems();
       if (window.applyFeedbackFilter) window.applyFeedbackFilter();
-    });
-    db.collection('seeding').onSnapshot(snap => {
+    }));
+    realtimeUnsubs.push(db.collection('seeding').onSnapshot(snap => {
       if (shouldSkipEmptyFirstSnapshot('seeding', 'seedData', snap)) return;
       window.seedData = toRows(snap);
       if (window.seedRender) window.seedRender();
-    });
-    db.collection('celebs').onSnapshot(snap => {
+    }));
+    realtimeUnsubs.push(db.collection('celebs').onSnapshot(snap => {
       if (shouldSkipEmptyFirstSnapshot('celebs', 'celebData', snap)) return;
       window.celebData = toRows(snap);
       if (window.celebRender) window.celebRender();
       if (window.buildCal) window.buildCal();
-    });
-    db.collection('organic').onSnapshot(snap => {
+    }));
+    realtimeUnsubs.push(db.collection('organic').onSnapshot(snap => {
       if (shouldSkipEmptyFirstSnapshot('organic', 'organicData', snap)) return;
       window.organicData = toRows(snap);
       if (window.orgRender) window.orgRender();
-    });
-    db.collection('settings').doc('budgetMemos').onSnapshot(doc => {
+    }));
+    realtimeUnsubs.push(db.collection('settings').doc('budgetMemos').onSnapshot(doc => {
       if (doc.exists) {
         window.budgetMemos = (doc.data() || {}).values || {};
         if (window.renderBudget) window.renderBudget();
       }
-    });
+    }));
   }
 
 
   // 초기화 — CDN 완전 로드 후 실행 보장
   function tryInitFirebase(attempts) {
     attempts = attempts || 0;
-    if (typeof firebase !== 'undefined') {
+    if (typeof firebase !== 'undefined' && typeof firebase.auth === 'function') {
       initFirebase();
     } else if (attempts < 20) {
       // firebase CDN 아직 로드 중 → 100ms 후 재시도
       setTimeout(function() { tryInitFirebase(attempts + 1); }, 100);
     } else {
-      console.log('ℹ️ Firebase 미연결 — 더미 데이터로 동작합니다 (GitHub Pages 배포 시 자동 연결)');
+      console.log('ℹ️ Firebase/Auth 미연결 — 더미 데이터로 동작합니다 (GitHub Pages 배포 및 Auth 설정 확인 필요)');
       if (window._injectTestData) window._injectTestData();
     }
   }
@@ -1431,7 +1544,14 @@ button.delete-btn:hover,.delete-btn:hover{background:#fff5f5!important;}
     <div id="fb-status" style="font-size:11px;color:var(--color-text-tertiary);">● Firebase 초기화 중...</div>
     <span id="saving-badge" class="saving-badge">저장 중...</span>
   </div>
-  <div style="display:flex;align-items:center;gap:8px;">
+  <div id="fb-auth-box" style="display:flex;align-items:center;gap:8px;">
+    <span id="fb-auth-user" style="font-size:11px;color:var(--color-text-tertiary);">로그인 확인 중...</span>
+    <button id="fb-login-btn" onclick="fbSignInWithGoogle()" style="font-size:11px;padding:4px 12px;border-radius:6px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer;">
+      🔐 Google 로그인
+    </button>
+    <button id="fb-logout-btn" onclick="fbSignOut()" style="display:none;font-size:11px;padding:4px 12px;border-radius:6px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer;">
+      로그아웃
+    </button>
     <button onclick="fbSaveAllDashboardNow()" style="font-size:11px;padding:4px 12px;border-radius:6px;border:none;background:#185FA5;color:#fff;cursor:pointer;font-weight:500;display:flex;align-items:center;gap:4px;">
       ☁️ Firebase 저장
     </button>
