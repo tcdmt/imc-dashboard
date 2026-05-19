@@ -2195,6 +2195,7 @@ html[data-user-role="viewer"] [data-delete]{opacity:.35!important;cursor:not-all
 <div id="pg-promotion" style="display:none;">
   <div class="filter-row" style="margin-bottom:12px;" id="pf-row"></div>
   <button class="add-btn" onclick="addPromo()">+ 프로모션 추가</button>
+  <button class="add-btn" onclick="sortPromosByStart()" style="margin-left:6px;">순서 정리</button>
   <div class="tbl-wrap"><table><thead><tr>
     <th style="width:70px;">플랫폼</th><th style="width:120px;">시작일</th><th style="width:80px;">시작 시간</th>
     <th style="width:120px;">종료일</th><th style="width:80px;">종료 시간</th>
@@ -4573,6 +4574,45 @@ window.applyPromoFilter=function(){
 function addPromo(){
   window.promos.push({_id:genId(),platform:'',startDate:'',startTime:'',endDate:'',endTime:'',name:'',benefit:'',_order:window.promos.length});
   fbSavePromos();applyPromoFilter();
+}
+function promoSortTimeValue(t){
+  if(!t||!String(t).trim())return 0;
+  const raw=String(t).trim();
+  let m=raw.match(/^(\d{1,2})\s*[:：]\s*(\d{1,2})$/);
+  if(!m)m=raw.match(/^(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분?)?$/);
+  if(!m)m=raw.match(/^(\d{1,2})$/);
+  if(!m)return 0;
+  const h=parseInt(m[1],10);
+  const min=m[2]!==undefined&&String(m[2]).trim()!==''?parseInt(m[2],10):0;
+  return (isNaN(h)?0:h)*60+(isNaN(min)?0:min);
+}
+function promoSortDateValue(s){
+  if(!s||!String(s).trim())return Number.POSITIVE_INFINITY;
+  const d=new Date(String(s).trim()+'T00:00:00');
+  const time=d.getTime();
+  return isNaN(time)?Number.POSITIVE_INFINITY:time;
+}
+function sortPromosByStart(){
+  if(window.currentUserRole==='viewer'){
+    alert('현재 계정은 보기 전용 권한입니다. 수정/저장은 수정 권한이 있는 담당자만 가능합니다.');
+    return;
+  }
+  if(!Array.isArray(window.promos))return;
+  window.promos=window.promos.map(function(p,i){return {row:p,idx:i};}).sort(function(a,b){
+    const ad=promoSortDateValue(a.row&&a.row.startDate);
+    const bd=promoSortDateValue(b.row&&b.row.startDate);
+    if(ad!==bd)return ad-bd;
+    const at=promoSortTimeValue(a.row&&a.row.startTime);
+    const bt=promoSortTimeValue(b.row&&b.row.startTime);
+    if(at!==bt)return at-bt;
+    return a.idx-b.idx;
+  }).map(function(item,i){
+    item.row._order=i;
+    return item.row;
+  });
+  fbSavePromos();
+  applyPromoFilter();
+  if(window.buildCal)window.buildCal();
 }
 
 /* ══ LIST ══ */
