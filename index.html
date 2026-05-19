@@ -5762,13 +5762,13 @@ const budgetSheetColAliases={
   meta_musinsa:['meta_musinsa','Meta MUSINSA','MUSINSA','무신사'],
   meta_29cm:['meta_29cm','Meta 29CM','29CM'],
   paid_naver:['paid_naver','Paid Naver','Naver','네이버'],
-  paid_x:['paid_x','Paid X','X'],
+  paid_x:['paid_x','Paid X','X_매체','X 매체','X'],
   crm_kakao:['crm_kakao','CRM Kakao','Kakao','카카오','CRM'],
   influencer_free:['influencer_free','Influencer Free','Free','인플루언서 Free','무상'],
   influencer_paid:['influencer_paid','Influencer Paid','Paid','인플루언서 Paid','유상'],
   earned_youtube:['earned_youtube','Earned Youtube','Youtube','YouTube','유튜브'],
   earned_instagram:['earned_instagram','Earned Instagram','Instagram','인스타그램'],
-  earned_x:['earned_x','Earned X','X'],
+  earned_x:['earned_x','Earned X','X_채널','X 채널','X'],
   earned_tiktok:['earned_tiktok','Earned Tiktok','TikTok','Tiktok','틱톡'],
   earned_viral:['earned_viral','Earned Viral','Viral','바이럴'],
   etc:['etc','ETC','기타','부대']
@@ -5781,7 +5781,18 @@ function budgetFindValue(row, aliases){
 }
 function budgetParseMonth(row, fallbackIndex){
   const raw=budgetFindValue(row,['월','month','Month','MONTH','월별','Month No']) || row[Object.keys(row)[0]] || String(fallbackIndex+1);
-  const n=parseInt(String(raw).replace(/[^0-9]/g,''),10);
+  const s=String(raw||'').trim();
+  const ym=s.match(/(?:20\d{2})[^0-9]?(\d{1,2})(?:[^0-9]|$)/);
+  if(ym){
+    const m=parseInt(ym[1],10);
+    return (m>=1&&m<=12)?m:null;
+  }
+  const kr=s.match(/(\d{1,2})\s*월/);
+  if(kr){
+    const m=parseInt(kr[1],10);
+    return (m>=1&&m<=12)?m:null;
+  }
+  const n=parseInt(s.replace(/[^0-9]/g,''),10);
   return (n>=1&&n<=12)?n:null;
 }
 function budgetParseDate(row){
