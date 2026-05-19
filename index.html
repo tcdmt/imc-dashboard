@@ -12765,5 +12765,145 @@ if(document.readyState==='loading'){
 })();
 </script>
 
+
+<!-- CHOI PATCH: List dropdown auto flip when near bottom -->
+<style id="list-dropdown-auto-flip-style">
+  #list-dc-select-popup.list-popup-open-up{
+    animation:listDdUpIn .12s ease-out;
+  }
+  @keyframes listDdUpIn{from{opacity:0;transform:translateY(3px);}to{opacity:1;transform:translateY(0);}}
+</style>
+<script id="list-dropdown-auto-flip-script">
+(function(){
+  'use strict';
+
+  const fallbackDcStartSel = window.dcStartSel;
+
+  function closeListDropdown(){
+    const old=document.getElementById('list-dc-select-popup');
+    if(old) old.remove();
+    if(window.__listDropdownAutoFlipCleanup){
+      window.__listDropdownAutoFlipCleanup();
+      window.__listDropdownAutoFlipCleanup=null;
+    }
+  }
+
+  function colorForListOption(opt){
+    if(window.LIST_CH_COLOR && window.LIST_CH_COLOR[opt]) return window.LIST_CH_COLOR[opt];
+    if(window.PROMO_PLT_COLOR && window.PROMO_PLT_COLOR[opt]) return window.PROMO_PLT_COLOR[opt];
+    if(window.LIST_PROG_COLOR && window.LIST_PROG_COLOR[opt]) return window.LIST_PROG_COLOR[opt];
+    if(window.LIST_USE2_COLOR && window.LIST_USE2_COLOR[opt]) return window.LIST_USE2_COLOR[opt];
+    return null;
+  }
+
+  function positionListDropdown(popup, anchor){
+    if(!popup || !anchor) return;
+    const rect=anchor.getBoundingClientRect();
+    const margin=8;
+    const gap=4;
+    const minWidth=Math.max(rect.width, 120);
+    popup.style.minWidth=minWidth+'px';
+    popup.style.maxHeight='';
+
+    const popupWidth=popup.offsetWidth || minWidth;
+    const popupHeight=popup.offsetHeight || 180;
+    let left=rect.left;
+    left=Math.max(margin, Math.min(left, window.innerWidth - popupWidth - margin));
+
+    const belowSpace=window.innerHeight - rect.bottom - margin;
+    const aboveSpace=rect.top - margin;
+    const shouldOpenUp=(belowSpace < popupHeight + gap && aboveSpace > belowSpace) || rect.top > window.innerHeight * 0.62;
+    let top;
+
+    popup.classList.toggle('list-popup-open-up', shouldOpenUp);
+    if(shouldOpenUp){
+      const maxH=Math.max(90, aboveSpace-gap);
+      popup.style.maxHeight=Math.min(320, maxH)+'px';
+      top=Math.max(margin, rect.top - Math.min(popupHeight, maxH) - gap);
+    }else{
+      const maxH=Math.max(90, belowSpace-gap);
+      popup.style.maxHeight=Math.min(320, maxH)+'px';
+      top=Math.min(rect.bottom + gap, window.innerHeight - Math.min(popupHeight, maxH) - margin);
+    }
+
+    popup.style.left=left+'px';
+    popup.style.top=top+'px';
+  }
+
+  function openListDropdown(anchor, opts, curVal, onPick){
+    closeListDropdown();
+
+    const popup=document.createElement('div');
+    popup.id='list-dc-select-popup';
+
+    (opts||[]).forEach(function(opt){
+      const item=document.createElement('button');
+      item.type='button';
+      item.className='list-float-item' + (opt===curVal ? ' selected' : '');
+      item.textContent=opt;
+      const c=colorForListOption(opt);
+      if(c){ item.style.background=c.bg; item.style.color=c.color; }
+      item.onclick=function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        closeListDropdown();
+        onPick(opt);
+      };
+      popup.appendChild(item);
+    });
+
+    document.body.appendChild(popup);
+    positionListDropdown(popup, anchor);
+
+    function onOutside(e){
+      if(!popup.contains(e.target) && e.target!==anchor && !anchor.contains(e.target)) closeListDropdown();
+    }
+    function onMove(){
+      if(document.body.contains(popup)) positionListDropdown(popup, anchor);
+    }
+    function onKey(e){
+      if(e.key==='Escape') closeListDropdown();
+    }
+
+    setTimeout(function(){document.addEventListener('mousedown', onOutside, true);},0);
+    window.addEventListener('resize', onMove, true);
+    window.addEventListener('scroll', onMove, true);
+    document.addEventListener('keydown', onKey, true);
+
+    window.__listDropdownAutoFlipCleanup=function(){
+      document.removeEventListener('mousedown', onOutside, true);
+      window.removeEventListener('resize', onMove, true);
+      window.removeEventListener('scroll', onMove, true);
+      document.removeEventListener('keydown', onKey, true);
+    };
+  }
+
+  window.dcStartSel=function(span, opts, curVal, onSave){
+    if(!span || !span.closest || !span.closest('#pg-list')){
+      if(typeof fallbackDcStartSel==='function') return fallbackDcStartSel(span, opts, curVal, onSave);
+      return;
+    }
+    openListDropdown(span, opts, curVal, function(opt){
+      span.textContent=opt || '-';
+      try{ eval(onSave.replace('__VAL__', JSON.stringify(opt))); }catch(err){ console.error(err); }
+    });
+  };
+
+  window.listChDrop=function(cell, ri){
+    if(!cell || !cell.closest || !cell.closest('#pg-list')) return;
+    const row=(window.creators||[])[ri];
+    if(!row) return;
+    const opts=['Instagram','Youtube','Tiktok','X','Blog'];
+    openListDropdown(cell, opts, row.ch, function(opt){
+      row.ch=opt;
+      if(window.fbSaveCreators) window.fbSaveCreators();
+      if(window.buildCal) window.buildCal();
+      if(window.applyListFilter) window.applyListFilter();
+      if(window.updateSummary) window.updateSummary();
+    });
+  };
+})();
+</script>
+
 </body>
 </html>
