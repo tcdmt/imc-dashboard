@@ -695,8 +695,8 @@ tr:hover td{background:var(--color-background-secondary);}
 .month-nav{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
 .month-nav button{font-size:12px;padding:3px 10px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:transparent;color:var(--color-text-secondary);cursor:pointer;}
 .cal-outer{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;background:var(--color-background-primary);}
-.cal-hd-row{display:grid;grid-template-columns:repeat(7,1fr) 1.2fr 1.2fr;background:var(--color-background-secondary);border-bottom:0.5px solid var(--color-border-tertiary);}
-.cal-week-row{display:grid;grid-template-columns:repeat(7,1fr) 1.2fr 1.2fr;border-bottom:0.5px solid var(--color-border-tertiary);}
+.cal-hd-row{display:grid;grid-template-columns:repeat(7,1fr) 2.4fr;background:var(--color-background-secondary);border-bottom:0.5px solid var(--color-border-tertiary);}
+.cal-week-row{display:grid;grid-template-columns:repeat(7,1fr) 2.4fr;border-bottom:0.5px solid var(--color-border-tertiary);}
 .cal-week-row:last-child{border-bottom:none;}
 .cal-hd{font-size:11px;color:var(--color-text-tertiary);text-align:center;padding:5px 2px;font-weight:500;border-right:0.5px solid var(--color-border-tertiary);}
 .cal-hd:last-child{border-right:none;}
@@ -2185,7 +2185,7 @@ html[data-user-role="viewer"] [data-delete]{opacity:.35!important;cursor:not-all
       <div class="cal-hd sun">일</div><div class="cal-hd">월</div><div class="cal-hd">화</div>
       <div class="cal-hd">수</div><div class="cal-hd">목</div><div class="cal-hd">금</div>
       <div class="cal-hd sat">토</div>
-      <div class="cal-hd">프로모션</div><div class="cal-hd">혜택</div>
+      <div class="cal-hd">프로모션</div>
     </div>
     <div id="cal-rows"></div>
   </div>
@@ -4136,9 +4136,10 @@ function fmtTime(t){
   if(!m)m=raw.match(/^(\d{1,2})$/);
   if(!m)return raw;
   const h=parseInt(m[1],10);
-  const min=parseInt(m[2]||'0',10);
+  const hasMinute=m[2]!==undefined && String(m[2]).trim()!=='';
+  const min=hasMinute?parseInt(m[2],10):0;
   if(isNaN(h)||isNaN(min))return raw;
-  return `${h}시 ${min}분`;
+  return hasMinute?`${h}시 ${min}분`:`${h}시`;
 }
 function pad(n){return String(n).padStart(2,'0');}
 function genId(){return Date.now()+'_'+Math.random().toString(36).slice(2,7);}
@@ -4469,8 +4470,7 @@ window.buildCal=function(){
     });
     const matched=promosForWeek(wds);
     const promoCol=matched.length?matched.map(p=>'<div class="cal-promo-item"><div class="promo-name">['+p.platform+'] '+p.name+'</div><div class="promo-period">'+fmtShort(p.startDate)+(p.startTime?' '+fmtTime(p.startTime):'')+' ~ '+fmtShort(p.endDate)+(p.endTime?' '+fmtTime(p.endTime):'')+' </div></div>').join(''):'<div class="empty-side">-</div>';
-    const benefitCol=matched.length?matched.map(p=>'<div class="cal-benefit-item"><div class="benefit-text">'+p.benefit+'</div></div>').join(''):'<div class="empty-side">-</div>';
-    html+='<div class="cal-week-row">'+cells.join('')+'<div class="cal-promo-col">'+promoCol+'</div><div class="cal-benefit-col">'+benefitCol+'</div></div>';
+    html+='<div class="cal-week-row">'+cells.join('')+'<div class="cal-promo-col">'+promoCol+'</div></div>';
   });
   document.getElementById('cal-rows').innerHTML=html;window.updateSummary();
 };
