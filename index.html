@@ -5890,7 +5890,7 @@ async function loadBudgetFromSheet(){
   }
 }
 async function loadUnifiedSheets(){
-  const hasMeta=['meta-url-ad','meta-url-adp','meta-url-sales'].every(id=>document.getElementById(id)?.value?.trim());
+  const hasMeta=['meta-url-ad','meta-url-adp','meta-url-sales'].some(id=>document.getElementById(id)?.value?.trim());
   const hasItem=!!document.getElementById('item-sheet-url')?.value?.trim();
   const hasBudget=!!(document.getElementById('monthly-budget-sheet-url')?.value?.trim() || document.getElementById('daily-spend-sheet-url')?.value?.trim());
   if(!hasMeta&&!hasItem&&!hasBudget){setSheetSyncStatus('URL을 입력해주세요.','error');return;}
@@ -5904,7 +5904,7 @@ async function loadUnifiedSheets(){
   }catch(e){setSheetSyncStatus('❌ '+(e.message||e),'error');}
 }
 async function refreshUnifiedSheets(){
-  const hasMeta=!!(window.metaSheetUrlAd&&window.metaSheetUrlAdp&&window.metaSheetUrlSales);
+  const hasMeta=!!(window.metaSheetUrlAd||window.metaSheetUrlAdp||window.metaSheetUrlSales||localStorage.getItem('meta_url_ad')||localStorage.getItem('meta_url_adp')||localStorage.getItem('meta_url_sales'));
   const hasItem=!!(window.itemSheetUrl||localStorage.getItem('item_sheet_url'));
   const hasBudget=!!(window.monthlyBudgetSheetUrl||window.dailySpendSheetUrl||localStorage.getItem('monthly_budget_sheet_url')||localStorage.getItem('daily_spend_sheet_url')||window.budgetSheetUrl||localStorage.getItem('budget_sheet_url'));
   setSheetSyncStatus('새로고침 중...','loading');
@@ -5934,10 +5934,118 @@ async function refreshItemFromSheet(){const url=itemSheetUrl||localStorage.getIt
 let metaRawAd=[],metaRawAdP=[],metaRawSales=[],metaSheetUrlAd='',metaSheetUrlAdp='',metaSheetUrlSales='';
 function toggleMetaSheet(){const c=document.getElementById('meta-sheet-content'),b=document.getElementById('meta-sheet-toggle');if(!c||!b)return;const h=c.style.display==='none';c.style.display=h?'block':'none';b.textContent=h?'접기':'펼치기';}
 function setMetaSheetStatus(msg,type){if(window.setSheetSyncStatus)setSheetSyncStatus(msg,type);const el=document.getElementById('meta-sheet-status');if(!el)return;el.textContent=msg;}
-function parseMetaCSV(text){const lines=text.trim().split('\n');if(lines.length<2)return[];const headers=lines[0].split(',').map(h=>h.trim().replace(/^"|"$/g,''));return lines.slice(1).map(line=>{const vals=[];let cur='',inQ=false;for(const c of line){if(c==='"'){inQ=!inQ;}else if(c===','&&!inQ){vals.push(cur.trim());cur='';}else cur+=c;}vals.push(cur.trim());const obj={};headers.forEach((h,i)=>{obj[h]=(vals[i]||'').replace(/^"|"$/g,'');});return obj;}).filter(r=>r['날짜']&&/\d{4}-\d{2}-\d{2}/.test(r['날짜']));}
-async function loadMetaFromSheets(){const u1=document.getElementById('meta-url-ad')?.value?.trim(),u2=document.getElementById('meta-url-adp')?.value?.trim(),u3=document.getElementById('meta-url-sales')?.value?.trim();if(!u1||!u2||!u3){setMetaSheetStatus('❌ URL 3개를 모두 입력해주세요.','error');return;}setMetaSheetStatus('불러오는 중...','loading');try{const[r1,r2,r3]=await Promise.all([fetch(u1),fetch(u2),fetch(u3)]);const[t1,t2,t3]=await Promise.all([r1.text(),r2.text(),r3.text()]);metaRawAd=parseMetaCSV(t1);metaRawAdP=parseMetaCSV(t2);metaRawSales=parseMetaCSV(t3);if(!metaRawAd.length)throw new Error('광고데이터 시트가 비어있어요.');metaSheetUrlAd=u1;metaSheetUrlAdp=u2;metaSheetUrlSales=u3;window.metaSheetUrlAd=u1;window.metaSheetUrlAdp=u2;window.metaSheetUrlSales=u3;localStorage.setItem('meta_url_ad',u1);localStorage.setItem('meta_url_adp',u2);localStorage.setItem('meta_url_sales',u3);window.fbSaveSheetUrls&&window.fbSaveSheetUrls();buildMetaBrandTabs();const months=[...new Set(metaRawAd.map(r=>r['날짜'].slice(0,7)))].sort();if(months.length)mMonth=months[months.length-1];mBuildMonthTabsFromData(months);mResetFilter();const btn=document.getElementById('meta-sheet-refresh');if(btn)btn.style.display='inline-block';setMetaSheetStatus('✅ 연동 완료!','ok');}catch(e){setMetaSheetStatus('❌ '+e.message,'error');}}
-async function refreshMetaFromSheets(){if(!metaSheetUrlAd)return;setMetaSheetStatus('새로고침 중...','loading');try{const[r1,r2,r3]=await Promise.all([fetch(metaSheetUrlAd),fetch(metaSheetUrlAdp),fetch(metaSheetUrlSales)]);const[t1,t2,t3]=await Promise.all([r1.text(),r2.text(),r3.text()]);metaRawAd=parseMetaCSV(t1);metaRawAdP=parseMetaCSV(t2);metaRawSales=parseMetaCSV(t3);mRender();setMetaSheetStatus('✅ 새로고침 완료!','ok');}catch(e){setMetaSheetStatus('❌ '+e.message,'error');}}
-function buildMetaBrandTabs(){const brands=[...new Set(metaRawAd.map(r=>r['브랜드']))].filter(Boolean);const bt=document.getElementById('meta-brand-tabs');if(!bt)return;bt.innerHTML='';brands.forEach((b,i)=>{const el=document.createElement('div');el.className='brand-tab'+(i===0?' active':'');el.textContent=b;el.onclick=()=>{mBrand=b;document.querySelectorAll('#meta-brand-tabs .brand-tab').forEach(x=>x.classList.remove('active'));el.classList.add('active');mResetFilter();};bt.appendChild(el);});if(brands.length)mBrand=brands[0];}
+function normalizeMetaSheetUrl(url){
+  url=String(url||'').trim();
+  if(!url)return'';
+  const idMatch=url.match(/\/spreadsheets\/d\/([^\/?#]+)/);
+  const isAlreadyCsv=/[?&](format|output)=csv/i.test(url);
+  if(idMatch&&!isAlreadyCsv){
+    const gidMatch=url.match(/[?#&]gid=(\d+)/);
+    const gid=gidMatch?gidMatch[1]:'0';
+    return 'https://docs.google.com/spreadsheets/d/'+idMatch[1]+'/export?format=csv&gid='+gid;
+  }
+  return url;
+}
+function normalizeMetaDate(value){
+  const raw=String(value||'').trim();
+  if(!raw)return'';
+  let m=raw.match(/(\d{4})[-/.년\s]+(\d{1,2})[-/.월\s]+(\d{1,2})/);
+  if(m)return m[1]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[3]).padStart(2,'0');
+  m=raw.match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일?/);
+  if(m){const y=String(new Date().getFullYear());return y+'-'+String(m[1]).padStart(2,'0')+'-'+String(m[2]).padStart(2,'0');}
+  return raw;
+}
+function parseMetaCSVLine(line){
+  const vals=[];let cur='',inQ=false;
+  for(let i=0;i<line.length;i++){
+    const c=line[i];
+    if(c==='"'){
+      if(inQ&&line[i+1]==='"'){cur+='"';i++;}
+      else inQ=!inQ;
+    }else if(c===','&&!inQ){vals.push(cur.trim());cur='';}
+    else cur+=c;
+  }
+  vals.push(cur.trim());
+  return vals.map(v=>v.replace(/^"|"$/g,''));
+}
+function parseMetaCSV(text){
+  const lines=String(text||'').replace(/^﻿/,'').trim().split(/?
+/).filter(Boolean);
+  if(lines.length<2)return[];
+  const headers=parseMetaCSVLine(lines[0]).map(h=>h.trim());
+  return lines.slice(1).map(line=>{
+    const vals=parseMetaCSVLine(line);
+    const obj={};
+    headers.forEach((h,i)=>{obj[h]=vals[i]||'';});
+    if(obj['날짜'])obj['날짜']=normalizeMetaDate(obj['날짜']);
+    return obj;
+  }).filter(r=>r['날짜']&&/^\d{4}-\d{2}-\d{2}$/.test(r['날짜']));
+}
+function getMetaAllRows(){return [].concat(metaRawAd||[],metaRawAdP||[],metaRawSales||[]);}
+async function fetchMetaSheetRows(url,label){
+  const csvUrl=normalizeMetaSheetUrl(url);
+  const res=await fetch(csvUrl);
+  if(!res.ok)throw new Error(label+' URL에 접근할 수 없어요. 공유 권한 또는 CSV 게시 상태를 확인해주세요.');
+  const text=await res.text();
+  if(/^\s*</.test(text)||/<html[\s>]/i.test(text.slice(0,500)))throw new Error(label+' URL이 CSV가 아니라 웹페이지로 열립니다. CSV 게시/공유 링크를 확인해주세요.');
+  return {url:csvUrl,rows:parseMetaCSV(text)};
+}
+function applyMetaSheetLoadResult(key,url,rows){
+  if(key==='ad'){metaRawAd=rows;metaSheetUrlAd=url;window.metaSheetUrlAd=url;if(url)localStorage.setItem('meta_url_ad',url);else localStorage.removeItem('meta_url_ad');}
+  if(key==='adp'){metaRawAdP=rows;metaSheetUrlAdp=url;window.metaSheetUrlAdp=url;if(url)localStorage.setItem('meta_url_adp',url);else localStorage.removeItem('meta_url_adp');}
+  if(key==='sales'){metaRawSales=rows;window.metaRawSales=rows;metaSheetUrlSales=url;window.metaSheetUrlSales=url;if(url)localStorage.setItem('meta_url_sales',url);else localStorage.removeItem('meta_url_sales');}
+}
+async function loadMetaFromSheets(){
+  const defs=[
+    {key:'ad',label:'광고 성과 데이터',url:document.getElementById('meta-url-ad')?.value?.trim()||''},
+    {key:'adp',label:'광고 콘텐츠/소재 성과 데이터',url:document.getElementById('meta-url-adp')?.value?.trim()||''},
+    {key:'sales',label:'플랫폼 별 매출 데이터',url:document.getElementById('meta-url-sales')?.value?.trim()||''}
+  ];
+  if(!defs.some(d=>d.url)){setMetaSheetStatus('❌ URL을 1개 이상 입력해주세요.','error');return;}
+  setMetaSheetStatus('불러오는 중...','loading');
+  try{
+    let loadedLabels=[],totalRows=0;
+    for(const d of defs){
+      if(!d.url){applyMetaSheetLoadResult(d.key,'',[]);continue;}
+      const result=await fetchMetaSheetRows(d.url,d.label);
+      applyMetaSheetLoadResult(d.key,result.url,result.rows);
+      if(result.rows.length){loadedLabels.push(d.label+' '+result.rows.length+'행');totalRows+=result.rows.length;}
+    }
+    if(!totalRows)throw new Error('입력한 Meta 시트에서 유효한 날짜 데이터를 찾지 못했어요.');
+    window.fbSaveSheetUrls&&window.fbSaveSheetUrls();
+    buildMetaBrandTabs();
+    const months=[...new Set(getMetaAllRows().map(r=>String(r['날짜']).slice(0,7)).filter(Boolean))].sort();
+    if(months.length)mMonth=months[months.length-1];
+    mBuildMonthTabsFromData(months);mResetFilter();
+    const btn=document.getElementById('meta-sheet-refresh');if(btn)btn.style.display='inline-block';
+    setMetaSheetStatus('✅ 연동 완료! '+loadedLabels.join(' / '),'ok');
+  }catch(e){setMetaSheetStatus('❌ '+e.message,'error');}
+}
+async function refreshMetaFromSheets(){
+  const defs=[
+    {key:'ad',label:'광고 성과 데이터',url:metaSheetUrlAd||window.metaSheetUrlAd||localStorage.getItem('meta_url_ad')||''},
+    {key:'adp',label:'광고 콘텐츠/소재 성과 데이터',url:metaSheetUrlAdp||window.metaSheetUrlAdp||localStorage.getItem('meta_url_adp')||''},
+    {key:'sales',label:'플랫폼 별 매출 데이터',url:metaSheetUrlSales||window.metaSheetUrlSales||localStorage.getItem('meta_url_sales')||''}
+  ];
+  if(!defs.some(d=>d.url)){setMetaSheetStatus('URL을 먼저 입력하세요.','error');return;}
+  setMetaSheetStatus('새로고침 중...','loading');
+  try{
+    let loadedLabels=[],totalRows=0;
+    for(const d of defs){
+      if(!d.url){applyMetaSheetLoadResult(d.key,'',[]);continue;}
+      const result=await fetchMetaSheetRows(d.url,d.label);
+      applyMetaSheetLoadResult(d.key,result.url,result.rows);
+      if(result.rows.length){loadedLabels.push(d.label+' '+result.rows.length+'행');totalRows+=result.rows.length;}
+    }
+    if(!totalRows)throw new Error('입력한 Meta 시트에서 유효한 날짜 데이터를 찾지 못했어요.');
+    buildMetaBrandTabs();
+    const months=[...new Set(getMetaAllRows().map(r=>String(r['날짜']).slice(0,7)).filter(Boolean))].sort();
+    if(months.length)mMonth=months[months.length-1];
+    mBuildMonthTabsFromData(months);mRender();
+    setMetaSheetStatus('✅ 새로고침 완료! '+loadedLabels.join(' / '),'ok');
+  }catch(e){setMetaSheetStatus('❌ '+e.message,'error');}
+}
+function buildMetaBrandTabs(){const brands=[...new Set(getMetaAllRows().map(r=>r['브랜드']))].filter(Boolean);const bt=document.getElementById('meta-brand-tabs');if(!bt)return;bt.innerHTML='';brands.forEach((b,i)=>{const el=document.createElement('div');el.className='brand-tab'+(i===0?' active':'');el.textContent=b;el.onclick=()=>{mBrand=b;document.querySelectorAll('#meta-brand-tabs .brand-tab').forEach(x=>x.classList.remove('active'));el.classList.add('active');mResetFilter();};bt.appendChild(el);});if(brands.length)mBrand=brands[0];}
 function mBuildMonthTabsFromData(months){const row=document.getElementById('m-month-row');if(!row)return;row.innerHTML='';months.forEach(m=>{const[,mo]=m.split('-');const el=document.createElement('div');el.className='month-tab'+(m===mMonth?' active':'');el.textContent=parseInt(mo)+'월';el.onclick=()=>{mMonth=m;document.querySelectorAll('#m-month-row .month-tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');mFrom=mMonthStart();mTo=mMonthEnd();mSyncInputs();mBuildWeekChips();mRender();};row.appendChild(el);});}
 
 /* ══ Feedback 업로드 링크 ══ */
