@@ -4561,7 +4561,7 @@ function renderPromoRows(list){
       +'<td class="dc-td">'+dcCell(fmtTime(p.endTime),'window.promos['+ri+'].endTime=__VAL__;fbSavePromos();window.buildCal();',{placeholder:'예: 23시 30분',minW:'70px'})+'</td>'
       +'<td class="dc-td">'+dcCell(p.name,'window.promos['+ri+'].name=__VAL__;fbSavePromos();window.buildCal();',{placeholder:'프로모션명',minW:'120px'})+'</td>'
       +'<td class="dc-td">'+dcCell(p.benefit,'window.promos['+ri+'].benefit=__VAL__;fbSavePromos();',{placeholder:'혜택 내용',minW:'120px'})+'</td>'
-      +'<td><span class="del-btn" onclick="window.promos.splice('+ri+',1);fbSavePromos();applyPromoFilter();window.buildCal();">&#10005;</span></td>'
+      +'<td style="text-align:center;"><button type="button" class="v13-del-btn" onclick="v13DeletePromo('+ri+')">삭제</button></td>'
       +'</tr>';
   }).join('');
 }
@@ -13772,6 +13772,155 @@ if(document.readyState==='loading'){
       document.removeEventListener('keydown', key, true);
     };
   };
+})();
+</script>
+
+
+<!-- PATCH: Promotion delete button + double-confirm modal only -->
+<style id="promo-delete-double-confirm-style">
+  #promoDeleteConfirmModal{
+    position:fixed;
+    inset:0;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:22px;
+    background:rgba(0,0,0,.32);
+    z-index:50000;
+  }
+  #promoDeleteConfirmModal.active{display:flex;}
+  #promoDeleteConfirmModal .promo-delete-box{
+    width:min(420px,100%);
+    background:var(--color-background-primary,#fff);
+    border:0.5px solid var(--color-border-secondary,rgba(0,0,0,.18));
+    border-radius:18px;
+    box-shadow:0 24px 80px rgba(0,0,0,.22);
+    padding:20px;
+  }
+  #promoDeleteConfirmModal .promo-delete-title{
+    margin:0 0 8px;
+    font-size:16px;
+    font-weight:700;
+    color:var(--color-text-primary,#1a1a19);
+  }
+  #promoDeleteConfirmModal .promo-delete-text{
+    margin:0 0 16px;
+    color:var(--color-text-secondary,#73726c);
+    font-size:12px;
+    line-height:1.6;
+  }
+  #promoDeleteConfirmModal .promo-delete-actions{
+    display:flex;
+    justify-content:flex-end;
+    gap:8px;
+  }
+  #promoDeleteConfirmModal .promo-delete-cancel,
+  #promoDeleteConfirmModal .promo-delete-confirm{
+    font-size:12px;
+    padding:7px 13px;
+    border-radius:8px;
+    cursor:pointer;
+    font-weight:600;
+    font-family:inherit;
+  }
+  #promoDeleteConfirmModal .promo-delete-cancel{
+    border:0.5px solid var(--color-border-secondary,rgba(0,0,0,.18));
+    background:var(--color-background-primary,#fff);
+    color:var(--color-text-secondary,#73726c);
+  }
+  #promoDeleteConfirmModal .promo-delete-confirm{
+    border:0.5px solid #fca5a5;
+    background:#fff;
+    color:#991b1b;
+  }
+  #promoDeleteConfirmModal .promo-delete-confirm.final{
+    background:#991b1b;
+    border-color:#991b1b;
+    color:#fff;
+  }
+</style>
+<div id="promoDeleteConfirmModal" aria-hidden="true">
+  <div class="promo-delete-box" role="dialog" aria-modal="true" aria-labelledby="promoDeleteConfirmTitle">
+    <h3 class="promo-delete-title" id="promoDeleteConfirmTitle">진짜 삭제하시겠습니까?</h3>
+    <p class="promo-delete-text" id="promoDeleteConfirmText">이 프로모션 행을 삭제할까요? 삭제하기를 누르면 한 번 더 체크합니다.</p>
+    <div class="promo-delete-actions">
+      <button type="button" class="promo-delete-cancel" id="promoDeleteCancel">취소</button>
+      <button type="button" class="promo-delete-confirm" id="promoDeleteConfirm">삭제하기</button>
+    </div>
+  </div>
+</div>
+<script id="promo-delete-double-confirm-script">
+(function(){
+  let pendingPromoDeleteIndex=null;
+  let pendingPromoDeleteStep=1;
+  let pendingPromoScrollLeft=0;
+
+  function getModal(){return document.getElementById('promoDeleteConfirmModal');}
+  function getTableScroll(){const tw=document.querySelector('#pg-promo .tbl-wrap');return tw?tw.scrollLeft:0;}
+  function restoreTableScroll(x){const tw=document.querySelector('#pg-promo .tbl-wrap');if(tw)requestAnimationFrame(function(){tw.scrollLeft=x||0;});}
+
+  function closePromoDeleteModal(){
+    const modal=getModal();
+    if(modal){modal.classList.remove('active');modal.setAttribute('aria-hidden','true');}
+    pendingPromoDeleteIndex=null;
+    pendingPromoDeleteStep=1;
+  }
+
+  function openPromoDeleteModal(ri){
+    if(!window.promos || !window.promos[ri]) return;
+    pendingPromoDeleteIndex=ri;
+    pendingPromoDeleteStep=1;
+    pendingPromoScrollLeft=getTableScroll();
+    const title=document.getElementById('promoDeleteConfirmTitle');
+    const text=document.getElementById('promoDeleteConfirmText');
+    const btn=document.getElementById('promoDeleteConfirm');
+    if(title) title.textContent='진짜 삭제하시겠습니까?';
+    if(text) text.textContent='이 프로모션 행을 삭제할까요? 삭제하기를 누르면 한 번 더 체크합니다.';
+    if(btn){btn.textContent='삭제하기';btn.classList.remove('final');}
+    const modal=getModal();
+    if(modal){modal.classList.add('active');modal.setAttribute('aria-hidden','false');}
+  }
+
+  function confirmPromoDelete(){
+    if(pendingPromoDeleteIndex===null) return closePromoDeleteModal();
+    if(!window.promos || !window.promos[pendingPromoDeleteIndex]) return closePromoDeleteModal();
+
+    if(pendingPromoDeleteStep===1){
+      pendingPromoDeleteStep=2;
+      const title=document.getElementById('promoDeleteConfirmTitle');
+      const text=document.getElementById('promoDeleteConfirmText');
+      const btn=document.getElementById('promoDeleteConfirm');
+      if(title) title.textContent='한 번 더 확인해주세요';
+      if(text) text.textContent='정말로 삭제할까요? 이 작업은 되돌릴 수 없어요.';
+      if(btn){btn.textContent='최종 삭제';btn.classList.add('final');}
+      return;
+    }
+
+    window.promos.splice(pendingPromoDeleteIndex,1);
+    if(window.fbSavePromos) window.fbSavePromos();
+    if(window.applyPromoFilter) window.applyPromoFilter();
+    if(window.buildCal) window.buildCal();
+    closePromoDeleteModal();
+    restoreTableScroll(pendingPromoScrollLeft);
+  }
+
+  window.v13DeletePromo=function(ri){openPromoDeleteModal(ri);};
+  window.closePromoDeleteModal=closePromoDeleteModal;
+
+  function bindPromoDeleteModal(){
+    const cancel=document.getElementById('promoDeleteCancel');
+    const confirm=document.getElementById('promoDeleteConfirm');
+    const modal=getModal();
+    if(cancel && !cancel.__promoDeleteBound){cancel.addEventListener('click',closePromoDeleteModal);cancel.__promoDeleteBound=true;}
+    if(confirm && !confirm.__promoDeleteBound){confirm.addEventListener('click',confirmPromoDelete);confirm.__promoDeleteBound=true;}
+    if(modal && !modal.__promoDeleteBound){
+      modal.addEventListener('click',function(e){if(e.target===modal) closePromoDeleteModal();});
+      modal.__promoDeleteBound=true;
+    }
+  }
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bindPromoDeleteModal);
+  else bindPromoDeleteModal();
 })();
 </script>
 
