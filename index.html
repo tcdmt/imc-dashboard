@@ -12908,62 +12908,74 @@ if(document.readyState==='loading'){
 </script>
 
 
-<!-- PATCH: Requested top horizontal + vertical scrollbars for Promotion/List/CRM/Seeding/Celeb/Organic only -->
+<!-- PATCH: Requested top horizontal + vertical scrollbars for Promotion/List/Celeb/Organic only -->
 <style id="requested-table-scrollbars-style">
   .imc-requested-top-scroll{
     overflow-x:auto!important;
     overflow-y:hidden!important;
     height:12px!important;
     margin:0 0 2px 0!important;
+    width:100%!important;
   }
-  .imc-requested-top-scroll-inner{height:1px!important;}
+  .imc-requested-top-scroll-inner{height:1px!important;min-height:1px!important;}
   #pg-promotion .imc-requested-scroll-wrap,
   #pg-list .imc-requested-scroll-wrap,
-  #pg-crm .imc-requested-scroll-wrap,
-  #pg-seeding .imc-requested-scroll-wrap,
   #pg-celeb .imc-requested-scroll-wrap,
   #pg-organic .imc-requested-scroll-wrap{
     overflow:auto!important;
     max-height:70vh!important;
   }
+  #pg-promotion .imc-requested-scroll-wrap table{min-width:980px!important;}
+  #pg-list .imc-requested-scroll-wrap table{min-width:2100px!important;}
+  #pg-celeb .imc-requested-scroll-wrap table{min-width:1800px!important;}
+  #pg-organic .imc-requested-scroll-wrap table{min-width:1450px!important;}
+  #pg-organic #org-feed-view + .imc-requested-top-scroll{display:none!important;}
+  #pg-organic #org-list-view[style*="display: none"] + .imc-requested-top-scroll,
+  #pg-organic #org-list-view[style*="display:none"] + .imc-requested-top-scroll{display:none!important;}
 </style>
 <script id="requested-table-scrollbars-script">
 (function(){
   'use strict';
   const targets=[
-    {page:'#pg-promotion', wrap:'#pg-promotion .tbl-wrap', key:'promotion'},
-    {page:'#pg-list', wrap:'#pg-list .list-card-stable .tbl-wrap', key:'list'},
-    {page:'#pg-crm', wrap:'#crm-table-wrap', key:'crm'},
-    {page:'#pg-seeding', wrap:'#seed-table-wrap', key:'seeding'},
-    {page:'#pg-celeb', wrap:'#pg-celeb > div:nth-of-type(3) > div[style*="overflow-x"]', key:'celeb'},
-    {page:'#pg-organic', wrap:'#org-list-view', key:'organic'}
+    {page:'#pg-promotion', key:'promotion', find:function(){return document.querySelector('#promo-body')?.closest('.tbl-wrap') || document.querySelector('#pg-promotion .tbl-wrap');}},
+    {page:'#pg-list', key:'list', find:function(){return document.querySelector('#creator-body')?.closest('.tbl-wrap') || document.querySelector('#pg-list .tbl-wrap');}},
+    {page:'#pg-celeb', key:'celeb', find:function(){return document.querySelector('#celeb-tbody')?.closest('div[style*="overflow-x"]') || document.querySelector('#celeb-tbody')?.closest('div');}},
+    {page:'#pg-organic', key:'organic', find:function(){return document.getElementById('org-list-view');}}
   ];
 
-  function getTableWidth(wrap){
-    if(!wrap) return 0;
-    const table=wrap.querySelector('table');
-    if(!table) return wrap.scrollWidth || 0;
-    return Math.max(table.scrollWidth, table.offsetWidth, wrap.scrollWidth);
+  function isVisible(el){
+    if(!el) return false;
+    return !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
   }
 
-  function ensureTopScrollbar(cfg){
-    const page=document.querySelector(cfg.page);
-    const wrap=document.querySelector(cfg.wrap);
+  function getWidth(wrap){
+    if(!wrap) return 0;
+    const table=wrap.querySelector('table');
+    if(!table) return wrap.scrollWidth || wrap.clientWidth || 0;
+    const min=parseInt((table.style.minWidth || '').replace(/[^0-9]/g,''),10) || 0;
+    return Math.max(table.scrollWidth, table.offsetWidth, wrap.scrollWidth, wrap.clientWidth, min);
+  }
+
+  function insertTopScrollbar(page, wrap, key){
     if(!page || !wrap) return;
     wrap.classList.add('imc-requested-scroll-wrap');
-    let top=page.querySelector('.imc-requested-top-scroll[data-scroll-key="'+cfg.key+'"]');
+    let top=page.querySelector('.imc-requested-top-scroll[data-scroll-key="'+key+'"]');
     if(!top){
       top=document.createElement('div');
       top.className='imc-requested-top-scroll';
-      top.setAttribute('data-scroll-key', cfg.key);
+      top.setAttribute('data-scroll-key', key);
       const inner=document.createElement('div');
       inner.className='imc-requested-top-scroll-inner';
       top.appendChild(inner);
       wrap.parentNode.insertBefore(top, wrap);
     }
     const inner=top.querySelector('.imc-requested-top-scroll-inner');
-    const width=getTableWidth(wrap);
-    if(inner) inner.style.width=(width || wrap.scrollWidth || wrap.clientWidth)+'px';
+    if(inner) inner.style.width=getWidth(wrap)+'px';
+
+    if(key==='organic'){
+      top.style.display=(wrap.style.display==='none' || !isVisible(wrap)) ? 'none' : '';
+    }
+
     if(!wrap.__imcRequestedScrollSynced){
       let syncing=false;
       top.addEventListener('scroll', function(){
@@ -12980,38 +12992,51 @@ if(document.readyState==='loading'){
       });
       wrap.__imcRequestedScrollSynced=true;
     }
-    top.scrollLeft=wrap.scrollLeft;
+    top.scrollLeft=wrap.scrollLeft || 0;
   }
 
   function refreshRequestedScrollbars(){
-    targets.forEach(ensureTopScrollbar);
+    targets.forEach(function(cfg){
+      const page=document.querySelector(cfg.page);
+      const wrap=cfg.find();
+      insertTopScrollbar(page, wrap, cfg.key);
+    });
   }
 
   window.refreshRequestedScrollbars=refreshRequestedScrollbars;
-  document.addEventListener('DOMContentLoaded', function(){
+  function scheduleRefresh(){
     refreshRequestedScrollbars();
-    setTimeout(refreshRequestedScrollbars, 200);
-    setTimeout(refreshRequestedScrollbars, 800);
-  });
-  window.addEventListener('resize', refreshRequestedScrollbars);
+    setTimeout(refreshRequestedScrollbars, 80);
+    setTimeout(refreshRequestedScrollbars, 300);
+  }
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', scheduleRefresh);
+  else scheduleRefresh();
+  window.addEventListener('resize', scheduleRefresh);
   document.addEventListener('click', function(e){
-    if(e.target && e.target.closest && e.target.closest('.top-tab, #org-view-list, #org-view-feed, #pg-promotion, #pg-list, #pg-crm, #pg-seeding, #pg-celeb, #pg-organic')){
-      setTimeout(refreshRequestedScrollbars, 0);
-      setTimeout(refreshRequestedScrollbars, 150);
+    if(e.target && e.target.closest && e.target.closest('.top-tab, #org-view-list, #org-view-feed, #pg-promotion, #pg-list, #pg-celeb, #pg-organic')){
+      setTimeout(scheduleRefresh, 0);
     }
   }, true);
+
   const observer=new MutationObserver(function(){
     if(window.__imcRequestedScrollTimer) clearTimeout(window.__imcRequestedScrollTimer);
-    window.__imcRequestedScrollTimer=setTimeout(refreshRequestedScrollbars, 80);
+    window.__imcRequestedScrollTimer=setTimeout(scheduleRefresh, 80);
   });
-  document.addEventListener('DOMContentLoaded', function(){
-    ['#promo-body','#creator-body','#crm-tbody','#seed-tbody','#celeb-tbody','#org-tbody'].forEach(function(sel){
+  function observeBodies(){
+    ['#promo-body','#creator-body','#celeb-tbody','#org-tbody'].forEach(function(sel){
       const node=document.querySelector(sel);
-      if(node) observer.observe(node,{childList:true,subtree:true});
+      if(node && !node.__imcRequestedObserved){
+        observer.observe(node,{childList:true,subtree:true});
+        node.__imcRequestedObserved=true;
+      }
     });
-  });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', observeBodies);
+  else observeBodies();
 })();
 </script>
+
 
 </body>
 </html>
