@@ -4085,7 +4085,18 @@ function dMonth(s){if(!s)return 0;const d=new Date(s);return isNaN(d.getTime())?
 function fmtWon(n){return '₩'+Math.round(n||0).toLocaleString();}
 function fmtKor(s){if(!s)return '-';const d=new Date(s);return isNaN(d.getTime())?'-':`${d.getMonth()+1}월 ${d.getDate()}일`;}
 function fmtShort(s){if(!s)return '';const d=new Date(s);return isNaN(d.getTime())?s:`${d.getMonth()+1}/${d.getDate()}`;}
-function fmtTime(t){if(!t||!String(t).trim())return '';const h=parseInt(t);return isNaN(h)?String(t):`${h}시`;}
+function fmtTime(t){
+  if(!t||!String(t).trim())return '';
+  const raw=String(t).trim();
+  let m=raw.match(/^(\d{1,2})\s*[:：]\s*(\d{1,2})$/);
+  if(!m)m=raw.match(/^(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분?)?$/);
+  if(!m)m=raw.match(/^(\d{1,2})$/);
+  if(!m)return raw;
+  const h=parseInt(m[1],10);
+  const min=parseInt(m[2]||'0',10);
+  if(isNaN(h)||isNaN(min))return raw;
+  return `${h}시 ${min}분`;
+}
 function pad(n){return String(n).padStart(2,'0');}
 function genId(){return Date.now()+'_'+Math.random().toString(36).slice(2,7);}
 
@@ -4502,9 +4513,9 @@ function renderPromoRows(list){
     return '<tr>'
       +'<td class="dc-td" style="text-align:center;" ondblclick="promoOpenPlatformDrop(this,'+ri+')">'+promoPlatformPill(p.platform)+'</td>'
       +'<td class="dc-td">'+dcCell(p.startDate,'window.promos['+ri+'].startDate=__VAL__;fbSavePromos();window.buildCal();applyPromoFilter();',{type:'date',minW:'110px'})+'</td>'
-      +'<td class="dc-td">'+dcCell(fmtTime(p.startTime),'window.promos['+ri+'].startTime=__VAL__;fbSavePromos();window.buildCal();',{placeholder:'예: 11시',minW:'60px'})+'</td>'
+      +'<td class="dc-td">'+dcCell(fmtTime(p.startTime),'window.promos['+ri+'].startTime=__VAL__;fbSavePromos();window.buildCal();',{placeholder:'예: 11시 30분',minW:'70px'})+'</td>'
       +'<td class="dc-td">'+dcCell(p.endDate,'window.promos['+ri+'].endDate=__VAL__;fbSavePromos();window.buildCal();',{type:'date',minW:'110px'})+'</td>'
-      +'<td class="dc-td">'+dcCell(fmtTime(p.endTime),'window.promos['+ri+'].endTime=__VAL__;fbSavePromos();window.buildCal();',{placeholder:'예: 23시',minW:'60px'})+'</td>'
+      +'<td class="dc-td">'+dcCell(fmtTime(p.endTime),'window.promos['+ri+'].endTime=__VAL__;fbSavePromos();window.buildCal();',{placeholder:'예: 23시 30분',minW:'70px'})+'</td>'
       +'<td class="dc-td">'+dcCell(p.name,'window.promos['+ri+'].name=__VAL__;fbSavePromos();window.buildCal();',{placeholder:'프로모션명',minW:'120px'})+'</td>'
       +'<td class="dc-td">'+dcCell(p.benefit,'window.promos['+ri+'].benefit=__VAL__;fbSavePromos();',{placeholder:'혜택 내용',minW:'120px'})+'</td>'
       +'<td><span class="del-btn" onclick="window.promos.splice('+ri+',1);fbSavePromos();applyPromoFilter();window.buildCal();">&#10005;</span></td>'
