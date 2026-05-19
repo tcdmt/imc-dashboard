@@ -1346,6 +1346,50 @@ button.delete-btn:hover,.delete-btn:hover{background:#fff5f5!important;}
     color:var(--color-text-primary)!important;
     min-width:150px!important;
   }
+  #pg-crm #crm-table-wrap tr.crm-group-start td{border-top:2px solid var(--color-border-primary)!important;}
+  #pg-crm #crm-table-wrap tr.crm-ttl-row td{
+    background:#EAF3DE!important;
+    color:#3B6D11!important;
+    font-weight:700!important;
+  }
+  #pg-crm #crm-table-wrap tr.crm-ttl-row td:first-child{text-align:center!important;}
+  #pg-crm .crm-base-date{font-weight:600;color:var(--color-text-secondary);}
+</style>
+
+<style id="crm-v70-requested-alignment-size-fix">
+  /* 요청 영역 한정: CRM 표 셀 가운데 정렬 및 더블클릭 편집 시 셀 크기 고정 */
+  #pg-crm #crm-table-wrap th,
+  #pg-crm #crm-table-wrap td{
+    text-align:center!important;
+    vertical-align:middle!important;
+  }
+  #pg-crm .crm-cell,
+  #pg-crm .crm-cell.right{
+    text-align:center!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    box-sizing:border-box!important;
+  }
+  #pg-crm .crm-edit-input,
+  #pg-crm .crm-edit-input.right,
+  #pg-crm .crm-edit-select{
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+    box-sizing:border-box!important;
+    text-align:center!important;
+    display:block!important;
+  }
+  #pg-crm input.crm-edit-input[type="date"],
+  #pg-crm input.crm-edit-input[type="time"]{
+    min-width:0!important;
+    max-width:100%!important;
+  }
+  #pg-crm #crm-table-wrap tr.crm-ttl-row td,
+  #pg-crm #crm-table-wrap tr.crm-ttl-row td:first-child{
+    text-align:center!important;
+  }
 </style>
 
 
@@ -1554,7 +1598,7 @@ button.delete-btn:hover,.delete-btn:hover{background:#fff5f5!important;}
 <!-- ── 상단 고정 KPI 요약 ── -->
 <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px;" id="ov-kpi-wrap">
   <div class="ov-card"><div class="ov-card-label">실 매출</div><div class="ov-card-val" id="ov-ytd-sales">-</div><div class="ov-card-sub" id="ov-ytd-sub">-</div></div>
-  <div class="ov-card"><div class="ov-card-label">마케팅 비용</div><div class="ov-card-val" id="ov-mkt-cost">-</div><div class="ov-card-sub" id="ov-mkt-sub">IF + Meta 기준</div></div>
+  <div class="ov-card"><div class="ov-card-label">마케팅 비용</div><div class="ov-card-val" id="ov-mkt-cost">-</div><div class="ov-card-sub" id="ov-mkt-sub">Budget Daily Spend 기준</div></div>
   <div class="ov-card"><div class="ov-card-label">마케팅 비중</div><div class="ov-card-val" id="ov-mkt-ratio">-</div><div class="ov-card-sub">실매출 대비</div></div>
   <div class="ov-card"><div class="ov-card-label">ROI</div><div class="ov-card-val" id="ov-roi">-</div><div class="ov-card-sub">순이익 / 마케팅비용</div></div>
   <div class="ov-card"><div class="ov-card-label">목표 달성률</div><div class="ov-card-val" id="ov-ytd-ach">-</div><div class="ov-card-sub" id="ov-ytd-ach-sub">-</div></div>
@@ -1984,9 +2028,9 @@ button.delete-btn:hover,.delete-btn:hover{background:#fff5f5!important;}
       <button class="add-btn" style="margin-bottom:0;" onclick="crmAddRow()">+ 추가</button>
     </div>
     <div id="crm-table-wrap" class="tbl-wrap" style="overflow-x:auto;">
-      <table style="min-width:1750px;width:100%;border-collapse:separate;border-spacing:0;font-size:11px;white-space:nowrap;">
+      <table style="min-width:1850px;width:100%;border-collapse:separate;border-spacing:0;font-size:11px;white-space:nowrap;">
         <thead><tr>
-          <th>발송 일자</th><th>발송 시각</th><th>발송 유형</th><th>플랫폼</th><th>프로모션</th><th>성별</th><th>연령</th><th>지역</th>
+          <th>발송 일자</th><th>발송 시각</th><th>발송 유형</th><th>플랫폼</th><th>프로모션</th><th>성별</th><th>연령</th><th>지역</th><th>기준일</th>
           <th style="text-align:right;">발송 비용</th><th style="text-align:right;">발송 수</th><th style="text-align:right;">열람 수</th><th style="text-align:right;">클릭 수</th><th style="text-align:right;">CTR</th>
           <th style="text-align:right;">구매</th><th style="text-align:right;">구매 전환값</th><th style="text-align:right;">CVR</th><th style="text-align:right;">ROAS</th><th></th>
         </tr></thead>
@@ -2920,7 +2964,6 @@ function seedDaily(){
       if(!dailySpend[date]){dailySpend[date]={};cols.forEach(c=&gt;dailySpend[date][c.key]=0)}
     }
   }
-  [[&#x27;2026-04-01&#x27;,&#x27;meta_store&#x27;,420000],[&#x27;2026-04-02&#x27;,&#x27;meta_musinsa&#x27;,680000],[&#x27;2026-04-03&#x27;,&#x27;crm_kakao&#x27;,260000],[&#x27;2026-04-04&#x27;,&#x27;influencer_paid&#x27;,1800000],[&#x27;2026-04-05&#x27;,&#x27;influencer_free&#x27;,360000],[&#x27;2026-04-07&#x27;,&#x27;meta_29cm&#x27;,470000],[&#x27;2026-04-08&#x27;,&#x27;earned_youtube&#x27;,2500000],[&#x27;2026-06-01&#x27;,&#x27;branding_celeb&#x27;,12000000]].forEach(([d,k,v])=&gt;dailySpend[d][k]=v);
 }
 function renderDailyMonthButtons(){
   document.getElementById(&#x27;dailyMonthButtons&#x27;).innerHTML=Array.from({length:12},(_,i)=&gt;`&lt;button class=&quot;month-btn ${selectedDailyMonth===i+1?&#x27;active&#x27;:&#x27;&#x27;}&quot; data-month=&quot;${i+1}&quot;&gt;${i+1}월&lt;/button&gt;`).join(&#x27;&#x27;);
@@ -3510,9 +3553,11 @@ document.addEventListener(&#x27;DOMContentLoaded&#x27;,()=&gt;{
   </div>
   <div class="range-info" id="m-range-info"></div>
   <div class="platform-tabs">
-    <div class="platform-tab active" onclick="mSetPlatform('musinsa',this)">무신사</div>
+    <div class="platform-tab active" onclick="mSetPlatform('total',this)">TOTAL</div>
+    <div class="platform-tab" onclick="mSetPlatform('musinsa',this)">MUSINSA</div>
     <div class="platform-tab" onclick="mSetPlatform('29cm',this)">29CM</div>
     <div class="platform-tab" onclick="mSetPlatform('store',this)">STORE</div>
+    <div class="platform-tab" onclick="mSetPlatform('offline',this)">Offline</div>
   </div>
   <div class="card-row" id="m-row1"></div>
   <div style="margin-bottom:8px"></div>
@@ -4994,7 +5039,7 @@ window.applyFeedbackFilter=function(){
 };
 
 /* ══ Meta 탭 함수 ══ */
-let mBrand='brand1',mPlatform='musinsa',mMonth='2026-01',mProductTab='compare';
+let mBrand='brand1',mPlatform='total',mMonth='2026-01',mProductTab='compare';
 let mFrom=null,mTo=null,mCharts={};
 const C_RED='#e04e3c',C_BLUE='#5584f1',C_YELL='#f4be28';
 const C_RED_A='rgba(224,78,60,0.70)',C_YELL_A='rgba(244,190,40,0.70)',C_BLUE_A='rgba(85,132,241,0.10)';
@@ -5072,7 +5117,7 @@ function mOnDateChange(){
   mSyncInputs();mRender();
 }
 function mSetBrand(b,el){mBrand=b;document.querySelectorAll('#meta-brand-tabs .brand-tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');mResetFilter();}
-function mSetPlatform(p,el){mPlatform=p;document.querySelectorAll('.platform-tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');mRender();}
+function mSetPlatform(p,el){mPlatform=p;document.querySelectorAll('#pg-meta .platform-tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');mRender();}
 function mResetFilter(){mFrom=mMonthStart();mTo=mMonthEnd();mSyncInputs();mBuildWeekChips();mRender();}
 function mSetProductTab(tab,el){
   mProductTab=tab;
@@ -5241,17 +5286,20 @@ function mRawNum(row, keys){
   return isNaN(n) ? 0 : n;
 }
 function mNormMetaPlatform(v){
-  const x = String(v||'').trim().toLowerCase();
+  const x = String(v||'').trim().toLowerCase().replace(/\s+/g,'');
+  if(x === 'total' || x === '전체' || x === 'all') return 'total';
   if(x === '무신사' || x === 'musinsa') return 'musinsa';
   if(x === '29cm') return '29cm';
   if(x === '자사몰' || x === 'store' || x === '스토어') return 'store';
+  if(x === '오프라인' || x === 'offline') return 'offline';
   return x;
 }
 function mRowMatches(row, platform, brand){
   const rowBrand = String(mRawVal(row, ['브랜드'])||'').trim();
   const rowPlatform = mNormMetaPlatform(mRawVal(row, ['플랫폼','판매 채널','판매채널']));
+  const selectedPlatform = mNormMetaPlatform(platform);
   const brandOk = !rowBrand || !brand || rowBrand === brand;
-  const platformOk = !platform || !rowPlatform || rowPlatform === mNormMetaPlatform(platform);
+  const platformOk = !selectedPlatform || selectedPlatform === 'total' || !rowPlatform || rowPlatform === selectedPlatform;
   return brandOk && platformOk;
 }
 function mBuildDailyFromRaw(){
@@ -5315,10 +5363,10 @@ function mBuildProductsFromRaw(filtered){
 }
 function mRender(){
   const rawDaily=mBuildDailyFromRaw();
-  const all=rawDaily.length ? rawDaily : mGenDaily(mBrand,mPlatform,mMonth);
+  const all=rawDaily.length ? rawDaily : [];
   const f=all.filter(r=>r.date>=mFrom&&r.date<=mTo);
   const rawProducts=mBuildProductsFromRaw(f);
-  const products=rawProducts ? rawProducts : mGenProducts(mBrand,mPlatform,mMonth,f);
+  const products=rawProducts ? rawProducts : [];
   mUpdateCards(f);mUpdateMainChart(f);mUpdateTop5Chart(products);mUpdateDailyTable(f);mUpdateProductTable(products);
 }
 function mBuildMonthTabs(){
@@ -5996,6 +6044,7 @@ let _ovCurrentView='total', _ovCurrentSub='annual';
 let _ovChSelected=new Set(['all']), _ovChFrom='', _ovChTo='';
 
 function fmtOvWon(v){if(!v||isNaN(v))return '-';if(v>=1e8)return '₩'+(v/1e8).toFixed(1)+'억';if(v>=1e4)return '₩'+(v/1e4).toFixed(0)+'만';return '₩'+Math.round(v).toLocaleString();}
+function fmtOvFullWon(v){if(!v||isNaN(v))return '-';return '₩'+Math.round(v).toLocaleString('ko-KR');}
 function fmtOvPct(v){return isNaN(v)||!isFinite(v)?'-':v.toFixed(1)+'%';}
 function fmtOvShort(v){if(!v)return '-';if(v>=1e8)return (v/1e8).toFixed(1)+'억';if(v>=1e4)return (v/1e4).toFixed(0)+'만';return Math.round(v).toLocaleString();}
 
@@ -6053,15 +6102,15 @@ function ovUpdateKPI(view){
   const curM=kst.getMonth();
   const ytdSales=sales.slice(0,curM+1).reduce((a,b)=>a+b,0);
   const ytdTargets=OV_DATA.targets.slice(0,curM+1).reduce((a,b)=>a+b,0);
-  const ytdMkt=mktCosts.slice(0,curM+1).reduce((a,r)=>a+r.meta+r.if+r.crm+r.em+r.misc,0);
+  const ytdMkt=mktCosts.slice(0,curM+1).reduce((a,r)=>a+(r.meta||0)+(r.paid||0)+(r.if||0)+(r.crm||0)+(r.em||0)+(r.misc||0),0);
   const mktRatio=ytdSales>0?(ytdMkt/ytdSales*100).toFixed(1):'0';
   const ach=ytdTargets>0?(ytdSales/ytdTargets*100).toFixed(1):'0';
   const netProfit=ytdSales-ytdMkt;
   const roi=ytdMkt>0?(netProfit/ytdMkt*100).toFixed(0):'0';
   const s=id=>document.getElementById(id);
-  if(s('ov-ytd-sales'))s('ov-ytd-sales').textContent=fmtOvWon(ytdSales);
+  if(s('ov-ytd-sales'))s('ov-ytd-sales').textContent=fmtOvFullWon(ytdSales);
   if(s('ov-ytd-sub'))s('ov-ytd-sub').textContent='YTD · 목표 '+fmtOvWon(ytdTargets);
-  if(s('ov-mkt-cost'))s('ov-mkt-cost').textContent=fmtOvWon(ytdMkt);
+  if(s('ov-mkt-cost'))s('ov-mkt-cost').textContent=fmtOvFullWon(ytdMkt);
   if(s('ov-mkt-ratio')){s('ov-mkt-ratio').textContent=mktRatio+'%';s('ov-mkt-ratio').style.color=parseFloat(mktRatio)>20?'#c0392b':parseFloat(mktRatio)>15?'#d97706':'#2d8c5a';}
   if(s('ov-roi')){s('ov-roi').textContent=roi+'%';s('ov-roi').style.color=parseFloat(roi)>0?'#2d8c5a':'#c0392b';}
   if(s('ov-ytd-ach')){s('ov-ytd-ach').textContent=ach+'%';s('ov-ytd-ach').style.color=parseFloat(ach)>=100?'#2d8c5a':parseFloat(ach)>=80?'#d97706':'#c0392b';}
@@ -6286,7 +6335,7 @@ function ovBuildChannelMonthlyTable(cat){
   const totalRow=OV_DATA.total;
   const grandTotal=totalRow.reduce((a,b)=>a+b,0);
   const grandTarget=OV_DATA.targets.reduce((a,b)=>a+b,0);
-  const totalMkt=mktCosts.reduce((a,r)=>a+r.meta+r.if+r.crm+r.em+r.misc,0);
+  const totalMkt=mktCosts.reduce((a,r)=>a+(r.meta||0)+(r.paid||0)+(r.if||0)+(r.crm||0)+(r.em||0)+(r.misc||0),0);
   let html=rows.map(r=>{
     const cumSales=r.data.slice(0,curM+1).reduce((a,b)=>a+b,0);
     const cumMkt=mktCosts.slice(0,curM+1).reduce((a,c)=>{
@@ -6310,7 +6359,7 @@ function ovBuildChannelMonthlyTable(cat){
   // 합계 행
   const totalCum=totalRow.slice(0,curM+1).reduce((a,b)=>a+b,0);
   const totalMonths=Array(12).fill(0).map((_,i)=>i<=curM&&totalRow[i]>0?`<td style="padding:5px 8px;text-align:right;font-weight:600;font-size:11px;">${fmtOvShort(totalRow[i])}원</td>`:`<td style="padding:5px 8px;text-align:right;font-size:11px;">-</td>`).join('');
-  const totalMktCum=mktCosts.slice(0,curM+1).reduce((a,r)=>a+r.meta+r.if+r.crm+r.em+r.misc,0);
+  const totalMktCum=mktCosts.slice(0,curM+1).reduce((a,r)=>a+(r.meta||0)+(r.paid||0)+(r.if||0)+(r.crm||0)+(r.em||0)+(r.misc||0),0);
   const totalMktRatio=totalCum>0?(totalMktCum/totalCum*100).toFixed(1):'-';
   const totalROI=totalMktCum>0?((totalCum-totalMktCum)/totalMktCum*100).toFixed(0):'-';
   const totalAch=grandTarget>0?(totalCum/grandTarget*100).toFixed(1):'-';
@@ -6406,7 +6455,7 @@ function ovRenderOnlineChannelList(){
 
   // 각 채널 매출 집계 (현재 YTD 기준)
   const totalOnline = (OV_DATA.online||[]).slice(0,curM+1).reduce((a,b)=>a+b,0) || 1;
-  const totalMkt = mktCosts.slice(0,curM+1).reduce((a,r)=>a+r.meta+r.if+r.crm+r.em+r.misc,0);
+  const totalMkt = mktCosts.slice(0,curM+1).reduce((a,r)=>a+(r.meta||0)+(r.paid||0)+(r.if||0)+(r.crm||0)+(r.em||0)+(r.misc||0),0);
 
   const rows = channels.map(ch => {
     const arr = OV_DATA[ch.key] || [];
@@ -6538,7 +6587,7 @@ function ovRenderChannel(){
   const kpiWrap=document.getElementById('ch-kpi-cards');
   const totalSales=days.reduce((a,d)=>a+d.sales,0);
   const mktCosts=ovGetMktCosts();
-  const totalMkt=mktCosts.reduce((a,r)=>a+r.meta+r.if+r.crm+r.em+r.misc,0);
+  const totalMkt=mktCosts.reduce((a,r)=>a+(r.meta||0)+(r.paid||0)+(r.if||0)+(r.crm||0)+(r.em||0)+(r.misc||0),0);
   if(kpiWrap) kpiWrap.innerHTML=[
     {label:'기간 매출',val:fmtOvWon(totalSales),sub:days[0]?.date+' ~ '+days[days.length-1]?.date},
     {label:'마케팅 비용',val:fmtOvWon(totalMkt),sub:'기간 누계'},
@@ -6869,7 +6918,7 @@ function ovBuildChannelDetail(){
 
   // 마케팅 비용 (채널 비중으로 배분)
   const mktCosts = ovGetMktCosts();
-  const totalMktYTD = mktCosts.slice(0,curM+1).reduce((a,r)=>a+r.meta+r.if+r.crm+r.em+r.misc, 0);
+  const totalMktYTD = mktCosts.slice(0,curM+1).reduce((a,r)=>a+(r.meta||0)+(r.paid||0)+(r.if||0)+(r.crm||0)+(r.em||0)+(r.misc||0), 0);
 
   // 컬럼 너비를 통일하기 위해 colgroup 사용
   const monthCols = Array.from({length:curM+1}, (_,i) =>
@@ -7181,24 +7230,29 @@ function ovCommonDateInit(){
 }
 window.ovCommonDateInit = ovCommonDateInit;
 
-function ovCommonDateChange(){
+function ovCommonDateChange(opts){
+  opts = opts || {};
   const fromEl = document.getElementById('ov-date-from');
   const toEl   = document.getElementById('ov-date-to');
   _ovDateFrom  = fromEl?.value || _ovDateFrom;
   _ovDateTo    = toEl?.value   || _ovDateTo;
-  // 빠른선택 칩 active 해제
-  document.querySelectorAll('#ov-common-date-box .chip').forEach(c=>c.classList.remove('active'));
+  // 직접 날짜를 입력한 경우에만 빠른 선택/월 선택 active 해제
+  if(!opts.keepChipActive){
+    document.querySelectorAll('#ov-common-date-box .chip').forEach(c=>c.classList.remove('active'));
+  }
 }
 window.ovCommonDateChange = ovCommonDateChange;
 
-function ovApplyCommonDate(){
-  ovCommonDateChange();
+function ovApplyCommonDate(opts){
+  ovCommonDateChange(opts);
+  ovUpdateKPI(_ovCurrentView||'total');
   _ovApplyToCurrentSub(_ovCurrentView||'total');
 }
 window.ovApplyCommonDate = ovApplyCommonDate;
 
 function ovQuickDate(range, el){
-  document.querySelectorAll('#ov-common-date-box .chip').forEach(c=>c.classList.remove('active'));
+  document.querySelectorAll('#ov-quick-chips .chip, #ov-month-chips .chip').forEach(c=>c.classList.remove('active'));
+  _ovSelMonth = 'all';
   if(el) el.classList.add('active');
   const kst = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Seoul'}));
   const y = kst.getFullYear(), pad = n=>String(n).padStart(2,'0');
@@ -7225,7 +7279,7 @@ function ovQuickDate(range, el){
   const toEl   = document.getElementById('ov-date-to');
   if(fromEl) fromEl.value = _ovDateFrom;
   if(toEl)   toEl.value   = _ovDateTo;
-  ovApplyCommonDate();
+  ovApplyCommonDate({keepChipActive:true});
 }
 window.ovQuickDate = ovQuickDate;
 
@@ -7263,24 +7317,28 @@ window.ovBuildMonthChips = ovBuildMonthChips;
 
 function ovQuickMonth(month, el){
   document.querySelectorAll('#ov-month-chips .chip').forEach(c=>c.classList.remove('active'));
+  document.querySelectorAll('#ov-quick-chips .chip').forEach(c=>c.classList.remove('active'));
   if(el) el.classList.add('active');
   _ovSelMonth = month;
   // 월 선택이 바뀌면 날짜 범위도 동기화
+  const kst = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Seoul'}));
+  const pad = n => String(n).padStart(2,'0');
   if(month !== 'all'){
     const [y,m] = month.split('-').map(Number);
     const lastD = new Date(y, m, 0).getDate();
-    const pad = n => String(n).padStart(2,'0');
     _ovDateFrom = month+'-01';
     _ovDateTo   = month+'-'+pad(lastD);
-    const fromEl = document.getElementById('ov-date-from');
-    const toEl   = document.getElementById('ov-date-to');
-    if(fromEl) fromEl.value = _ovDateFrom;
-    if(toEl)   toEl.value   = _ovDateTo;
-    // 빠른선택 칩 active 해제
-    document.querySelectorAll('#ov-quick-chips .chip').forEach(c=>c.classList.remove('active'));
+  } else {
+    const y = kst.getFullYear();
+    _ovDateFrom = y+'-01-01';
+    _ovDateTo   = y+'-'+pad(kst.getMonth()+1)+'-'+pad(kst.getDate());
   }
+  const fromEl = document.getElementById('ov-date-from');
+  const toEl   = document.getElementById('ov-date-to');
+  if(fromEl) fromEl.value = _ovDateFrom;
+  if(toEl)   toEl.value   = _ovDateTo;
   // 현재 서브탭 갱신
-  ovApplyCommonDate();
+  ovApplyCommonDate({keepChipActive:true});
 }
 window.ovQuickMonth = ovQuickMonth;
 
@@ -11620,14 +11678,24 @@ if(document.readyState==='loading'){
 
   window.ovGetMktCosts = ovGetMktCosts = function(){
     const result = Array(12).fill(0).map(function(){return {meta:0,paid:0,crm:0,if:0,em:0,misc:0};});
-    for(let mi=0; mi<12; mi++){
-      result[mi].meta = budgetSpendMonth(mi, ['meta_']);
-      result[mi].paid = budgetSpendMonth(mi, ['paid_']);
-      result[mi].crm  = budgetSpendMonth(mi, ['crm_']);
-      result[mi].if   = budgetSpendMonth(mi, ['influencer_']);
-      result[mi].em   = budgetSpendMonth(mi, ['earned_']);
-      result[mi].misc = budgetSpendMonth(mi, ['etc']);
-    }
+    const daily = getBudgetDailySpend();
+    Object.keys(daily || {}).forEach(function(ds){
+      const d = new Date(ds);
+      if(isNaN(d)) return;
+      const mi = d.getMonth();
+      const obj = daily[ds] || {};
+      Object.keys(obj).forEach(function(k){
+        const key = String(k).toLowerCase();
+        const val = toNum(obj[k]);
+        if(!val) return;
+        if(key.indexOf('meta_') === 0 || key.indexOf('meta') === 0) result[mi].meta += val;
+        else if(key.indexOf('paid_') === 0 || key.indexOf('paid') === 0) result[mi].paid += val;
+        else if(key.indexOf('crm_') === 0 || key.indexOf('crm') === 0) result[mi].crm += val;
+        else if(key.indexOf('influencer_') === 0 || key.indexOf('influencer') === 0) result[mi].if += val;
+        else if(key.indexOf('earned_') === 0 || key.indexOf('earned') === 0) result[mi].em += val;
+        else result[mi].misc += val;
+      });
+    });
     return result;
   };
   function mktTotal(r){ return (r.meta||0)+(r.paid||0)+(r.crm||0)+(r.if||0)+(r.em||0)+(r.misc||0); }
@@ -11788,8 +11856,39 @@ if(document.readyState==='loading'){
   }
   function crmFmtCurrency(v){ const n=toNum(v); return n?new Intl.NumberFormat('ko-KR',{style:'currency',currency:'KRW',maximumFractionDigits:0}).format(n):''; }
   function crmFmtNum(v){ const n=toNum(v); return n?n.toLocaleString('ko-KR'):''; }
+  function crmAddDays(dateStr, days){
+    if(!dateStr) return '';
+    const d=new Date(dateStr+'T00:00:00');
+    if(isNaN(d.getTime())) return '';
+    d.setDate(d.getDate()+days);
+    const y=d.getFullYear();
+    const m=String(d.getMonth()+1).padStart(2,'0');
+    const day=String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  }
+  function crmBaseDateLabel(r,di){
+    const autoDate=crmAddDays(r.date||'',di);
+    if(autoDate){
+      const d=new Date(autoDate+'T00:00:00');
+      if(!isNaN(d.getTime())) return `${d.getMonth()+1}월 ${d.getDate()}일`;
+    }
+    return '발송일 입력';
+  }
+  function crmNormalizeRow(r){
+    r=r||{};
+    if(!Array.isArray(r.daily)){
+      r.daily=[
+        {open:toNum(r.open),click:toNum(r.click),purchase:toNum(r.purchase),value:toNum(r.value)},
+        {open:0,click:0,purchase:0,value:0},
+        {open:0,click:0,purchase:0,value:0}
+      ];
+    }
+    while(r.daily.length<3) r.daily.push({open:0,click:0,purchase:0,value:0});
+    r.daily=r.daily.slice(0,3).map(function(d){return {open:toNum(d&&d.open),click:toNum(d&&d.click),purchase:toNum(d&&d.purchase),value:toNum(d&&d.value)};});
+    return r;
+  }
   function crmCell(i,k,kind,align){
-    const r=(window.crmData||[])[i]||{}; let raw=r[k]; let txt='';
+    const r=crmNormalizeRow((window.crmData||[])[i]||{}); let raw=r[k]; let txt='';
     if(kind==='currency') txt=crmFmtCurrency(raw);
     else if(kind==='number') txt=crmFmtNum(raw);
     else txt=String(raw||'');
@@ -11797,23 +11896,59 @@ if(document.readyState==='loading'){
     const cls='crm-cell '+(align==='right'?'right ':'')+(txt?'':'empty');
     return `<span class="${cls}" ondblclick="crmEditCell(this,${i},'${k}','${kind||'text'}','${align||''}')">${escHtml(txt||placeholder)}</span>`;
   }
+  function crmDailyCell(i,di,k,kind,align){
+    const r=crmNormalizeRow((window.crmData||[])[i]||{}); const d=r.daily[di]||{}; let raw=d[k]; let txt='';
+    if(kind==='currency') txt=crmFmtCurrency(raw);
+    else if(kind==='number') txt=crmFmtNum(raw);
+    else txt=String(raw||'');
+    const cls='crm-cell '+(align==='right'?'right ':'')+(txt?'':'empty');
+    return `<span class="${cls}" ondblclick="crmEditDailyCell(this,${i},${di},'${k}','${kind||'text'}','${align||''}')">${escHtml(txt||'입력')}</span>`;
+  }
   function crmSelectCell(i,k,optsName,colorType){
-    const r=(window.crmData||[])[i]||{}; const val=String(r[k]||''); const shown=val||'선택'; const c=crmColor(colorType,shown);
+    const r=crmNormalizeRow((window.crmData||[])[i]||{}); const val=String(r[k]||''); const shown=val||'선택'; const c=crmColor(colorType,shown);
     return `<span class="crm-pill" ondblclick="crmEditSelect(this,${i},'${k}','${optsName}','${colorType}')" style="background:${c.bg};color:${c.color};">${escHtml(shown)}</span>`;
   }
   window.crmEditCell=function(el,i,k,kind,align){
     const r=(window.crmData||[])[i]; if(!r)return;
+    crmNormalizeRow(r);
     const input=document.createElement('input');
     input.className='crm-edit-input '+(align==='right'?'right':'');
     input.type=(kind==='date')?'date':(kind==='time')?'time':'text';
     input.value=(kind==='currency'||kind==='number')?(toNum(r[k])?toNum(r[k]).toLocaleString('ko-KR'):''):(r[k]||'');
+    const td=el.closest('td');
+    if(td){
+      const w=Math.max(1,td.getBoundingClientRect().width);
+      td.style.width=w+'px';
+      td.style.minWidth=w+'px';
+      td.style.maxWidth=w+'px';
+    }
     el.replaceWith(input); input.focus(); input.select&&input.select();
     const commit=function(){ crmSet(i,k,input.value); };
     input.addEventListener('blur',commit,{once:true});
     input.addEventListener('keydown',function(e){ if(e.key==='Enter') input.blur(); if(e.key==='Escape') crmRender(); });
   };
+  window.crmEditDailyCell=function(el,i,di,k,kind,align){
+    const r=(window.crmData||[])[i]; if(!r)return;
+    crmNormalizeRow(r);
+    const input=document.createElement('input');
+    input.className='crm-edit-input '+(align==='right'?'right':'');
+    input.type='text';
+    input.value=toNum(r.daily[di][k])?toNum(r.daily[di][k]).toLocaleString('ko-KR'):'';
+    const td=el.closest('td');
+    if(td){
+      const w=Math.max(1,td.getBoundingClientRect().width);
+      td.style.width=w+'px';
+      td.style.minWidth=w+'px';
+      td.style.maxWidth=w+'px';
+    }
+    el.replaceWith(input); input.focus(); input.select&&input.select();
+    const commit=function(){ crmSetDaily(i,di,k,input.value); };
+    input.addEventListener('blur',commit,{once:true});
+    input.addEventListener('keydown',function(e){ if(e.key==='Enter') input.blur(); if(e.key==='Escape') crmRender(); });
+  };
   window.crmEditSelect=function(el,i,k,optsName,colorType){
     const r=(window.crmData||[])[i]; if(!r)return;
+    crmNormalizeRow(r);
     const opts=optsName==='crmTypes'?crmTypes:optsName==='crmPlatforms'?crmPlatforms:crmGenders;
     document.querySelectorAll('.crm-float-dd').forEach(function(p){p.remove();});
     const pop=document.createElement('div');
@@ -11850,45 +11985,69 @@ if(document.readyState==='loading'){
   };
   window.crmAddRow=function(){
     window.crmData=window.crmData||[];
-    window.crmData.push({_id:(typeof genId==='function'?genId():'crm_'+Date.now()),date:'',time:'',type:'',platform:'',promotion:'',gender:'',age:'',region:'',cost:0,send:0,open:0,click:0,purchase:0,value:0,_order:window.crmData.length});
+    window.crmData.push({_id:(typeof genId==='function'?genId():'crm_'+Date.now()),date:'',time:'',type:'',platform:'',promotion:'',gender:'',age:'',region:'',cost:0,send:0,daily:[{open:0,click:0,purchase:0,value:0},{open:0,click:0,purchase:0,value:0},{open:0,click:0,purchase:0,value:0}],_order:window.crmData.length});
     crmRender(); crmSave();
   };
   window.crmRender=function(){
     const tbody=document.getElementById('crm-tbody'); if(!tbody) return;
     buildCrmFilters();
     const typeFilter=document.getElementById('crm-type-filter')?.value || 'all';
-    const rows=(window.crmData||[]).filter(function(r){
+    const rows=(window.crmData||[]).map(crmNormalizeRow).filter(function(r){
       if(crmFilterMonth!=='all' && String(r.date||'').slice(5,7)!==String(crmFilterMonth).padStart(2,'0')) return false;
       if(crmFilterPlatform!=='all' && normPlatform(r.platform)!==normPlatform(crmFilterPlatform)) return false;
       if(typeFilter!=='all' && String(r.type||'')!==typeFilter) return false;
       return true;
     });
-    if(!rows.length){ tbody.innerHTML='<tr><td colspan="18" style="text-align:center;padding:18px;color:var(--color-text-tertiary);">CRM 발송 내역을 추가해주세요</td></tr>'; return; }
+    if(!rows.length){ tbody.innerHTML='<tr><td colspan="19" style="text-align:center;padding:18px;color:var(--color-text-tertiary);">CRM 발송 내역을 추가해주세요</td></tr>'; return; }
     tbody.innerHTML=rows.map(function(r){
-      const i=(window.crmData||[]).indexOf(r); const ctr=toNum(r.open)>0?toNum(r.click)/toNum(r.open)*100:NaN; const cvr=toNum(r.click)>0?toNum(r.purchase)/toNum(r.click)*100:NaN; const roas=toNum(r.cost)>0?toNum(r.value)/toNum(r.cost)*100:NaN;
-      return `<tr>
-        <td class="crm-td">${crmCell(i,'date','date')}</td>
-        <td class="crm-td">${crmCell(i,'time','time')}</td>
-        <td class="crm-td">${crmSelectCell(i,'type','crmTypes','type')}</td>
-        <td class="crm-td">${crmSelectCell(i,'platform','crmPlatforms','platform')}</td>
-        <td class="crm-td">${crmCell(i,'promotion','text')}</td>
-        <td class="crm-td">${crmSelectCell(i,'gender','crmGenders','gender')}</td>
-        <td class="crm-td">${crmCell(i,'age','text')}</td>
-        <td class="crm-td">${crmCell(i,'region','text')}</td>
-        <td class="crm-td">${crmCell(i,'cost','currency','right')}</td>
-        <td class="crm-td">${crmCell(i,'send','number','right')}</td>
-        <td class="crm-td">${crmCell(i,'open','number','right')}</td>
-        <td class="crm-td">${crmCell(i,'click','number','right')}</td>
-        <td style="text-align:right;font-weight:600;">${pct(ctr,2)}</td>
-        <td class="crm-td">${crmCell(i,'purchase','number','right')}</td>
-        <td class="crm-td">${crmCell(i,'value','currency','right')}</td>
-        <td style="text-align:right;font-weight:600;">${pct(cvr,2)}</td>
-        <td style="text-align:right;font-weight:600;">${isFinite(roas)?roas.toFixed(0)+'%':'-'}</td>
-        <td style="text-align:center;"><button type="button" class="imc-list-delete-btn" onclick="crmDelete(${i})" aria-label="삭제">삭제</button></td>
+      const i=(window.crmData||[]).indexOf(r);
+      const ttl=r.daily.reduce(function(a,d){ a.open+=toNum(d.open); a.click+=toNum(d.click); a.purchase+=toNum(d.purchase); a.value+=toNum(d.value); return a; },{open:0,click:0,purchase:0,value:0});
+      const ttlCtr=ttl.open>0?ttl.click/ttl.open*100:NaN;
+      const ttlCvr=ttl.click>0?ttl.purchase/ttl.click*100:NaN;
+      const ttlRoas=toNum(r.cost)>0?ttl.value/toNum(r.cost)*100:NaN;
+      const dayRows=r.daily.map(function(d,di){
+        const ctr=toNum(d.open)>0?toNum(d.click)/toNum(d.open)*100:NaN;
+        const cvr=toNum(d.click)>0?toNum(d.purchase)/toNum(d.click)*100:NaN;
+        const roas=toNum(r.cost)>0?toNum(d.value)/toNum(r.cost)*100:NaN;
+        return `<tr class="${di===0?'crm-group-start':''}">
+          ${di===0?`<td class="crm-td" rowspan="3">${crmCell(i,'date','date')}</td>
+          <td class="crm-td" rowspan="3">${crmCell(i,'time','time')}</td>
+          <td class="crm-td" rowspan="3">${crmSelectCell(i,'type','crmTypes','type')}</td>
+          <td class="crm-td" rowspan="3">${crmSelectCell(i,'platform','crmPlatforms','platform')}</td>
+          <td class="crm-td" rowspan="3">${crmCell(i,'promotion','text')}</td>
+          <td class="crm-td" rowspan="3">${crmSelectCell(i,'gender','crmGenders','gender')}</td>
+          <td class="crm-td" rowspan="3">${crmCell(i,'age','text')}</td>
+          <td class="crm-td" rowspan="3">${crmCell(i,'region','text')}</td>`:''}
+          <td style="text-align:center;"><span class="crm-base-date">${escHtml(crmBaseDateLabel(r,di))}</span></td>
+          ${di===0?`<td class="crm-td" rowspan="3">${crmCell(i,'cost','currency','right')}</td>
+          <td class="crm-td" rowspan="3">${crmCell(i,'send','number','right')}</td>`:''}
+          <td class="crm-td">${crmDailyCell(i,di,'open','number','right')}</td>
+          <td class="crm-td">${crmDailyCell(i,di,'click','number','right')}</td>
+          <td style="text-align:right;font-weight:600;">${pct(ctr,2)}</td>
+          <td class="crm-td">${crmDailyCell(i,di,'purchase','number','right')}</td>
+          <td class="crm-td">${crmDailyCell(i,di,'value','currency','right')}</td>
+          <td style="text-align:right;font-weight:600;">${pct(cvr,2)}</td>
+          <td style="text-align:right;font-weight:600;">${isFinite(roas)?roas.toFixed(0)+'%':'-'}</td>
+          ${di===0?`<td style="text-align:center;" rowspan="4"><button type="button" class="imc-list-delete-btn" onclick="crmDelete(${i})" aria-label="삭제">삭제</button></td>`:''}
+        </tr>`;
+      }).join('');
+      const ttlRow=`<tr class="crm-ttl-row">
+        <td colspan="9">TTL</td>
+        <td style="text-align:right;">${crmFmtCurrency(r.cost)||'-'}</td>
+        <td style="text-align:right;">${crmFmtNum(r.send)||'-'}</td>
+        <td style="text-align:right;">${crmFmtNum(ttl.open)||'-'}</td>
+        <td style="text-align:right;">${crmFmtNum(ttl.click)||'-'}</td>
+        <td style="text-align:right;">${pct(ttlCtr,2)}</td>
+        <td style="text-align:right;">${crmFmtNum(ttl.purchase)||'-'}</td>
+        <td style="text-align:right;">${crmFmtCurrency(ttl.value)||'-'}</td>
+        <td style="text-align:right;">${pct(ttlCvr,2)}</td>
+        <td style="text-align:right;">${isFinite(ttlRoas)?ttlRoas.toFixed(0)+'%':'-'}</td>
       </tr>`;
+      return dayRows+ttlRow;
     }).join('');
   };
-  window.crmSet=function(i,k,v){ if(!window.crmData[i])return; const nums=['cost','send','open','click','purchase','value']; window.crmData[i][k]=nums.includes(k)?toNum(v):v; crmSave(); crmRender(); };
+  window.crmSet=function(i,k,v){ if(!window.crmData[i])return; crmNormalizeRow(window.crmData[i]); const nums=['cost','send']; window.crmData[i][k]=nums.includes(k)?toNum(v):v; crmSave(); crmRender(); };
+  window.crmSetDaily=function(i,di,k,v){ if(!window.crmData[i])return; const r=crmNormalizeRow(window.crmData[i]); if(!r.daily[di])return; r.daily[di][k]=toNum(v); crmSave(); crmRender(); };
   window.crmDelete=function(i){ imcOpenDeleteConfirm(function(){ window.crmData.splice(i,1); crmSave(); crmRender(); }); };
   window.crmSetMonth=function(m,btn){ crmFilterMonth=m; document.querySelectorAll('#crm-month-btns .ff-mbtn').forEach(b=>b.classList.remove('active')); if(btn)btn.classList.add('active'); crmRender(); };
   window.crmSetPlatform=function(p,btn){ crmFilterPlatform=p; document.querySelectorAll('#crm-platform-btns .ov-pbtn').forEach(b=>b.classList.remove('active')); if(btn)btn.classList.add('active'); crmRender(); };
@@ -11908,6 +12067,409 @@ if(document.readyState==='loading'){
   window.switchMain=function(t){ if(prevSwitch) prevSwitch(t); if(t==='crm') crmInit(); if(t==='overview') setTimeout(function(){ if(_ovCurrentSub==='promo') ovBuildPromoChart(); if(_ovCurrentSub==='item') ovBuildItemTable(); },80); };
 
   document.addEventListener('DOMContentLoaded',function(){ setTimeout(function(){ buildCrmFilters(); },400); });
+})();
+</script>
+
+
+<!-- PATCH: List tab dropdown viewport positioning / no table clipping -->
+<style id="list-dropdown-viewport-fix-style">
+  #list-dc-select-popup{
+    position:fixed;
+    z-index:80000;
+    min-width:120px;
+    max-width:260px;
+    max-height:min(320px, calc(100vh - 16px));
+    overflow-y:auto;
+    padding:6px;
+    border-radius:13px;
+    background:var(--color-background-primary);
+    border:0.5px solid var(--color-border-secondary);
+    box-shadow:0 12px 32px rgba(0,0,0,.20);
+    animation:listDdIn .12s ease-out;
+  }
+  #list-dc-select-popup .list-float-item{
+    display:block;
+    width:100%;
+    border:none;
+    outline:none;
+    text-align:left;
+    padding:7px 11px;
+    border-radius:8px;
+    font-size:11px;
+    font-weight:600;
+    line-height:1.2;
+    cursor:pointer;
+    margin:3px 0;
+    font-family:inherit;
+    white-space:nowrap;
+    color:var(--color-text-primary);
+    background:var(--color-background-secondary);
+  }
+  #list-dc-select-popup .list-float-item:hover{filter:brightness(.985);transform:translateX(1px);}
+  #list-dc-select-popup .list-float-item.selected{box-shadow:inset 0 0 0 1.5px currentColor;}
+</style>
+<script id="list-dropdown-viewport-fix-script">
+(function(){
+  'use strict';
+
+  const originalDcStartSel = window.dcStartSel;
+
+  function closeListDcPopup(){
+    const old=document.getElementById('list-dc-select-popup');
+    if(old) old.remove();
+    if(window.__listDcPopupCleanup){
+      window.__listDcPopupCleanup();
+      window.__listDcPopupCleanup=null;
+    }
+  }
+
+  function positionListDcPopup(popup, anchor){
+    const rect=anchor.getBoundingClientRect();
+    const margin=8;
+    const desiredWidth=Math.max(rect.width, 120);
+    popup.style.minWidth=desiredWidth+'px';
+
+    let left=rect.left;
+    const maxLeft=window.innerWidth - popup.offsetWidth - margin;
+    left=Math.max(margin, Math.min(left, maxLeft));
+
+    const belowTop=rect.bottom+4;
+    const aboveTop=rect.top-popup.offsetHeight-4;
+    const fitsBelow=belowTop+popup.offsetHeight <= window.innerHeight-margin;
+    const top=fitsBelow ? belowTop : Math.max(margin, aboveTop);
+
+    popup.style.left=left+'px';
+    popup.style.top=top+'px';
+  }
+
+  function listDcStartSel(span, opts, curVal, onSave){
+    if(!span || !span.closest || !span.closest('#pg-list')){
+      if(typeof originalDcStartSel === 'function') return originalDcStartSel(span, opts, curVal, onSave);
+      return;
+    }
+
+    closeListDcPopup();
+
+    const popup=document.createElement('div');
+    popup.id='list-dc-select-popup';
+
+    (opts||[]).forEach(function(opt){
+      const item=document.createElement('button');
+      item.type='button';
+      item.className='list-float-item' + (opt===curVal ? ' selected' : '');
+      item.textContent=opt;
+      item.onclick=function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        span.textContent=opt || '-';
+        closeListDcPopup();
+        try { eval(onSave.replace('__VAL__', JSON.stringify(opt))); } catch(err) { console.error(err); }
+      };
+      popup.appendChild(item);
+    });
+
+    document.body.appendChild(popup);
+    positionListDcPopup(popup, span);
+
+    function onOutside(e){
+      if(!popup.contains(e.target) && e.target!==span) closeListDcPopup();
+    }
+    function onReposition(){
+      if(document.body.contains(popup)) positionListDcPopup(popup, span);
+    }
+    function onKey(e){
+      if(e.key==='Escape') closeListDcPopup();
+    }
+
+    setTimeout(function(){document.addEventListener('mousedown', onOutside);}, 0);
+    window.addEventListener('resize', onReposition, true);
+    window.addEventListener('scroll', onReposition, true);
+    document.addEventListener('keydown', onKey);
+
+    window.__listDcPopupCleanup=function(){
+      document.removeEventListener('mousedown', onOutside);
+      window.removeEventListener('resize', onReposition, true);
+      window.removeEventListener('scroll', onReposition, true);
+      document.removeEventListener('keydown', onKey);
+    };
+  }
+
+  window.dcStartSel = listDcStartSel;
+})();
+</script>
+
+
+<!-- CHOI PATCH V70: Organic inline cell edit + TTL summary + reordered columns -->
+<style id="organic-v70-inline-ttl-style">
+  #pg-organic .org-table-v9 .org-inline-input{
+    width:100%!important;
+    min-width:0!important;
+    height:22px!important;
+    max-height:22px!important;
+    margin:0!important;
+    padding:2px 6px!important;
+    border:1px solid #185FA5!important;
+    border-radius:6px!important;
+    background:var(--color-background-primary)!important;
+    color:var(--color-text-primary)!important;
+    font-size:11px!important;
+    line-height:18px!important;
+    outline:none!important;
+    box-shadow:0 0 0 2px rgba(24,95,165,.10)!important;
+    box-sizing:border-box!important;
+    display:block!important;
+    vertical-align:middle!important;
+  }
+  #pg-organic .org-table-v9 .org-metric-cell,
+  #pg-organic .org-table-v9 .org-edit-text-cell{
+    cursor:text;
+    border-radius:6px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:flex-end;
+    height:22px;
+    max-height:22px;
+    line-height:18px;
+    min-width:46px;
+    max-width:180px;
+    padding:2px 6px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    vertical-align:middle;
+    box-sizing:border-box;
+  }
+  #pg-organic .org-table-v9 .org-edit-text-cell{min-width:72px;text-align:left;white-space:nowrap;justify-content:flex-start;}
+  #pg-organic .org-table-v9 td:has(.org-inline-input){
+    height:34px!important;
+    max-height:34px!important;
+    overflow:hidden!important;
+  }
+  #pg-organic .org-table-v9 .org-metric-cell:hover,
+  #pg-organic .org-table-v9 .org-edit-text-cell:hover{background:rgba(24,95,165,.08);}
+  #pg-organic .org-table-v9 .org-ttl-row td{
+    background:#EAF3DE!important;
+    color:#3B6D11!important;
+    font-weight:700!important;
+    border-top:2px solid #BBD7A2!important;
+  }
+  #pg-organic .org-table-v9 .org-ttl-label{
+    text-align:center!important;
+    letter-spacing:.04em;
+  }
+</style>
+<script id="organic-v70-inline-ttl-script">
+(function(){
+  function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function toNum(v){const n=Number(String(v||'').replace(/[^0-9.-]/g,''));return isNaN(n)?0:n;}
+  function fmtNum(v){const n=toNum(v);return n?Math.round(n).toLocaleString('ko-KR'):'-';}
+  function fmtWon(v){const n=toNum(v);return n?'₩'+Math.round(n).toLocaleString('ko-KR'):'-';}
+  function fmtDateKor(s){if(!s)return '-';const d=new Date(s);if(isNaN(d.getTime()))return s;return (d.getMonth()+1)+'월 '+d.getDate()+'일';}
+  function addDate(s,offset){if(!s)return '';const d=new Date(s);if(isNaN(d.getTime()))return '';d.setDate(d.getDate()+offset);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function autoColor(name){const m=String(name||'').match(/\(([^)]+)\)/);return m?m[1].trim():'';}
+  function fmtFollowers(v){const raw=String(v||'').trim();if(!raw)return '-';if(/[kKmM]$/.test(raw))return raw.toUpperCase();const n=toNum(raw);if(!n)return raw;if(n>=1000000)return (n/1000000).toFixed(1).replace(/\.0$/,'')+'M';if(n>=1000)return (n/1000).toFixed(1).replace(/\.0$/,'')+'K';return String(Math.round(n));}
+  const COLOR={
+    neutral:{bg:'#F3F4F6',color:'#6B7280'},
+    source:{'자동':{bg:'#DBEAFE',color:'#1E40AF'},'직접':{bg:'#ECFDF5',color:'#065F46'},'선택':{bg:'#F3F4F6',color:'#6B7280'}},
+    ch:{Instagram:{bg:'#FCE7F3',color:'#9D174D'},Youtube:{bg:'#FEE2E2',color:'#991B1B'},Tiktok:{bg:'#F3F4F6',color:'#111827'},X:{bg:'#DBEAFE',color:'#1E40AF'},Blog:{bg:'#FEF3C7',color:'#92400E'},'선택':{bg:'#F3F4F6',color:'#6B7280'}},
+    ct:{'피드':{bg:'#EDE9FE',color:'#5B21B6'},'릴스':{bg:'#DBEAFE',color:'#1E40AF'},'롱폼':{bg:'#FEE2E2',color:'#991B1B'},'쇼츠':{bg:'#ECFDF5',color:'#065F46'},'게시글':{bg:'#FEF3C7',color:'#92400E'},'선택':{bg:'#F3F4F6',color:'#6B7280'}},
+    platform:{'무신사':{bg:'#F3F4F6',color:'#111827'},'29CM':{bg:'#EEF2FF',color:'#3730A3'},'자사몰':{bg:'#ECFDF5',color:'#065F46'},'Offline':{bg:'#FEF3C7',color:'#92400E'},'선택':{bg:'#F3F4F6',color:'#6B7280'}}
+  };
+  function pill(txt,group){txt=txt||'선택';const c=(COLOR[group]&&COLOR[group][txt])||COLOR.neutral;return '<span class="org-pill" style="background:'+c.bg+';color:'+c.color+';">'+esc(txt)+'</span>';}
+  function normalizeOrganicItem(r){
+    r.date=r.date||r.uploadDate||r.collectDate||'';
+    r.source=r.source||r.src||'직접';
+    r.handle=r.handle||r.account||r.name||'';
+    r.contentType=r.contentType||r.type||'선택';
+    r.ch=r.ch||r.channel||'선택';
+    r.link=r.link||r.url||'';
+    r.products=(r.products&&r.products.length)?r.products:[{platform:r.platform||'무신사',product:r.product||r.productTag||'',color:r.color||autoColor(r.product||r.productTag||''),metrics:{}}];
+    r.products.forEach(p=>{p.platform=p.platform||'무신사';p.product=p.product||p.name||'';p.color=p.color||autoColor(p.product);if(!p.metrics)p.metrics={};});
+    return r;
+  }
+  function filteredOrganic(){
+    const data=(window.organicData||[]).map(normalizeOrganicItem);
+    const m=window._orgMonth||'all', ch=window._orgCh||'all', src=window._orgSrc||'all';
+    return data.filter(r=>{
+      if(m!=='all'){
+        const d=new Date(r.date); if(!isNaN(d.getTime())){
+          const ym=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+          if(String(m).length>2 ? ym!==String(m) : String(d.getMonth()+1)!==String(m)) return false;
+        }
+      }
+      if(ch!=='all'&&r.ch!==ch)return false;
+      if(src!=='all'&&r.source!==src)return false;
+      return true;
+    });
+  }
+  function lookup(date,platform,product){
+    const pools=[window.orgSalesData,window.orgSheetData,window.productDailyData,window.metaSalesRows,window.metaSalesData,window.itemDailyData].filter(Array.isArray);
+    for(const arr of pools){
+      const row=arr.find(x=>String(x.date||x.날짜||x.collectDate||'').slice(0,10)===date && String(x.platform||x.플랫폼||'')===String(platform||'') && String(x.product||x.productName||x.상품명||x.name||'')===String(product||''));
+      if(row)return {productLike:row.productLike||row.상품좋아요||row.likes||row.좋아요||'',sales:row.sales||row.판매수량||row.qty||row.quantity||'',revenue:row.revenue||row.매출||row.salesAmount||row.amount||'',total:row.total||row.총매출||row.totalRevenue||''};
+    }
+    return {};
+  }
+  function ensureDaily(r,key){if(!r.orgDaily)r.orgDaily={};if(!r.orgDaily[key])r.orgDaily[key]={views:'',likes:'',comments:''};return r.orgDaily[key];}
+  function ensureProdMetric(prod,key){if(!prod.metrics)prod.metrics={};if(!prod.metrics[key])prod.metrics[key]={productLike:'',sales:'',revenue:'',total:''};return prod.metrics[key];}
+  function platformSpanCount(products,start){const p=(products[start]&&products[start].platform)||'';let n=1;for(let i=start+1;i<products.length;i++){if((products[i].platform||'')!==p)break;n++;}return n;}
+  function isPlatformFirst(products,idx){return idx===0 || (products[idx-1].platform||'')!==(products[idx].platform||'');}
+  function saveOrganic(){if(window.fbSaveBatch)window.fbSaveBatch('organic',window.organicData||[]);}
+  function startInlineEdit(anchor, initial, onSave, money){
+    if(!anchor || anchor.querySelector('input'))return;
+    const oldDisplay=anchor.innerHTML;
+    const raw=(initial==null||initial==='-'?'':String(initial).replace(money?/[^0-9.-]/g:/^$/g,''));
+    const w=Math.max(anchor.offsetWidth, 54);
+    const h=Math.max(anchor.offsetHeight, 22);
+    const td=anchor.closest('td');
+    const tr=anchor.closest('tr');
+    if(td){
+      const th=Math.max(td.offsetHeight, 34);
+      td.style.height=th+'px';
+      td.style.maxHeight=th+'px';
+      td.style.overflow='hidden';
+      td.style.verticalAlign='middle';
+    }
+    if(tr){
+      const rh=Math.max(tr.offsetHeight, 34);
+      tr.style.height=rh+'px';
+      tr.style.maxHeight=rh+'px';
+    }
+    anchor.style.width=w+'px';
+    anchor.style.minWidth=w+'px';
+    anchor.style.height=h+'px';
+    anchor.style.maxHeight=h+'px';
+    anchor.style.display='inline-flex';
+    anchor.style.alignItems='center';
+    anchor.style.overflow='hidden';
+    anchor.style.verticalAlign='middle';
+    anchor.innerHTML='<input class="org-inline-input" value="'+esc(raw)+'">';
+    const input=anchor.querySelector('input');
+    input.focus(); input.select();
+    let done=false;
+    const commit=function(save){
+      if(done)return; done=true;
+      const val=input.value.trim();
+      if(save){ onSave(val); saveOrganic(); if(window.orgRender)window.orgRender(); }
+      else anchor.innerHTML=oldDisplay;
+    };
+    input.addEventListener('keydown',function(e){if(e.key==='Enter')commit(true); if(e.key==='Escape')commit(false);});
+    input.addEventListener('blur',function(){commit(true);});
+  }
+  window.orgV70EditText=function(anchor,idx,field){
+    const r=(window.organicData||[])[idx]; if(!r)return;
+    startInlineEdit(anchor,r[field]||'',function(v){r[field]=v;});
+  };
+  window.orgV70EditProductText=function(anchor,idx,pi,field){
+    const p=(((window.organicData||[])[idx]||{}).products||[])[pi]; if(!p)return;
+    startInlineEdit(anchor,p[field]||'',function(v){p[field]=v;if(field==='product'&&!p.color)p.color=autoColor(v);});
+  };
+  window.orgV8EditDaily=function(idx,key,field){
+    const r=(window.organicData||[])[idx]; if(!r)return;
+    const d=ensureDaily(r,key);
+    const anchor=event&&event.currentTarget?event.currentTarget:null;
+    startInlineEdit(anchor,d[field],function(v){d[field]=toNum(v);});
+  };
+  window.orgV8EditProductMetric=function(idx,pi,key,field){
+    const p=(((window.organicData||[])[idx]||{}).products||[])[pi]; if(!p)return;
+    const m=ensureProdMetric(p,key);
+    const anchor=event&&event.currentTarget?event.currentTarget:null;
+    startInlineEdit(anchor,m[field],function(v){m[field]=toNum(v);},field==='revenue'||field==='total');
+  };
+  window.orgDel=function(idx){
+    const del=function(){window.organicData.splice(idx,1);saveOrganic();if(window.orgRender)window.orgRender();};
+    if(window.imcOpenDeleteConfirm)window.imcOpenDeleteConfirm(del);else if(confirm('삭제하시겠습니까?')&&confirm('진짜로 삭제하시겠습니까?'))del();
+  };
+  window.orgBuildTable=function(){
+    const wrap=document.getElementById('org-list-view'); const tbody=document.getElementById('org-tbody'); if(!wrap||!tbody)return;
+    wrap.style.display=(window._orgView==='list')?'block':'none';
+    const table=wrap.querySelector('table'); if(table) table.className='org-table-v9';
+    const thead=wrap.querySelector('thead');
+    if(thead){thead.innerHTML='<tr><th>업로드일</th><th>출처</th><th>계정명</th><th>채널</th><th class="r">팔로워</th><th>콘텐츠 유형</th><th>플랫폼</th><th>상품명</th><th>컬러</th><th>기준일</th><th class="r">조회수</th><th class="r">좋아요</th><th class="r">댓글</th><th class="r">상품 좋아요</th><th class="r">판매 수량</th><th class="r">매출</th><th class="r">매출 증감</th><th class="r">총 매출</th><th class="r">매출 비중</th><th>액션</th></tr>';}
+    const list=filteredOrganic();
+    let html='';
+    list.forEach(r=>{
+      const idx=(window.organicData||[]).indexOf(r);
+      const days=[-1,0,1,2].map(off=>addDate(r.date,off));
+      const products=r.products&&r.products.length?r.products:[{platform:'무신사',product:'',color:'',metrics:{}}];
+      const totalRows=days.length*products.length;
+      const account=r.link?'<a href="'+esc(r.link)+'" target="_blank" class="org-account-link">'+esc(r.handle||'-')+'</a>':'<span class="org-edit-text-cell org-account-text" ondblclick="orgV70EditText(this,'+idx+',\'handle\')">'+esc(r.handle||'-')+'</span>';
+      let commonPrinted=false;
+      const ttl={views:0,likes:0,comments:0,sales:0,revenue:0,total:0};
+      days.forEach((date,di)=>{
+        const dkey='d'+di;
+        const daily=ensureDaily(r,dkey);
+        ttl.views+=toNum(daily.views); ttl.likes+=toNum(daily.likes); ttl.comments+=toNum(daily.comments);
+        const dayRows=products.length;
+        products.forEach((p,pi)=>{
+          const metric=ensureProdMetric(p,dkey);
+          const lk=lookup(date,p.platform,p.product);
+          const productLike=metric.productLike!==''?metric.productLike:(lk.productLike||'');
+          const sales=metric.sales!==''?metric.sales:(lk.sales||'');
+          const revenue=metric.revenue!==''?metric.revenue:(lk.revenue||'');
+          const total=metric.total!==''?metric.total:(lk.total||revenue||'');
+          ttl.sales+=toNum(sales); ttl.revenue+=toNum(revenue); ttl.total+=toNum(total);
+          const prevDate=di>0?days[di-1]:'';
+          const prevKey='d'+(di-1);
+          const prevMetric=di>0?ensureProdMetric(p,prevKey):null;
+          const prevLookup=di>0?lookup(prevDate,p.platform,p.product):{};
+          const prevRevenue=di>0?(prevMetric.revenue!==''?prevMetric.revenue:(prevLookup.revenue||0)):0;
+          const change=di===0?null:(toNum(prevRevenue)>0?((toNum(revenue)-toNum(prevRevenue))/toNum(prevRevenue))*100:null);
+          const share=toNum(total)>0?(toNum(revenue)/toNum(total))*100:null;
+          const rowClass=(di===0&&pi===0)?'org-creator-group-start':((di>0&&pi===0)?'org-day-group-start':(pi>0?'org-product-dotted':''));
+          html+='<tr'+(rowClass?' class="'+rowClass+'"':'')+'>';
+          if(!commonPrinted){
+            html+='<td rowspan="'+totalRows+'" class="org-date-cell org-date-label">'+fmtDateKor(r.date)+'</td>'
+              +'<td rowspan="'+totalRows+'" class="org-dd-cell" data-group="source" ondblclick="orgV8EditField(this,'+idx+',\'source\')">'+pill(r.source,'source')+'</td>'
+              +'<td rowspan="'+totalRows+'" class="l">'+account+'</td>'
+              +'<td rowspan="'+totalRows+'" class="org-dd-cell" data-group="ch" ondblclick="orgV8EditField(this,'+idx+',\'ch\')">'+pill(r.ch,'ch')+'</td>'
+              +'<td rowspan="'+totalRows+'" class="r"><span class="org-edit-text-cell" ondblclick="orgV70EditText(this,'+idx+',\'followers\')">'+fmtFollowers(r.followers)+'</span></td>'
+              +'<td rowspan="'+totalRows+'" class="org-dd-cell" data-group="ct" ondblclick="orgV8EditField(this,'+idx+',\'contentType\')">'+pill(r.contentType,'ct')+'</td>';
+            commonPrinted=true;
+          }
+          if(isPlatformFirst(products,pi)){
+            const span=platformSpanCount(products,pi);
+            html+='<td rowspan="'+span+'" class="org-dd-cell org-platform-merged" data-group="platform" ondblclick="orgV8EditProductPlatform(this,'+idx+','+pi+')">'+pill(p.platform,'platform')+'</td>';
+          }
+          html+='<td class="l"><span class="org-edit-text-cell" ondblclick="orgV70EditProductText(this,'+idx+','+pi+',\'product\')">'+esc(p.product||'-')+'</span></td>'
+            +'<td><span class="org-edit-text-cell" ondblclick="orgV70EditProductText(this,'+idx+','+pi+',\'color\')">'+esc(p.color||autoColor(p.product)||'-')+'</span></td>';
+          if(pi===0){
+            html+='<td rowspan="'+dayRows+'" class="org-date-label">'+fmtDateKor(date)+'</td>'
+              +'<td rowspan="'+dayRows+'" class="r"><span class="org-metric-cell" ondblclick="orgV8EditDaily('+idx+',\''+dkey+'\',\'views\')">'+fmtNum(daily.views)+'</span></td>'
+              +'<td rowspan="'+dayRows+'" class="r"><span class="org-metric-cell" ondblclick="orgV8EditDaily('+idx+',\''+dkey+'\',\'likes\')">'+fmtNum(daily.likes)+'</span></td>'
+              +'<td rowspan="'+dayRows+'" class="r"><span class="org-metric-cell" ondblclick="orgV8EditDaily('+idx+',\''+dkey+'\',\'comments\')">'+fmtNum(daily.comments)+'</span></td>';
+          }
+          html+='<td class="r"><span class="org-metric-cell" ondblclick="orgV8EditProductMetric('+idx+','+pi+',\''+dkey+'\',\'productLike\')">'+fmtNum(productLike)+'</span></td>'
+            +'<td class="r"><span class="org-metric-cell" ondblclick="orgV8EditProductMetric('+idx+','+pi+',\''+dkey+'\',\'sales\')">'+fmtNum(sales)+'</span></td>'
+            +'<td class="r"><span class="org-metric-cell" ondblclick="orgV8EditProductMetric('+idx+','+pi+',\''+dkey+'\',\'revenue\')">'+fmtWon(revenue)+'</span></td>'
+            +'<td class="r" style="color:'+(change==null?'var(--color-text-tertiary)':change>=0?'#2d8c5a':'#c0392b')+';font-weight:600;">'+(change==null?'-':(change>=0?'+':'')+change.toFixed(1)+'%')+'</td>'
+            +'<td class="r"><span class="org-metric-cell" ondblclick="orgV8EditProductMetric('+idx+','+pi+',\''+dkey+'\',\'total\')">'+fmtWon(total)+'</span></td>'
+            +'<td class="r">'+(share==null?'-':share.toFixed(1)+'%')+'</td>';
+          if(di===0&&pi===0) html+='<td rowspan="'+totalRows+'"><button class="org-action-btn" onclick="orgEditRow('+idx+')">수정</button><button class="org-action-btn danger imc-list-delete-btn" onclick="orgDel('+idx+')">삭제</button></td>';
+          html+='</tr>';
+        });
+      });
+      const ttlShare=ttl.total>0?(ttl.revenue/ttl.total)*100:null;
+      html+='<tr class="org-ttl-row"><td colspan="10" class="org-ttl-label">TTL</td>'
+        +'<td class="r">'+fmtNum(ttl.views)+'</td>'
+        +'<td class="r">'+fmtNum(ttl.likes)+'</td>'
+        +'<td class="r">'+fmtNum(ttl.comments)+'</td>'
+        +'<td class="r">-</td>'
+        +'<td class="r">'+fmtNum(ttl.sales)+'</td>'
+        +'<td class="r">'+fmtWon(ttl.revenue)+'</td>'
+        +'<td class="r">-</td>'
+        +'<td class="r">'+fmtWon(ttl.total)+'</td>'
+        +'<td class="r">'+(ttlShare==null?'-':ttlShare.toFixed(1)+'%')+'</td>'
+        +'<td></td></tr>';
+    });
+    tbody.innerHTML=html||'<tr><td colspan="20" style="text-align:center;padding:20px;color:var(--color-text-tertiary);">데이터가 없어요</td></tr>';
+  };
+  const previousRender=window.orgRender;
+  window.orgRender=function(){
+    if(previousRender)previousRender();
+    if(window.orgBuildTable)window.orgBuildTable();
+  };
+  function boot(){if(window.orgRender)window.orgRender();}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(boot,1000));else setTimeout(boot,1000);
 })();
 </script>
 
