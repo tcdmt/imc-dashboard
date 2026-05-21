@@ -14487,5 +14487,351 @@ if(document.readyState==='loading'){
 }
 </style>
 
+
+
+<!-- v77 Overview profit logic patch: requested only -->
+<script id="overview-v77-profit-logic-patch">
+(function(){
+  'use strict';
+
+  function toNum(v){ return Number(String(v ?? '').replace(/[^0-9.-]/g,'')) || 0; }
+  function esc(v){ return String(v ?? '').replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function pct(v, d){ return isFinite(v) ? Number(v).toFixed(d ?? 1) + '%' : '-'; }
+  function money(v){ return v ? fmtOvFullWon(v) : '-'; }
+  function shortMoney(v){ return v ? fmtOvWon(v) : '-'; }
+  function monthIndexFromDate(ds){ const d=new Date(String(ds||'').slice(0,10)); return isNaN(d) ? -1 : d.getMonth(); }
+  function rowVal(row, keys){
+    keys = Array.isArray(keys) ? keys : [keys];
+    if(typeof window.mRawVal === 'function') return window.mRawVal(row, keys);
+    row = row || {};
+    for(const k of keys){ if(row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== '') return row[k]; }
+    return '';
+  }
+  function rowNum(row, keys){
+    keys = Array.isArray(keys) ? keys : [keys];
+    if(typeof window.mRawNum === 'function') return window.mRawNum(row, keys);
+    return toNum(rowVal(row, keys));
+  }
+  function normPlatform(v){
+    const x = String(v||'').trim().toLowerCase().replace(/\s+/g,'');
+    if(!x || x==='전체' || x==='all' || x==='total') return '';
+    if(x==='무신사' || x==='musinsa') return 'musinsa';
+    if(x==='29cm' || x==='29') return '29cm';
+    if(x==='자사몰' || x==='store' || x==='스토어' || x==='store몰') return 'store';
+    if(x==='offline' || x==='오프라인' || x.indexOf('오프')>=0) return 'offline';
+    return x;
+  }
+  function viewPlatformKeys(view){
+    if(!view || view==='total') return ['musinsa','29cm','store','offline'];
+    if(view==='online') return ['musinsa','29cm','store'];
+    if(view==='offline') return ['offline'];
+    if(view==='jasa') return ['store'];
+    if(view==='v29cm') return ['29cm'];
+    if(view==='ss_flagship') return ['offline'];
+    if(String(view).indexOf('multi_')===0){
+      return String(view).replace('multi_','').split('_').map(function(k){ return k==='jasa'?'store':(k==='v29cm'?'29cm':k); });
+    }
+    return [view];
+  }
+  function isViewPlatform(view, platform){
+    const p = normPlatform(platform);
+    const keys = viewPlatformKeys(view).map(normPlatform);
+    return !view || view==='total' || keys.indexOf(p) !== -1;
+  }
+  function salesRows(){ return (window.metaRawSales || (typeof metaRawSales !== 'undefined' ? metaRawSales : []) || []); }
+  function getRowDate(row){ return String(rowVal(row,['날짜','date','Date']) || '').slice(0,10); }
+  function rowPlatform(row){ return normPlatform(rowVal(row,['플랫폼','판매 채널','판매채널'])); }
+  function rowUid(row){ return String(rowVal(row,['UID','uid','Uid']) || '').trim(); }
+  function rowQty(row){ return rowNum(row,['실구매수량','실 구매 수량','실 구매수량','판매수량','판매 수량']); }
+  function rowAmount(row){ return rowNum(row,['실구매금액','실 구매 금액','실 구매금액','판매금액','판매 금액','매출']); }
+  function rowFee(row){
+    const explicit = rowNum(row,['수수료금액','수수료 금액','정산 수수료','수수료','fee_amount','commission_amount']);
+    if(explicit) return explicit;
+    const p = rowPlatform(row), amt = rowAmount(row);
+    if((p==='store' || p==='offline') && amt) return Math.round(amt * 0.035);
+    return 0;
+  }
+  function rowSettlement(row){
+    const explicit = rowNum(row,['정산금액','정산 금액','settlement','settlement_amount']);
+    if(explicit) return explicit;
+    return Math.max(0, rowAmount(row) - rowFee(row));
+  }
+  function productUidByPlatform(product, platform){
+    const p = normPlatform(platform);
+    product = product || {};
+    if(p==='musinsa') return String(product.musinsaUid || product.musinsaUID || product.musinsa_uid || ((normPlatform(product.platform)==='musinsa') ? product.uid : '') || '').trim();
+    if(p==='29cm') return String(product.cmUid || product.cmUID || product.cm_uid || product['29cmUid'] || product['29CMUid'] || product['29CM UID'] || ((normPlatform(product.platform)==='29cm') ? product.uid : '') || '').trim();
+    if(p==='store' || p==='offline') return String(product.storeUid || product.storeUID || product.store_uid || ((normPlatform(product.platform)==='store' || normPlatform(product.platform)==='offline') ? product.uid : '') || '').trim();
+    return String(product.uid || '').trim();
+  }
+  function findProductByPlatformUid(platform, uid){
+    const target = String(uid || '').trim().toLowerCase();
+    if(!target) return null;
+    return (window.products || []).find(function(p){ return productUidByPlatform(p, platform).toLowerCase() === target; }) || null;
+  }
+  function rowCost(row){
+    const qty = rowQty(row);
+    const p = rowPlatform(row);
+    const uid = rowUid(row);
+    const byUid = findProductByPlatformUid(p, uid);
+    if(byUid) return toNum(byUid.cost) * qty;
+    const code = String(rowVal(row,['상품 코드','상품코드']) || '').trim();
+    const name = String(rowVal(row,['상품명','제품명']) || '').trim();
+    const fallback = (window.products || []).find(function(item){
+      return (code && String(item.code||'').trim()===code) || (name && String(item.name||'').trim()===name);
+    });
+    return fallback ? toNum(fallback.cost) * qty : 0;
+  }
+  function salesSummary(view, monthIndex){
+    const out = {sales:0, fee:0, settlement:0, cost:0, qty:0};
+    salesRows().forEach(function(row){
+      const mi = monthIndexFromDate(getRowDate(row));
+      if(mi < 0) return;
+      if(monthIndex !== undefined && monthIndex !== null && mi !== monthIndex) return;
+      if(!isViewPlatform(view, rowPlatform(row))) return;
+      const amt = rowAmount(row);
+      out.sales += amt;
+      out.fee += rowFee(row);
+      out.settlement += rowSettlement(row);
+      out.cost += rowCost(row);
+      out.qty += rowQty(row);
+    });
+    return out;
+  }
+  function salesMonthly(view){
+    const arr = Array(12).fill(0);
+    salesRows().forEach(function(row){
+      const mi = monthIndexFromDate(getRowDate(row));
+      if(mi < 0 || !isViewPlatform(view, rowPlatform(row))) return;
+      arr[mi] += rowAmount(row);
+    });
+    return arr;
+  }
+  function fallbackSalesMonthly(view){
+    if(String(view||'').indexOf('multi_')===0){
+      const keys = String(view).replace('multi_','').split('_');
+      const result = Array(12).fill(0);
+      keys.forEach(function(k){
+        const kk = k==='v29cm' ? '29cm' : k;
+        const arr = OV_DATA[kk] || [];
+        arr.forEach(function(v,i){ result[i] += v || 0; });
+      });
+      return result;
+    }
+    const key = view==='v29cm' ? '29cm' : view;
+    return (OV_DATA[key] || OV_DATA.total || Array(12).fill(0)).slice();
+  }
+  window.ovGetSales = ovGetSales = function(view){
+    const rows = salesRows();
+    if(rows && rows.length) return salesMonthly(view || 'total');
+    return fallbackSalesMonthly(view || 'total');
+  };
+
+  function budgetFrame(){ return document.getElementById('budget-module-frame')?.contentWindow || null; }
+  function getBudgetDailySpend(){
+    try{ const fr=budgetFrame(); if(fr && typeof fr.__getDailySpend === 'function') return fr.__getDailySpend() || {}; }catch(e){}
+    return window.__budgetDailySpend || {};
+  }
+  function newMktObj(){ return {meta:0,paid:0,crm:0,if:0,em:0,misc:0,online:0,offline:0}; }
+  function addMkt(obj, bucket, val){
+    val = toNum(val); if(!val) return;
+    obj[bucket] = (obj[bucket]||0) + val;
+  }
+  function classifyBudgetKey(key){
+    const k = String(key||'').toLowerCase();
+    if(k.indexOf('crm') === 0) return null; // CRM 비용은 Daily Spend가 아니라 CRM 탭 기준으로만 집계
+    const isOffline = k.indexOf('offline') >= 0 || k.indexOf('오프') >= 0;
+    let type = 'misc';
+    if(k.indexOf('meta') === 0) type = 'meta';
+    else if(k.indexOf('paid') === 0) type = 'paid';
+    else if(k.indexOf('influencer') === 0) type = 'if';
+    else if(k.indexOf('earned') === 0) type = 'em';
+    return {type:type, channel:isOffline ? 'offline' : 'online'};
+  }
+  function crmMonthAndChannel(row){
+    const ds = String(row.date || row.sendDate || row.sentDate || row['발송 일자'] || '').slice(0,10);
+    const mi = monthIndexFromDate(ds);
+    if(mi < 0) return null;
+    const ch = normPlatform(row.platform || row['플랫폼']) === 'offline' ? 'offline' : 'online';
+    return {mi:mi, channel:ch};
+  }
+  window.ovGetMktCosts = ovGetMktCosts = function(){
+    const result = Array(12).fill(0).map(newMktObj);
+    const daily = getBudgetDailySpend();
+    Object.keys(daily || {}).forEach(function(ds){
+      const mi = monthIndexFromDate(ds); if(mi < 0) return;
+      const obj = daily[ds] || {};
+      Object.keys(obj).forEach(function(k){
+        const info = classifyBudgetKey(k); if(!info) return;
+        const val = toNum(obj[k]); if(!val) return;
+        addMkt(result[mi], info.type, val);
+        addMkt(result[mi], info.channel, val);
+      });
+    });
+    (window.crmData || []).forEach(function(row){
+      const info = crmMonthAndChannel(row); if(!info) return;
+      const val = toNum(row.cost || row['발송 비용'] || row['비용']); if(!val) return;
+      addMkt(result[info.mi], 'crm', val);
+      addMkt(result[info.mi], info.channel, val);
+    });
+    return result;
+  };
+  function mktTotal(r){ return (r.meta||0)+(r.paid||0)+(r.crm||0)+(r.if||0)+(r.em||0)+(r.misc||0); }
+  function mktForView(r, view){
+    if(view==='offline' || view==='ss_flagship') return r.offline || 0;
+    if(view==='online' || ['musinsa','v29cm','29cm','jasa','store'].indexOf(view) >= 0) return r.online || 0;
+    return mktTotal(r);
+  }
+  function ytdMonths(){ return new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Seoul'})).getMonth(); }
+  function updateOverviewLabels(){
+    const roiLabel = document.querySelector('#ov-roi')?.closest('.ov-card')?.querySelector('.ov-card-label');
+    const roiSub = document.querySelector('#ov-roi')?.closest('.ov-card')?.querySelector('.ov-card-sub');
+    if(roiLabel) roiLabel.textContent = '마케팅 이익률';
+    if(roiSub) roiSub.textContent = '(정산금액 - 원가 - 마케팅비) / 실매출';
+    const mktSub = document.getElementById('ov-mkt-sub');
+    if(mktSub) mktSub.textContent = 'Daily Spend + CRM 탭 기준';
+    document.querySelectorAll('th').forEach(function(th){
+      if((th.textContent||'').trim()==='ROI') th.textContent='마케팅 이익률';
+      if((th.textContent||'').trim()==='이익율') th.textContent='마케팅 이익률';
+    });
+  }
+  window.ovUpdateKPI = ovUpdateKPI = function(view){
+    view = view || 'total';
+    const mktCosts = ovGetMktCosts();
+    const curM = ytdMonths();
+    let ytd = {sales:0, fee:0, settlement:0, cost:0};
+    for(let i=0;i<=curM;i++){
+      const s = salesRows().length ? salesSummary(view, i) : {sales:(ovGetSales(view)[i]||0), fee:0, settlement:(ovGetSales(view)[i]||0), cost:0};
+      ytd.sales += s.sales; ytd.fee += s.fee; ytd.settlement += s.settlement; ytd.cost += s.cost;
+    }
+    const ytdTargets = (OV_DATA.targets||[]).slice(0,curM+1).reduce(function(a,b){return a+(b||0);},0);
+    const ytdMkt = mktCosts.slice(0,curM+1).reduce(function(a,r){ return a + mktForView(r, view); },0);
+    const mktRatio = ytd.sales>0 ? (ytdMkt/ytd.sales*100) : NaN;
+    const ach = ytdTargets>0 ? (ytd.sales/ytdTargets*100) : NaN;
+    const marketingProfit = ytd.settlement - ytd.cost - ytdMkt;
+    const marketingProfitRate = ytd.sales>0 ? (marketingProfit/ytd.sales*100) : NaN;
+    const s = function(id){ return document.getElementById(id); };
+    updateOverviewLabels();
+    if(s('ov-ytd-sales')) s('ov-ytd-sales').textContent = money(ytd.sales);
+    if(s('ov-ytd-sub')) s('ov-ytd-sub').textContent = 'YTD · 목표 ' + shortMoney(ytdTargets);
+    if(s('ov-mkt-cost')) s('ov-mkt-cost').textContent = money(ytdMkt);
+    if(s('ov-mkt-ratio')){ s('ov-mkt-ratio').textContent = pct(mktRatio,1); s('ov-mkt-ratio').style.color = mktRatio>20?'#c0392b':mktRatio>15?'#d97706':'#2d8c5a'; }
+    if(s('ov-roi')){ s('ov-roi').textContent = pct(marketingProfitRate,1); s('ov-roi').style.color = marketingProfitRate>=0?'#2d8c5a':'#c0392b'; }
+    if(s('ov-ytd-ach')){ s('ov-ytd-ach').textContent = pct(ach,1); s('ov-ytd-ach').style.color = ach>=100?'#2d8c5a':ach>=80?'#d97706':'#c0392b'; }
+    if(s('ov-ytd-ach-sub')) s('ov-ytd-ach-sub').textContent = ytdTargets ? (ytd.sales>=ytdTargets?'목표 초과 달성 🎉':'목표까지 '+shortMoney(ytdTargets-ytd.sales)) : '-';
+  };
+
+  window.ovBuildMonthlyMergedTable = ovBuildMonthlyMergedTable = function(view){
+    const targets = OV_DATA.targets || [], mktCosts = ovGetMktCosts();
+    const tbody = document.getElementById('ov-mkt-tbody'); if(!tbody) return;
+    const curM = ytdMonths();
+    tbody.innerHTML = OV_MONTHS.map(function(m,i){
+      const ss = salesRows().length ? salesSummary(view, i) : {sales:(ovGetSales(view)[i]||0), fee:0, settlement:(ovGetSales(view)[i]||0), cost:0};
+      if(i>curM && !ss.sales) return '';
+      const total = mktForView(mktCosts[i], view);
+      const marketingProfit = ss.settlement - ss.cost - total;
+      const rate = ss.sales>0 ? marketingProfit/ss.sales*100 : NaN;
+      const ratio = ss.sales>0 ? total/ss.sales*100 : NaN;
+      const target = targets[i] || 0;
+      const ach = target>0 ? ss.sales/target*100 : NaN;
+      const diff = ss.sales - target;
+      const achColor = ach>=100?'#2d8c5a':ach>=80?'#d97706':'#c0392b';
+      return `<tr style="border-bottom:0.5px solid var(--color-border-tertiary);">
+        <td style="padding:6px 8px;font-weight:500;">${m}</td>
+        <td style="padding:6px 8px;text-align:right;">${mktCosts[i].meta>0?fmtOvWon(mktCosts[i].meta):'-'}</td>
+        <td style="padding:6px 8px;text-align:right;">${mktCosts[i].paid>0?fmtOvWon(mktCosts[i].paid):'-'}</td>
+        <td style="padding:6px 8px;text-align:right;">${mktCosts[i].crm>0?fmtOvWon(mktCosts[i].crm):'-'}</td>
+        <td style="padding:6px 8px;text-align:right;">${mktCosts[i].if>0?fmtOvWon(mktCosts[i].if):'-'}</td>
+        <td style="padding:6px 8px;text-align:right;">${mktCosts[i].em>0?fmtOvWon(mktCosts[i].em):'-'}</td>
+        <td style="padding:6px 8px;text-align:right;">${mktCosts[i].misc>0?fmtOvWon(mktCosts[i].misc):'-'}</td>
+        <td style="padding:6px 8px;text-align:right;font-weight:600;">${total>0?fmtOvWon(total):'-'}</td>
+        <td style="padding:6px 8px;text-align:right;color:var(--color-text-secondary);">${shortMoney(target)}</td>
+        <td style="padding:6px 8px;text-align:right;font-weight:500;">${shortMoney(ss.sales)}</td>
+        <td style="padding:6px 8px;text-align:right;">${pct(ratio,1)}</td>
+        <td style="padding:6px 8px;text-align:right;color:${rate>=0?'#2d8c5a':'#c0392b'};">${pct(rate,1)}</td>
+        <td style="padding:6px 8px;text-align:right;color:${achColor};font-weight:600;">${pct(ach,1)}</td>
+        <td style="padding:6px 8px;text-align:right;color:${diff>=0?'#2d8c5a':'#c0392b'};">${diff>=0?'+':' '}${shortMoney(Math.abs(diff))}</td>
+      </tr>`;
+    }).join('');
+  };
+
+  function channelNameForKey(key){ return key==='musinsa'?'무신사':key==='29cm'?'29CM':key==='store'?'자사몰':key==='offline'?'오프라인':'전체'; }
+  function channelViewForKey(key){ return key==='store'?'jasa':key==='29cm'?'v29cm':key==='offline'?'offline':key; }
+  window.ovBuildChannelMonthlyTable = ovBuildChannelMonthlyTable = function(cat){
+    const tbody = document.getElementById('ov-channel-monthly-tbody'); if(!tbody) return;
+    const mktCosts = ovGetMktCosts();
+    const curM = ytdMonths();
+    const keys = cat==='online' ? ['musinsa','29cm','store'] : cat==='offline' ? ['offline'] : ['musinsa','29cm','store','offline'];
+    const monthCells = function(view){
+      const arr = ovGetSales(view);
+      return Array(12).fill(0).map(function(_,i){ return i<=curM && arr[i]>0 ? `<td style="padding:5px 8px;text-align:right;font-size:11px;">${fmtOvShort(arr[i])}원</td>` : `<td style="padding:5px 8px;text-align:right;color:var(--color-text-tertiary);font-size:11px;">-</td>`; }).join('');
+    };
+    const detailCells = function(view){
+      let sum={sales:0,fee:0,settlement:0,cost:0};
+      for(let i=0;i<=curM;i++){ const s=salesRows().length?salesSummary(view,i):{sales:(ovGetSales(view)[i]||0),fee:0,settlement:(ovGetSales(view)[i]||0),cost:0}; sum.sales+=s.sales; sum.fee+=s.fee; sum.settlement+=s.settlement; sum.cost+=s.cost; }
+      const target=(OV_DATA.targets||[]).slice(0,curM+1).reduce(function(a,b){return a+(b||0);},0);
+      const mkt=mktCosts.slice(0,curM+1).reduce(function(a,r){return a+mktForView(r, view);},0);
+      const ach=target>0?sum.sales/target*100:NaN;
+      const mktRatio=sum.sales>0?mkt/sum.sales*100:NaN;
+      const profit=sum.settlement-sum.cost-mkt;
+      const salesRate=sum.sales>0?profit/sum.sales*100:NaN;
+      const settleRate=sum.settlement>0?profit/sum.settlement*100:NaN;
+      const roas=mkt>0?sum.sales/mkt*100:NaN;
+      return `<td style="padding:5px 8px;text-align:right;font-weight:600;background:#EFF6FF;font-size:11px;">${fmtOvShort(sum.sales)}원</td>
+        <td style="padding:5px 8px;text-align:right;background:#EFF6FF;font-size:11px;">${fmtOvShort(target)}원</td>
+        <td style="padding:5px 8px;text-align:right;background:#EFF6FF;font-size:11px;color:${ach>=100?'#2d8c5a':'#c0392b'};">${pct(ach,1)}</td>
+        <td style="padding:5px 8px;text-align:right;background:#EFF6FF;font-size:11px;">${fmtOvShort(sum.fee)}원</td>
+        <td style="padding:5px 8px;text-align:right;background:#EFF6FF;font-size:11px;">${fmtOvShort(sum.settlement)}원</td>
+        <td style="padding:5px 8px;text-align:right;background:#EFF6FF;font-size:11px;">${fmtOvShort(sum.cost)}원</td>
+        <td style="padding:5px 8px;text-align:right;background:#EFF6FF;font-size:11px;">${fmtOvShort(mkt)}원</td>
+        <td style="padding:5px 8px;text-align:right;background:#EFF6FF;font-size:11px;">${pct(mktRatio,1)}</td>
+        <td style="padding:5px 8px;text-align:right;background:#EFF6FF;font-size:11px;color:${salesRate>=0?'#2d8c5a':'#c0392b'};">${pct(salesRate,1)}</td>
+        <td style="padding:5px 8px;text-align:right;background:#EFF6FF;font-size:11px;color:${settleRate>=0?'#2d8c5a':'#c0392b'};">${pct(settleRate,1)}</td>
+        <td style="padding:5px 8px;text-align:right;background:#EFF6FF;font-size:11px;">${pct(roas,0)}</td>`;
+    };
+    const rows = keys.map(function(key){
+      const view = channelViewForKey(key);
+      return `<tr style="border-bottom:0.5px solid var(--color-border-tertiary);">
+        <td style="padding:5px 8px;font-weight:700;font-size:11px;color:var(--color-text-primary);">TCM</td>
+        <td style="padding:5px 8px;font-size:11px;">${channelNameForKey(key)}</td>
+        ${monthCells(view)}${detailCells(view)}
+      </tr>`;
+    }).join('');
+    const totalView = cat==='online' ? 'online' : cat==='offline' ? 'offline' : 'total';
+    tbody.innerHTML = rows + `<tr style="background:var(--color-background-secondary);font-weight:700;border-top:1.5px solid var(--color-border-secondary);"><td style="padding:6px 8px;font-size:11px;" colspan="2">합계</td>${monthCells(totalView)}${detailCells(totalView)}</tr>`;
+    const head = document.querySelector('#ov-channel-monthly-table thead tr');
+    if(head && !head.__v77ProfitHeader){
+      Array.from(head.children).slice(14).forEach(function(th){ th.remove(); });
+      ['누적실적','목표 매출','달성률','수수료','정산금액','원가','마케팅 비용','마케팅비중','매출 기준 이익률','정산 기준 이익률','ROAS'].forEach(function(label){
+        const th=document.createElement('th'); th.textContent=label; th.style.cssText='padding:6px 8px;text-align:right;color:var(--color-text-tertiary);background:#EFF6FF;'; head.appendChild(th);
+      });
+      head.__v77ProfitHeader = true;
+    }
+  };
+
+  function patchMetaLoad(fnName){
+    const old = window[fnName];
+    if(typeof old !== 'function' || old.__v77ProfitPatched) return;
+    window[fnName] = async function(){
+      const ret = await old.apply(this, arguments);
+      if(window.ovRender) window.ovRender(window._ovCurrentView || 'total');
+      return ret;
+    };
+    window[fnName].__v77ProfitPatched = true;
+  }
+  function boot(){
+    updateOverviewLabels();
+    patchMetaLoad('loadMetaFromSheets');
+    patchMetaLoad('refreshMetaFromSheets');
+    patchMetaLoad('loadUnifiedSheets');
+    patchMetaLoad('refreshUnifiedSheets');
+    if(window.ovRender) window.ovRender(window._ovCurrentView || 'total');
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(boot,0); });
+  else setTimeout(boot,0);
+  window.addEventListener('load', function(){ setTimeout(boot,200); });
+})();
+</script>
+
 </body>
 </html>
