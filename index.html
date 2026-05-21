@@ -14997,6 +14997,206 @@ if(document.readyState==='loading'){
 
 
 
+<!-- v78 Overview Annual offline sales patch: requested only -->
+<script id="overview-v78-annual-offline-sales-patch">
+(function(){
+  'use strict';
+
+  function toNum(v){ return Number(String(v ?? '').replace(/[^0-9.-]/g,'')) || 0; }
+  function rowVal(row, keys){
+    keys = Array.isArray(keys) ? keys : [keys];
+    if(typeof window.mRawVal === 'function') return window.mRawVal(row, keys);
+    row = row || {};
+    for(var i=0;i<keys.length;i++){
+      var k = keys[i];
+      if(row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== '') return row[k];
+    }
+    return '';
+  }
+  function rowNum(row, keys){
+    keys = Array.isArray(keys) ? keys : [keys];
+    if(typeof window.mRawNum === 'function') return window.mRawNum(row, keys);
+    return toNum(rowVal(row, keys));
+  }
+  function salesRows(){ return (window.metaRawSales || (typeof metaRawSales !== 'undefined' ? metaRawSales : []) || []); }
+  function norm(v){ return String(v || '').trim().toLowerCase().replace(/\s+/g,''); }
+  function normGroup(v){
+    var x = norm(v);
+    if(x === '온라인' || x === 'online') return 'online';
+    if(x === '오프라인' || x === 'offline') return 'offline';
+    return '';
+  }
+  function basePlatform(v){
+    var x = norm(v);
+    if(!x || x === '전체' || x === 'all' || x === 'total') return '';
+    if(x === '무신사' || x === 'musinsa') return 'musinsa';
+    if(x === '29cm' || x === '29') return '29cm';
+    if(x === '자사몰' || x === 'store' || x === '스토어' || x === 'store몰') return 'store';
+    if(x === 'offline' || x === '오프라인') return 'offline';
+    return x;
+  }
+  function rowGroup(row){ return normGroup(rowVal(row, ['구분','플랫폼 구분','채널 구분','온라인/오프라인'])); }
+  function rowPlatformRaw(row){ return String(rowVal(row, ['플랫폼','판매 플랫폼','판매 채널','판매채널','채널']) || '').trim(); }
+  function rowPlatformKey(row){
+    if(window.__ovPlatformKeyForRow){
+      var k = window.__ovPlatformKeyForRow(row);
+      if(k) return k;
+    }
+    var raw = rowPlatformRaw(row);
+    var base = basePlatform(raw);
+    if(base === 'musinsa' || base === '29cm' || base === 'store' || base === 'offline') return base;
+    if(!raw) return '';
+    return 'pl_' + encodeURIComponent(raw).replace(/%/g,'_');
+  }
+  function normalizeViewKey(k){
+    k = String(k || '');
+    if(k === 'jasa') return 'store';
+    if(k === 'v29cm') return '29cm';
+    if(k === 'ss_flagship') return 'offline';
+    return k;
+  }
+  function isOnlineKey(k){ return ['musinsa','29cm','store','jasa','v29cm'].indexOf(String(k || '')) !== -1; }
+  function isRowInView(view, row){
+    view = String(view || 'total');
+    if(view === 'total') return true;
+    if(view.indexOf('multi_') === 0){
+      return view.replace('multi_','').split('_').filter(Boolean).some(function(v){ return isRowInView(v, row); });
+    }
+    var group = rowGroup(row);
+    var key = rowPlatformKey(row);
+    var rawBase = basePlatform(rowPlatformRaw(row));
+    var v = normalizeViewKey(view);
+
+    if(view === 'online'){
+      if(group) return group === 'online';
+      return isOnlineKey(key) || isOnlineKey(rawBase);
+    }
+    if(view === 'offline'){
+      if(group) return group === 'offline';
+      return !isOnlineKey(key) && !isOnlineKey(rawBase);
+    }
+    if(view === 'ss_flagship'){
+      var raw = norm(rowPlatformRaw(row));
+      return group === 'offline' && (raw.indexOf('성수') >= 0 || raw.indexOf('flagship') >= 0 || raw.indexOf('플래그십') >= 0);
+    }
+    return normalizeViewKey(key) === v || normalizeViewKey(rawBase) === v;
+  }
+  function monthIndex(row){
+    var raw = String(rowVal(row, ['날짜','date','Date','주문일','결제일','판매일','일자']) || '').trim();
+    if(!raw) return -1;
+    var m = raw.match(/(20\d{2})[^0-9]?(\d{1,2})[^0-9]?(\d{1,2})/);
+    if(m) return Math.max(0, Math.min(11, parseInt(m[2],10)-1));
+    m = raw.match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일?/);
+    if(m) return Math.max(0, Math.min(11, parseInt(m[1],10)-1));
+    var d = new Date(raw.slice(0,10));
+    return isNaN(d) ? -1 : d.getMonth();
+  }
+  function rowAmount(row){
+    return rowNum(row, [
+      '실구매금액','실 구매 금액','실 구매금액','실매출','실 매출',
+      '실결제금액','실 결제 금액','결제금액','결제 금액',
+      '판매금액','판매 금액','매출','매출액','거래액','거래 금액','총매출','총 매출'
+    ]);
+  }
+  function dynamicSalesMonthly(view){
+    var arr = Array(12).fill(0);
+    salesRows().forEach(function(row){
+      var mi = monthIndex(row);
+      if(mi < 0 || !isRowInView(view, row)) return;
+      arr[mi] += rowAmount(row);
+    });
+    return arr;
+  }
+  var oldOvGetSales = window.ovGetSales;
+  window.ovGetSales = ovGetSales = function(view){
+    var rows = salesRows();
+    if(rows && rows.length) return dynamicSalesMonthly(view || 'total');
+    if(typeof oldOvGetSales === 'function') return oldOvGetSales(view || 'total');
+    var key = view === 'v29cm' ? '29cm' : view;
+    return ((window.OV_DATA && OV_DATA[key]) || (window.OV_DATA && OV_DATA.total) || Array(12).fill(0)).slice();
+  };
+
+  function sum(arr){ return (arr || []).reduce(function(a,b){ return a + (Number(b)||0); },0); }
+  function channelLabel(key){ return window.__ovChannelLabel ? window.__ovChannelLabel(key) : (key==='musinsa'?'무신사':key==='29cm'?'29CM':key==='store'?'자사몰':key==='offline'?'오프라인':String(key||'')); }
+  function platformOptions(group){
+    if(window.__ovPlatformOptions) return window.__ovPlatformOptions(group) || [];
+    if(group === 'online') return [{key:'musinsa',label:'무신사'},{key:'29cm',label:'29CM'},{key:'store',label:'자사몰'}];
+    if(group === 'offline') return [{key:'offline',label:'오프라인'}];
+    return [{key:'musinsa',label:'무신사'},{key:'29cm',label:'29CM'},{key:'store',label:'자사몰'},{key:'offline',label:'오프라인'}];
+  }
+  window.ovInitPieChart = ovInitPieChart = function(view){
+    if(_ovPieChart){ _ovPieChart.destroy(); _ovPieChart = null; }
+    var ctx = document.getElementById('ov-pie-chart');
+    if(!ctx || typeof Chart === 'undefined') return;
+    view = view || window._ovCurrentView || 'total';
+
+    var channels;
+    if(view === 'online'){
+      channels = platformOptions('online').map(function(o){ return {label:o.label, key:o.key, view:o.key}; });
+    } else if(view === 'offline'){
+      var opts = platformOptions('offline');
+      channels = opts.length ? opts.map(function(o){ return {label:o.label, key:o.key, view:o.key}; }) : [{label:'오프라인',key:'offline',view:'offline'}];
+    } else if(view === 'total' || view.indexOf('multi_') === 0){
+      channels = [
+        {label:'무신사',key:'musinsa',view:'musinsa'},
+        {label:'29CM',key:'29cm',view:'29cm'},
+        {label:'자사몰',key:'store',view:'store'},
+        {label:'오프라인',key:'offline',view:'offline'}
+      ];
+      if(view.indexOf('multi_') === 0){
+        var selected = view.replace('multi_','').split('_').filter(Boolean).map(normalizeViewKey);
+        channels = channels.filter(function(c){ return selected.indexOf(normalizeViewKey(c.view)) !== -1; });
+      }
+    } else {
+      channels = [{label:channelLabel(normalizeViewKey(view)), key:normalizeViewKey(view), view:view}];
+    }
+
+    var colors = ['#f4be28','#E04E8A','#5584f1','#185FA5','#2d8c5a','#ea6c1b','#8b5cf6','#64748b'];
+    var totals = channels.map(function(c){ return sum(window.ovGetSales(c.view)); });
+    var grand = totals.reduce(function(a,b){ return a+b; },0) || 1;
+    _ovPieChart = new Chart(ctx.getContext('2d'),{
+      type:'doughnut',
+      data:{labels:channels.map(function(c){return c.label;}),datasets:[{data:totals,backgroundColor:channels.map(function(_,i){return colors[i%colors.length];}),borderWidth:2,borderColor:'#fff'}]},
+      options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){var pct=(totals[c.dataIndex]/grand*100).toFixed(1);return c.label+': '+fmtOvWon(totals[c.dataIndex])+' ('+pct+'%)';}}}}}
+    });
+    var leg=document.getElementById('ov-pie-legend');
+    if(leg) leg.innerHTML=channels.map(function(c,i){return '<div style="display:flex;align-items:center;justify-content:space-between;"><span style="display:flex;align-items:center;gap:4px;"><span style="width:7px;height:7px;border-radius:50%;background:'+colors[i%colors.length]+';display:inline-block;"></span><span style="color:var(--color-text-secondary);">'+channelLabel(c.key)+'</span></span><span style="font-weight:600;color:var(--color-text-primary);">'+(totals[i]/grand*100).toFixed(1)+'%</span></div>';}).join('');
+  };
+
+  function refreshAnnual(){
+    var view = window._ovCurrentView || 'total';
+    if(window._ovCurrentSub === 'annual' || !window._ovCurrentSub){
+      if(window.ovInitAnnualChart) window.ovInitAnnualChart(view);
+      if(window.ovInitPieChart) window.ovInitPieChart(view);
+      if(window.ovBuildQuarters) window.ovBuildQuarters(view);
+      if(window.ovUpdateKPI) window.ovUpdateKPI(view);
+    }
+  }
+  function patchLoad(fnName){
+    var old = window[fnName];
+    if(typeof old !== 'function' || old.__v78AnnualOfflinePatched) return;
+    window[fnName] = async function(){
+      var ret = await old.apply(this, arguments);
+      setTimeout(refreshAnnual, 0);
+      return ret;
+    };
+    window[fnName].__v78AnnualOfflinePatched = true;
+  }
+  function boot(){
+    patchLoad('loadMetaFromSheets');
+    patchLoad('refreshMetaFromSheets');
+    patchLoad('loadUnifiedSheets');
+    patchLoad('refreshUnifiedSheets');
+    refreshAnnual();
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(boot, 0); });
+  else setTimeout(boot, 0);
+  window.addEventListener('load', function(){ setTimeout(boot, 200); });
+})();
+</script>
+
+
+
 <script id="overview-product-channel-card-patch">
 (function(){
   'use strict';
