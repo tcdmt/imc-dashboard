@@ -1346,15 +1346,32 @@ button.delete-btn:hover,.delete-btn:hover{background:#fff5f5!important;}
 
 <!-- PATCH V49: Seeding dropdown bottom visibility / vertical scroll -->
 <style id="seeding-v49-dropdown-scroll-fix">
+  #pg-seeding #seed-scroll-top{
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    height:12px!important;
+    margin-bottom:2px!important;
+    overflow-anchor:none!important;
+  }
+  #pg-seeding #seed-scroll-inner{
+    height:1px!important;
+  }
   #pg-seeding #seed-table-wrap{
+    position:relative!important;
     max-height:calc(100vh - 300px)!important;
     overflow-x:auto!important;
     overflow-y:auto!important;
+    padding-bottom:4px!important;
+    overflow-anchor:none!important;
+  }
+  #pg-seeding #seed-table-wrap *{
+    overflow-anchor:none!important;
   }
   #pg-seeding #seed-main-table thead th{
-    position:sticky;
-    top:0;
-    z-index:45;
+    position:sticky!important;
+    top:0!important;
+    z-index:45!important;
+    background:var(--color-background-secondary)!important;
   }
 </style>
 
@@ -1653,6 +1670,35 @@ button.delete-btn:hover,.delete-btn:hover{background:#fff5f5!important;}
   #pg-crm #crm-table-wrap tr.crm-ttl-row td,
   #pg-crm #crm-table-wrap tr.crm-ttl-row td:first-child{
     text-align:center!important;
+  }
+</style>
+
+
+<style id="crm-v71-scrollbars-dropdown-position">
+  /* 요청 영역 한정: CRM 발송 내역 상단 가로 스크롤 + 우측 세로 스크롤 */
+  #pg-crm #crm-scroll-top{overflow-anchor:none!important;}
+  #pg-crm #crm-table-wrap{
+    overflow-anchor:none!important;
+    max-height:70vh!important;
+    overflow-x:auto!important;
+    overflow-y:auto!important;
+    padding-bottom:4px!important;
+  }
+  #pg-crm #crm-table-wrap *{overflow-anchor:none!important;}
+  #pg-crm #crm-table-wrap thead{
+    position:sticky!important;
+    top:0!important;
+    z-index:5!important;
+  }
+  #pg-crm #crm-table-wrap thead th{
+    position:sticky!important;
+    top:0!important;
+    z-index:6!important;
+    background:var(--color-background-secondary)!important;
+  }
+  .crm-float-dd{
+    max-height:calc(100vh - 24px);
+    overflow-y:auto;
   }
 </style>
 
@@ -2332,9 +2378,12 @@ html[data-user-role="viewer"] [data-delete]{opacity:.35!important;cursor:not-all
       <div style="font-size:12px;font-weight:600;color:var(--color-text-primary);">CRM 발송 내역</div>
       <button class="add-btn" style="margin-bottom:0;" onclick="crmAddRow()">+ 추가</button>
     </div>
-    <div id="crm-table-wrap" class="tbl-wrap" style="overflow-x:auto;">
-      <table style="min-width:1850px;width:100%;border-collapse:separate;border-spacing:0;font-size:11px;white-space:nowrap;">
-        <thead><tr>
+    <div id="crm-scroll-top" style="overflow-x:auto;overflow-y:hidden;height:12px;margin-bottom:2px;">
+      <div id="crm-scroll-inner" style="height:1px;"></div>
+    </div>
+    <div id="crm-table-wrap" class="tbl-wrap" style="overflow-x:auto;max-height:70vh;overflow-y:auto;">
+      <table id="crm-main-table" style="min-width:1850px;width:100%;border-collapse:separate;border-spacing:0;font-size:11px;white-space:nowrap;">
+        <thead style="position:sticky;top:0;z-index:5;"><tr>
           <th>발송 일자</th><th>발송 시각</th><th>발송 유형</th><th>플랫폼</th><th>프로모션</th><th>성별</th><th>연령</th><th>지역</th><th>기준일</th>
           <th style="text-align:right;">발송 비용</th><th style="text-align:right;">발송 수</th><th style="text-align:right;">열람 수</th><th style="text-align:right;">클릭 수</th><th style="text-align:right;">CTR</th>
           <th style="text-align:right;">구매</th><th style="text-align:right;">구매 전환값</th><th style="text-align:right;">CVR</th><th style="text-align:right;">ROAS</th><th></th>
@@ -2400,6 +2449,9 @@ html[data-user-role="viewer"] [data-delete]{opacity:.35!important;cursor:not-all
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
       <div style="font-size:12px;font-weight:600;">시딩 크리에이터 목록</div>
       <button class="add-btn" onclick="seedAddRow()">+ 추가</button>
+    </div>
+    <div id="seed-scroll-top" style="overflow-x:auto;overflow-y:hidden;height:12px;margin-bottom:2px;">
+      <div id="seed-scroll-inner" style="height:1px;"></div>
     </div>
     <div id="seed-table-wrap" style="overflow-x:auto;">
       <table id="seed-main-table" style="width:100%;border-collapse:collapse;font-size:11px;white-space:nowrap;">
@@ -8234,6 +8286,7 @@ function seedBuildTable(){
       </td>
     </tr>`;
   }).join('') || `<tr><td colspan="35" style="text-align:center;padding:20px;color:var(--color-text-tertiary);">데이터가 없어요. + 추가 버튼을 눌러 크리에이터를 등록해주세요.</td></tr>`;
+  seedSyncScrollbars();
 }
 function seedAddRow(){
   window.seedData = window.seedData || [];
@@ -8306,18 +8359,40 @@ function seedDropdown(td, ri, field, opts, colorMap) {
     };
     popup.appendChild(item);
   });
-  const _sAnchor=td&&td.closest?td.closest('.tbl-wrap'):null;
+  const _sAnchor=td&&td.closest?td.closest('#seed-table-wrap, .tbl-wrap'):null;
   const _sScroll=_sAnchor?_sAnchor.scrollLeft:0;
   document.body.appendChild(popup);
   const popupH = popup.offsetHeight || 180;
   const gap = 4;
-  const bottomSpace = window.innerHeight - rect.bottom;
-  const top = bottomSpace < popupH + 12 ? Math.max(8, rect.top - popupH - gap) : rect.bottom + gap;
+  const wrapRect = _sAnchor ? _sAnchor.getBoundingClientRect() : null;
+  const visibleBottom = wrapRect ? Math.min(window.innerHeight, wrapRect.bottom) : window.innerHeight;
+  const visibleTop = wrapRect ? Math.max(8, wrapRect.top) : 8;
+  const bottomSpace = visibleBottom - rect.bottom;
+  const topSpace = rect.top - visibleTop;
+  let top = rect.bottom + gap;
+  if(bottomSpace < popupH + 12 && topSpace > bottomSpace){
+    top = Math.max(visibleTop, rect.top - popupH - gap);
+  }
   popup.style.top = top + 'px';
   popup.style.left = Math.min(rect.left, window.innerWidth - popup.offsetWidth - 8) + 'px';
   if(_sAnchor) _sAnchor.scrollLeft=_sScroll;
   setTimeout(()=>document.addEventListener('mousedown',ddOutsideClick),50);
 }
+
+function seedSyncScrollbars(){
+  const wrap=document.getElementById('seed-table-wrap');
+  const top=document.getElementById('seed-scroll-top');
+  const inner=document.getElementById('seed-scroll-inner');
+  const tbl=document.getElementById('seed-main-table');
+  if(!wrap || !top || !inner || !tbl) return;
+  requestAnimationFrame(function(){
+    inner.style.width=(tbl.scrollWidth || tbl.offsetWidth || wrap.scrollWidth || 1600)+'px';
+    top.scrollLeft=wrap.scrollLeft;
+  });
+  top.onscroll=function(){ wrap.scrollLeft=top.scrollLeft; };
+  wrap.onscroll=function(){ top.scrollLeft=wrap.scrollLeft; };
+}
+window.seedSyncScrollbars=seedSyncScrollbars;
 
 /* ── Item 탭 필터 ── */
 let _itemPlt = 'all';
@@ -12558,10 +12633,17 @@ if(document.readyState==='loading'){
     }).join('');
     document.body.appendChild(pop);
     const rect=el.getBoundingClientRect();
+    const wrap=el.closest('#crm-table-wrap');
+    const wrapRect=wrap ? wrap.getBoundingClientRect() : null;
+    const visibleTop=Math.max(8, wrapRect ? wrapRect.top : 8);
+    const visibleBottom=Math.min(window.innerHeight-8, wrapRect ? wrapRect.bottom : window.innerHeight-8);
+    pop.style.maxHeight=Math.max(120, visibleBottom-visibleTop-12)+'px';
+    pop.style.overflowY='auto';
     const topBelow=rect.bottom+6;
-    const fitsBelow=topBelow+pop.offsetHeight < window.innerHeight-8;
+    const topAbove=rect.top-pop.offsetHeight-6;
+    const fitsBelow=topBelow+pop.offsetHeight <= visibleBottom;
     pop.style.left=Math.max(8, Math.min(rect.left, window.innerWidth-pop.offsetWidth-8))+'px';
-    pop.style.top=(fitsBelow ? topBelow : Math.max(8, rect.top-pop.offsetHeight-6))+'px';
+    pop.style.top=(fitsBelow ? topBelow : Math.max(visibleTop, topAbove))+'px';
     pop.querySelectorAll('.crm-float-item').forEach(function(btn){
       btn.addEventListener('click',function(e){
         e.preventDefault(); e.stopPropagation();
@@ -12570,10 +12652,17 @@ if(document.readyState==='loading'){
         crmSet(i,k,val);
       });
     });
+    const closePopup=function(){
+      if(pop.parentNode) pop.remove();
+      if(wrap) wrap.removeEventListener('scroll',closePopup);
+      window.removeEventListener('resize',closePopup);
+    };
+    if(wrap) wrap.addEventListener('scroll',closePopup,{once:true});
+    window.addEventListener('resize',closePopup,{once:true});
     setTimeout(function(){
       document.addEventListener('mousedown',function close(e){
         if(!pop.contains(e.target)){
-          pop.remove();
+          closePopup();
           document.removeEventListener('mousedown',close);
         }
       });
@@ -12594,7 +12683,7 @@ if(document.readyState==='loading'){
       if(typeFilter!=='all' && String(r.type||'')!==typeFilter) return false;
       return true;
     });
-    if(!rows.length){ tbody.innerHTML='<tr><td colspan="19" style="text-align:center;padding:18px;color:var(--color-text-tertiary);">CRM 발송 내역을 추가해주세요</td></tr>'; return; }
+    if(!rows.length){ tbody.innerHTML='<tr><td colspan="19" style="text-align:center;padding:18px;color:var(--color-text-tertiary);">CRM 발송 내역을 추가해주세요</td></tr>'; crmSyncScrollbars(); return; }
     tbody.innerHTML=rows.map(function(r){
       const i=(window.crmData||[]).indexOf(r);
       const ttl=r.daily.reduce(function(a,d){ a.open+=toNum(d.open); a.click+=toNum(d.click); a.purchase+=toNum(d.purchase); a.value+=toNum(d.value); return a; },{open:0,click:0,purchase:0,value:0});
@@ -12641,6 +12730,7 @@ if(document.readyState==='loading'){
       </tr>`;
       return dayRows+ttlRow;
     }).join('');
+    crmSyncScrollbars();
   };
   window.crmSet=function(i,k,v){ if(!window.crmData[i])return; crmNormalizeRow(window.crmData[i]); const nums=['cost','send']; window.crmData[i][k]=nums.includes(k)?toNum(v):v; crmSave(); crmRender(); };
   window.crmSetDaily=function(i,di,k,v){ if(!window.crmData[i])return; const r=crmNormalizeRow(window.crmData[i]); if(!r.daily[di])return; r.daily[di][k]=toNum(v); crmSave(); crmRender(); };
@@ -12652,6 +12742,19 @@ if(document.readyState==='loading'){
     const pb=document.getElementById('crm-platform-btns'); if(pb && !pb.children.length){ pb.innerHTML=['전체'].concat(crmPlatforms).map((p,i)=>`<button class="ov-pbtn ${i===0?'active':''}" onclick="crmSetPlatform('${i===0?'all':p}',this)">${p}</button>`).join(''); }
     const tf=document.getElementById('crm-type-filter'); if(tf && tf.options.length<=1){ crmTypes.forEach(function(t){ const o=document.createElement('option'); o.value=t; o.textContent=t; tf.appendChild(o); }); }
   }
+  function crmSyncScrollbars(){
+    const wrap=document.getElementById('crm-table-wrap');
+    const top=document.getElementById('crm-scroll-top');
+    const inner=document.getElementById('crm-scroll-inner');
+    const tbl=document.getElementById('crm-main-table');
+    if(!wrap || !top || !inner || !tbl) return;
+    requestAnimationFrame(function(){
+      inner.style.width=(tbl.scrollWidth || tbl.offsetWidth || 1850)+'px';
+      top.scrollLeft=wrap.scrollLeft;
+    });
+    top.onscroll=function(){ wrap.scrollLeft=top.scrollLeft; };
+    wrap.onscroll=function(){ top.scrollLeft=wrap.scrollLeft; };
+  }
   async function crmInit(){
     if(window.fbLoadAll && (!window.crmData || !window.crmData.length)){
       try{ const rows=await window.fbLoadAll('crm'); if(rows && rows.length) window.crmData=rows; }catch(e){}
@@ -12660,7 +12763,7 @@ if(document.readyState==='loading'){
   }
 
   const prevSwitch=window.switchMain;
-  window.switchMain=function(t){ if(prevSwitch) prevSwitch(t); if(t==='crm') crmInit(); if(t==='overview') setTimeout(function(){ if(_ovCurrentSub==='promo') ovBuildPromoChart(); if(_ovCurrentSub==='item') ovBuildItemTable(); },80); };
+  window.switchMain=function(t){ if(prevSwitch) prevSwitch(t); if(t==='crm') crmInit(); if(t==='seeding') setTimeout(function(){ if(window.seedSyncScrollbars) window.seedSyncScrollbars(); },80); if(t==='overview') setTimeout(function(){ if(_ovCurrentSub==='promo') ovBuildPromoChart(); if(_ovCurrentSub==='item') ovBuildItemTable(); },80); };
 
   document.addEventListener('DOMContentLoaded',function(){ setTimeout(function(){ buildCrmFilters(); },400); });
 })();
