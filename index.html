@@ -1750,6 +1750,17 @@ html[data-user-role="viewer"] [data-del-row],
 html[data-user-role="viewer"] [data-delete]{opacity:.35!important;cursor:not-allowed!important;}
 </style>
 
+
+<style id="overview-v39-platform-dropdown-filter">
+#ov-main-btns{position:relative!important;display:flex!important;gap:5px!important;align-items:center!important;}
+#ov-sub-btns{display:none!important;}
+.ov-platform-menu{position:absolute;top:calc(100% + 6px);left:0;min-width:180px;max-height:240px;overflow-y:auto;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.14);padding:6px;z-index:120;display:none;}
+.ov-platform-menu.open{display:block;}
+.ov-platform-option{width:100%;border:0;background:transparent;color:var(--color-text-secondary);font-family:inherit;font-size:11px;text-align:left;padding:7px 10px;border-radius:7px;cursor:pointer;white-space:nowrap;}
+.ov-platform-option:hover{background:var(--color-background-secondary);color:var(--color-text-primary);}
+.ov-platform-option.active{background:#185FA5;color:#fff;}
+</style>
+
 </head>
 <body>
 <div class="page">
@@ -1923,25 +1934,16 @@ html[data-user-role="viewer"] [data-delete]{opacity:.35!important;cursor:not-all
     <div class="slicer-div"></div>
 
     <div class="slicer-group">
-      <div class="slicer-label">📊 채널 구분</div>
-      <div style="display:flex;gap:5px;" id="ov-main-btns">
+      <div class="slicer-label">📊 플랫폼 구분</div>
+      <div style="display:flex;gap:5px;position:relative;" id="ov-main-btns">
         <button class="ov-pbtn active" data-main="total"   onclick="ovMainFilter(this,'total')">전체</button>
         <button class="ov-pbtn"        data-main="online"  onclick="ovMainFilter(this,'online')">온라인 ▾</button>
         <button class="ov-pbtn"        data-main="offline" onclick="ovMainFilter(this,'offline')">오프라인 ▾</button>
+        <div id="ov-platform-menu" class="ov-platform-menu"></div>
       </div>
     </div>
 
-    <div id="ov-sub-btns" style="display:none;flex-wrap:wrap;gap:5px;align-items:center;">
-      <div class="slicer-div"></div>
-      <div id="ov-online-subs" style="display:none;flex-wrap:wrap;gap:5px;">
-        <button class="ov-sbtn" data-view="musinsa" onclick="ovSubFilter(this,'musinsa')">무신사</button>
-        <button class="ov-sbtn" data-view="v29cm"   onclick="ovSubFilter(this,'v29cm')">29CM</button>
-        <button class="ov-sbtn" data-view="jasa"    onclick="ovSubFilter(this,'jasa')">자사몰</button>
-      </div>
-      <div id="ov-offline-subs" style="display:none;flex-wrap:wrap;gap:5px;">
-        <button class="ov-sbtn" data-view="ss_flagship" onclick="ovSubFilter(this,'ss_flagship')">성수 플래그십 스토어</button>
-      </div>
-    </div>
+    <div id="ov-sub-btns" style="display:none;"></div>
   </div>
 </div>
 
@@ -7434,6 +7436,184 @@ function ovSubFilter(btn, view){
   ovBuildQuarters(_ovCurrentView);
 }
 window.ovSubFilter=ovSubFilter;
+
+/* Overview 플랫폼 드롭다운 필터 패치: '플랫폼 별 매출 데이터 연동' 시트의 구분/플랫폼 기준 */
+(function(){
+  function esc(v){return String(v == null ? '' : v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function getVal(row, keys){
+    keys = Array.isArray(keys) ? keys : [keys];
+    if(typeof window.mRawVal === 'function') return window.mRawVal(row, keys);
+    row = row || {};
+    for(var i=0;i<keys.length;i++){
+      var k = keys[i];
+      if(row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== '') return row[k];
+    }
+    return '';
+  }
+  function rows(){ return (window.metaRawSales || (typeof metaRawSales !== 'undefined' ? metaRawSales : []) || []); }
+  function normGroup(v){
+    var x = String(v || '').trim().toLowerCase().replace(/\s+/g,'');
+    if(x === '온라인' || x === 'online') return 'online';
+    if(x === '오프라인' || x === 'offline') return 'offline';
+    return '';
+  }
+  function basePlatform(v){
+    var x = String(v || '').trim().toLowerCase().replace(/\s+/g,'');
+    if(!x || x === '전체' || x === 'all' || x === 'total') return '';
+    if(x === '무신사' || x === 'musinsa') return 'musinsa';
+    if(x === '29cm' || x === '29') return '29cm';
+    if(x === '자사몰' || x === 'store' || x === '스토어' || x === 'store몰') return 'store';
+    if(x === 'offline' || x === '오프라인') return 'offline';
+    return x;
+  }
+  function platformRaw(row){ return String(getVal(row, ['플랫폼','판매 플랫폼','판매 채널','판매채널','채널']) || '').trim(); }
+  function groupForRow(row){ return normGroup(getVal(row, ['구분','플랫폼 구분','채널 구분','온라인/오프라인'])); }
+  function platformKey(raw){
+    raw = String(raw || '').trim();
+    var base = basePlatform(raw);
+    if(base === 'musinsa' || base === '29cm' || base === 'store' || base === 'offline') return base;
+    if(!raw) return '';
+    return 'pl_' + encodeURIComponent(raw).replace(/%/g,'_');
+  }
+  function platformKeyForRow(row){ return platformKey(platformRaw(row)); }
+  function platformMeta(){
+    var map = {};
+    rows().forEach(function(row){
+      var raw = platformRaw(row);
+      if(!raw) return;
+      var key = platformKey(raw);
+      if(!key) return;
+      if(!map[key]) map[key] = {key:key, label:raw, groups:{}, sort:99};
+      var group = groupForRow(row);
+      if(group) map[key].groups[group] = true;
+    });
+    [
+      {key:'musinsa', label:'무신사', groups:{online:true}, sort:1},
+      {key:'29cm', label:'29CM', groups:{online:true}, sort:2},
+      {key:'store', label:'자사몰', groups:{online:true}, sort:3}
+    ].forEach(function(d){
+      if(!map[d.key]) map[d.key] = {key:d.key, label:d.label, groups:{}, sort:d.sort};
+      map[d.key].groups.online = true;
+      map[d.key].label = map[d.key].label || d.label;
+      map[d.key].sort = d.sort;
+    });
+    return map;
+  }
+  function platformOptions(group){
+    var meta = platformMeta();
+    return Object.keys(meta).map(function(k){return meta[k];}).filter(function(item){
+      if(!group || group === 'total') return true;
+      if(item.groups && item.groups[group]) return true;
+      if(group === 'online') return ['musinsa','29cm','store'].indexOf(item.key) !== -1;
+      return false;
+    }).sort(function(a,b){
+      if((a.sort || 99) !== (b.sort || 99)) return (a.sort || 99) - (b.sort || 99);
+      return String(a.label).localeCompare(String(b.label),'ko');
+    });
+  }
+  function viewPlatformKeys(view){
+    view = String(view || 'total');
+    if(view === 'total') return platformOptions('total').map(function(x){return x.key;});
+    if(view === 'online') return platformOptions('online').map(function(x){return x.key;});
+    if(view === 'offline') return platformOptions('offline').map(function(x){return x.key;});
+    if(view === 'jasa') return ['store'];
+    if(view === 'v29cm') return ['29cm'];
+    if(view === 'ss_flagship') return ['offline'];
+    if(view.indexOf('multi_') === 0) return view.replace('multi_','').split('_').filter(Boolean).map(function(k){return k === 'jasa' ? 'store' : (k === 'v29cm' ? '29cm' : (k === 'ss_flagship' ? 'offline' : k));});
+    return [view];
+  }
+  function isViewPlatform(view, platform, row){
+    view = String(view || 'total');
+    if(view === 'total') return true;
+    var key = row ? platformKeyForRow(row) : String(platform || '');
+    if(key === 'jasa') key = 'store';
+    if(key === 'v29cm') key = '29cm';
+    var group = row ? groupForRow(row) : '';
+    if(view === 'online') return group ? group === 'online' : ['musinsa','29cm','store'].indexOf(key) !== -1;
+    if(view === 'offline') return group ? group === 'offline' : ['musinsa','29cm','store'].indexOf(key) === -1;
+    var keys = viewPlatformKeys(view);
+    return keys.indexOf(key) !== -1 || keys.indexOf(basePlatform(platform)) !== -1;
+  }
+  function label(key){
+    key = String(key || '');
+    var meta = platformMeta();
+    if(meta[key]) return meta[key].label;
+    if(key === 'musinsa') return '무신사';
+    if(key === '29cm' || key === 'v29cm') return '29CM';
+    if(key === 'store' || key === 'jasa') return '자사몰';
+    if(key === 'offline' || key === 'ss_flagship') return '오프라인';
+    if(key.indexOf('pl_') === 0){
+      try{return decodeURIComponent(key.slice(3).replace(/_/g,'%'));}catch(e){return key.slice(3);}
+    }
+    return key || '기타';
+  }
+  function viewLabel(view){
+    view = String(view || 'total');
+    if(view === 'total') return '플랫폼별 판매 현황';
+    if(view === 'online') return '온라인 판매 상세';
+    if(view === 'offline') return '오프라인 판매 상세';
+    return viewPlatformKeys(view).map(label).join(' + ') + ' 판매 상세';
+  }
+  function setHiddenSub(view){
+    var wrap = document.getElementById('ov-sub-btns');
+    if(!wrap) return;
+    wrap.innerHTML = view && view !== 'total' && view !== 'online' && view !== 'offline' ? '<button class="ov-sbtn active" data-view="'+esc(view)+'" style="display:none!important;"></button>' : '';
+  }
+  function closeMenu(){
+    var menu = document.getElementById('ov-platform-menu');
+    if(menu) menu.classList.remove('open');
+  }
+  function applyView(view){
+    window._ovCurrentView = view || 'total';
+    setHiddenSub(window._ovCurrentView);
+    if(window.ovUpdateKPI) window.ovUpdateKPI(window._ovCurrentView);
+    if(window.ovInitAnnualChart) window.ovInitAnnualChart(window._ovCurrentView);
+    if(window.ovInitPieChart) window.ovInitPieChart(window._ovCurrentView);
+    if(window.ovBuildQuarters) window.ovBuildQuarters(window._ovCurrentView);
+    if(window._ovApplyToCurrentSub) window._ovApplyToCurrentSub(window._ovCurrentView);
+  }
+
+  window.__ovGetVal = getVal;
+  window.__ovViewPlatformKeys = viewPlatformKeys;
+  window.__ovIsViewPlatform = isViewPlatform;
+  window.__ovPlatformKeyForRow = platformKeyForRow;
+  window.__ovChannelLabel = label;
+  window.__ovViewLabel = viewLabel;
+  window.__ovPlatformOptions = platformOptions;
+
+  window.ovMainFilter = function(btn, cat){
+    document.querySelectorAll('#ov-main-btns .ov-pbtn').forEach(function(b){ b.classList.remove('active'); });
+    if(btn) btn.classList.add('active');
+    if(window._ovSelectedSubs && typeof window._ovSelectedSubs.clear === 'function') window._ovSelectedSubs.clear();
+    var menu = document.getElementById('ov-platform-menu');
+    if(cat === 'total' || !menu){
+      closeMenu();
+      applyView('total');
+      return;
+    }
+    var options = platformOptions(cat);
+    menu.innerHTML = options.length ? options.map(function(opt){
+      return '<button type="button" class="ov-platform-option" data-view="'+esc(opt.key)+'">'+esc(opt.label)+'</button>';
+    }).join('') : '<button type="button" class="ov-platform-option" data-view="'+esc(cat)+'">'+(cat === 'online' ? '온라인 전체' : '오프라인 전체')+'</button>';
+    menu.querySelectorAll('.ov-platform-option').forEach(function(item){
+      item.onclick = function(e){
+        e.stopPropagation();
+        menu.querySelectorAll('.ov-platform-option').forEach(function(x){ x.classList.remove('active'); });
+        item.classList.add('active');
+        closeMenu();
+        applyView(item.dataset.view || cat);
+      };
+    });
+    applyView(cat);
+    menu.style.left = btn ? (btn.offsetLeft + 'px') : '0px';
+    menu.classList.toggle('open');
+  };
+  document.addEventListener('click', function(e){
+    var wrap = document.getElementById('ov-main-btns');
+    if(wrap && !wrap.contains(e.target)) closeMenu();
+  }, true);
+})();
+
 
 // 기존 단일 뷰 유지 (다른 탭에서 호출용)
 function ovSetView(btn){
@@ -14518,26 +14698,11 @@ if(document.readyState==='loading'){
     if(x==='offline' || x==='오프라인' || x.indexOf('오프')>=0) return 'offline';
     return x;
   }
-  function viewPlatformKeys(view){
-    if(!view || view==='total') return ['musinsa','29cm','store','offline'];
-    if(view==='online') return ['musinsa','29cm','store'];
-    if(view==='offline') return ['offline'];
-    if(view==='jasa') return ['store'];
-    if(view==='v29cm') return ['29cm'];
-    if(view==='ss_flagship') return ['offline'];
-    if(String(view).indexOf('multi_')===0){
-      return String(view).replace('multi_','').split('_').map(function(k){ return k==='jasa'?'store':(k==='v29cm'?'29cm':k); });
-    }
-    return [view];
-  }
-  function isViewPlatform(view, platform){
-    const p = normPlatform(platform);
-    const keys = viewPlatformKeys(view).map(normPlatform);
-    return !view || view==='total' || keys.indexOf(p) !== -1;
-  }
+  function viewPlatformKeys(view){ return window.__ovViewPlatformKeys ? window.__ovViewPlatformKeys(view) : ['musinsa','29cm','store','offline']; }
+  function isViewPlatform(view, platform, row){ return window.__ovIsViewPlatform ? window.__ovIsViewPlatform(view, platform, row) : (!view || view==='total'); }
   function salesRows(){ return (window.metaRawSales || (typeof metaRawSales !== 'undefined' ? metaRawSales : []) || []); }
   function getRowDate(row){ return String(rowVal(row,['날짜','date','Date']) || '').slice(0,10); }
-  function rowPlatform(row){ return normPlatform(rowVal(row,['플랫폼','판매 채널','판매채널'])); }
+  function rowPlatform(row){ return window.__ovPlatformKeyForRow ? window.__ovPlatformKeyForRow(row) : normPlatform(rowVal(row,['플랫폼','판매 채널','판매채널'])); }
   function rowUid(row){ return String(rowVal(row,['UID','uid','Uid']) || '').trim(); }
   function rowQty(row){ return rowNum(row,['실구매수량','실 구매 수량','실 구매수량','판매수량','판매 수량']); }
   function rowAmount(row){ return rowNum(row,['실구매금액','실 구매 금액','실 구매금액','판매금액','판매 금액','매출']); }
@@ -14585,7 +14750,7 @@ if(document.readyState==='loading'){
       const mi = monthIndexFromDate(getRowDate(row));
       if(mi < 0) return;
       if(monthIndex !== undefined && monthIndex !== null && mi !== monthIndex) return;
-      if(!isViewPlatform(view, rowPlatform(row))) return;
+      if(!isViewPlatform(view, rowPlatform(row), row)) return;
       const amt = rowAmount(row);
       out.sales += amt;
       out.fee += rowFee(row);
@@ -14599,7 +14764,7 @@ if(document.readyState==='loading'){
     const arr = Array(12).fill(0);
     salesRows().forEach(function(row){
       const mi = monthIndexFromDate(getRowDate(row));
-      if(mi < 0 || !isViewPlatform(view, rowPlatform(row))) return;
+      if(mi < 0 || !isViewPlatform(view, rowPlatform(row), row)) return;
       arr[mi] += rowAmount(row);
     });
     return arr;
@@ -14752,13 +14917,13 @@ if(document.readyState==='loading'){
     }).join('');
   };
 
-  function channelNameForKey(key){ return key==='musinsa'?'무신사':key==='29cm'?'29CM':key==='store'?'자사몰':key==='offline'?'오프라인':'전체'; }
-  function channelViewForKey(key){ return key==='store'?'jasa':key==='29cm'?'v29cm':key==='offline'?'offline':key; }
+  function channelNameForKey(key){ return window.__ovChannelLabel ? window.__ovChannelLabel(key) : (key==='musinsa'?'무신사':key==='29cm'?'29CM':key==='store'?'자사몰':key==='offline'?'오프라인':'전체'); }
+  function channelViewForKey(key){ return key; }
   window.ovBuildChannelMonthlyTable = ovBuildChannelMonthlyTable = function(cat){
     const tbody = document.getElementById('ov-channel-monthly-tbody'); if(!tbody) return;
     const mktCosts = ovGetMktCosts();
     const curM = ytdMonths();
-    const keys = cat==='online' ? ['musinsa','29cm','store'] : cat==='offline' ? ['offline'] : ['musinsa','29cm','store','offline'];
+    const keys = viewPlatformKeys(cat);
     const monthCells = function(view){
       const arr = ovGetSales(view);
       return Array(12).fill(0).map(function(_,i){ return i<=curM && arr[i]>0 ? `<td style="padding:5px 8px;text-align:right;font-size:11px;">${fmtOvShort(arr[i])}원</td>` : `<td style="padding:5px 8px;text-align:right;color:var(--color-text-tertiary);font-size:11px;">-</td>`; }).join('');
@@ -14859,42 +15024,11 @@ if(document.readyState==='loading'){
     if(x==='offline' || x==='오프라인' || x.indexOf('오프')>=0 || x.indexOf('플래그십')>=0) return 'offline';
     return x;
   }
-  function viewPlatformKeys(view){
-    view = String(view || 'total');
-    if(view==='total') return ['musinsa','29cm','store','offline'];
-    if(view==='online') return ['musinsa','29cm','store'];
-    if(view==='offline') return ['offline'];
-    if(view==='jasa') return ['store'];
-    if(view==='v29cm') return ['29cm'];
-    if(view==='ss_flagship') return ['offline'];
-    if(view.indexOf('multi_')===0){
-      return view.replace('multi_','').split('_').map(function(k){ return k==='jasa'?'store':(k==='v29cm'?'29cm':k==='ss_flagship'?'offline':k); });
-    }
-    return [view];
-  }
-  function getActiveOverviewView(){
-    const activeSubs = Array.from(document.querySelectorAll('#ov-sub-btns .ov-sbtn.active')).map(function(btn){ return btn.dataset.view || ''; }).filter(Boolean);
-    if(activeSubs.length > 1) return 'multi_' + activeSubs.join('_');
-    if(activeSubs.length === 1) return activeSubs[0];
-    const main = document.querySelector('#ov-main-btns .ov-pbtn.active');
-    return (main && main.dataset.main) || window._ovCurrentView || 'total';
-  }
-  function isViewPlatform(view, platform){
-    const p = normPlatform(platform);
-    const keys = viewPlatformKeys(view).map(normPlatform);
-    return !view || view==='total' || keys.indexOf(p) !== -1;
-  }
-  function channelLabel(key){
-    key = normPlatform(key);
-    return key==='musinsa' ? '무신사' : key==='29cm' ? '29CM' : key==='store' ? '자사몰' : key==='offline' ? '오프라인' : '기타';
-  }
-  function viewLabel(view){
-    const keys = viewPlatformKeys(view || 'total');
-    if(!view || view==='total') return '채널별 판매 현황';
-    if(view==='online') return '온라인 판매 상세';
-    if(view==='offline') return '오프라인 판매 상세';
-    return keys.map(channelLabel).join(' + ') + ' 판매 상세';
-  }
+  function viewPlatformKeys(view){ return window.__ovViewPlatformKeys ? window.__ovViewPlatformKeys(view) : ['musinsa','29cm','store','offline']; }
+  function getActiveOverviewView(){ return window._ovCurrentView || 'total'; }
+  function isViewPlatform(view, platform, row){ return window.__ovIsViewPlatform ? window.__ovIsViewPlatform(view, platform, row) : (!view || view==='total'); }
+  function channelLabel(key){ return window.__ovChannelLabel ? window.__ovChannelLabel(key) : String(key||''); }
+  function viewLabel(view){ return window.__ovViewLabel ? window.__ovViewLabel(view) : '플랫폼별 판매 현황'; }
   function salesRows(){ return (window.metaRawSales || (typeof metaRawSales !== 'undefined' ? metaRawSales : []) || []); }
   function inDateRange(ds, start, end){
     ds = String(ds || '').slice(0,10);
@@ -14903,7 +15037,7 @@ if(document.readyState==='loading'){
     if(end && ds > String(end).slice(0,10)) return false;
     return true;
   }
-  function rowPlatform(row){ return normPlatform(rowVal(row,['플랫폼','판매 채널','판매채널'])); }
+  function rowPlatform(row){ return window.__ovPlatformKeyForRow ? window.__ovPlatformKeyForRow(row) : normPlatform(rowVal(row,['플랫폼','판매 채널','판매채널'])); }
   function rowQty(row){ return rowNum(row,['실구매수량','실 구매 수량','실 구매수량','판매수량','판매 수량']); }
   function rowAmount(row){ return rowNum(row,['실구매금액','실 구매 금액','실 구매금액','판매금액','판매 금액','매출']); }
   function isSettledRow(row){
@@ -14940,7 +15074,7 @@ if(document.readyState==='loading'){
       if((from || to) && !inDateRange(ds, from, to)) return;
       if(!isSettledRow(row)) return;
       const platform = rowPlatform(row) || 'etc';
-      if(!isViewPlatform(view, platform)) return;
+      if(!isViewPlatform(view, platform, row)) return;
       const code = String(rowVal(row,['상품 코드','상품코드']) || '').trim();
       const name = String(rowVal(row,['상품명','제품명']) || '').trim();
       const key = code || name;
@@ -15160,7 +15294,7 @@ if(document.readyState==='loading'){
   function itemCode(product){ return String((product && (product.code || product.productCode || product.itemCode || product['상품 코드'] || product['상품코드'])) || '').trim(); }
   function itemName(product){ return String((product && (product.name || product.productName || product.itemName || product['상품명'] || product['제품명'])) || '').trim(); }
   function rowUid(row){ return String(rowVal(row, ['UID','uid','Uid','상품 UID','상품UID']) || '').trim(); }
-  function rowPlatform(row){ return normPlatform(rowVal(row, ['플랫폼','판매 채널','판매채널','채널'])); }
+  function rowPlatform(row){ return window.__ovPlatformKeyForRow ? window.__ovPlatformKeyForRow(row) : normPlatform(rowVal(row, ['플랫폼','판매 채널','판매채널','채널'])); }
   function rowQty(row){ return rowNum(row, ['실구매수량','실 구매 수량','실 구매수량','판매수량','판매 수량','수량']); }
   function rowAmount(row){ return rowNum(row, ['실구매금액','실 구매 금액','실 구매금액','판매금액','판매 금액','매출','실매출']); }
   function rowDate(row){ return String(rowVal(row, ['날짜','date','Date']) || '').slice(0,10); }
@@ -15169,42 +15303,11 @@ if(document.readyState==='loading'){
     if(!raw) return true;
     return !(/미정산|정산\s*전|정산전|미완료|pending|false|no/i.test(raw));
   }
-  function viewPlatformKeys(view){
-    view = String(view || 'total');
-    if(view==='total') return ['musinsa','29cm','store','offline'];
-    if(view==='online') return ['musinsa','29cm','store'];
-    if(view==='offline') return ['offline'];
-    if(view==='jasa') return ['store'];
-    if(view==='v29cm') return ['29cm'];
-    if(view==='ss_flagship') return ['offline'];
-    if(view.indexOf('multi_')===0){
-      return view.replace('multi_','').split('_').map(function(k){ return k==='jasa'?'store':(k==='v29cm'?'29cm':(k==='ss_flagship'?'offline':k)); });
-    }
-    return [view];
-  }
-  function getActiveOverviewView(){
-    var activeSubs = Array.from(document.querySelectorAll('#ov-sub-btns .ov-sbtn.active')).map(function(btn){ return btn.dataset.view || ''; }).filter(Boolean);
-    if(activeSubs.length > 1) return 'multi_' + activeSubs.join('_');
-    if(activeSubs.length === 1) return activeSubs[0];
-    var main = document.querySelector('#ov-main-btns .ov-pbtn.active');
-    return (main && main.dataset.main) || window._ovCurrentView || 'total';
-  }
-  function isViewPlatform(view, platform){
-    var p = normPlatform(platform);
-    var keys = viewPlatformKeys(view).map(normPlatform);
-    return !view || view === 'total' || keys.indexOf(p) !== -1;
-  }
-  function channelLabel(key){
-    key = normPlatform(key);
-    return key==='musinsa' ? '무신사' : key==='29cm' ? '29CM' : key==='store' ? '자사몰' : key==='offline' ? '오프라인' : '기타';
-  }
-  function viewLabel(view){
-    var keys = viewPlatformKeys(view || 'total');
-    if(!view || view==='total') return '채널별 판매 현황';
-    if(view==='online') return '온라인 판매 상세';
-    if(view==='offline') return '오프라인 판매 상세';
-    return keys.map(channelLabel).join(' + ') + ' 판매 상세';
-  }
+  function viewPlatformKeys(view){ return window.__ovViewPlatformKeys ? window.__ovViewPlatformKeys(view) : ['musinsa','29cm','store','offline']; }
+  function getActiveOverviewView(){ return window._ovCurrentView || 'total'; }
+  function isViewPlatform(view, platform, row){ return window.__ovIsViewPlatform ? window.__ovIsViewPlatform(view, platform, row) : (!view || view==='total'); }
+  function channelLabel(key){ return window.__ovChannelLabel ? window.__ovChannelLabel(key) : String(key||''); }
+  function viewLabel(view){ return window.__ovViewLabel ? window.__ovViewLabel(view) : '플랫폼별 판매 현황'; }
   function inDateRange(ds, start, end){
     ds = String(ds || '').slice(0,10);
     if(!ds) return false;
@@ -15231,7 +15334,7 @@ if(document.readyState==='loading'){
       if((from || to) && !inDateRange(ds, from, to)) return;
       if(!isSettledRow(row)) return;
       var platform = rowPlatform(row) || 'etc';
-      if(!isViewPlatform(view, platform)) return;
+      if(!isViewPlatform(view, platform, row)) return;
       var uid = rowUid(row);
       if(!uid) return;
       var item = findItemByUid(platform, uid);
