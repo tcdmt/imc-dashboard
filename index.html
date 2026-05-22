@@ -2152,7 +2152,7 @@ html[data-user-role="viewer"] [data-delete]{opacity:.35!important;cursor:not-all
 <div id="pg-monthly" style="display:none;">
   <div class="summary-grid">
     <div class="s-card"><div class="s-label">총 예산</div><div class="s-val" id="ms-budget">₩0</div></div>
-    <div class="s-card"><div class="s-label">총 비용</div><div class="s-val" id="ms-cost">₩0</div></div>
+    <div class="s-card"><div class="s-label">진행 총 비용</div><div class="s-val" id="ms-cost">₩0</div></div>
     <div class="s-card"><div class="s-label">잔여 예산</div><div class="s-val" id="ms-remain">₩0</div></div>
     <div class="s-card"><div class="s-label">금주 업로드 예정</div><div class="s-val" id="ms-week">0건</div></div>
   </div>
@@ -3103,6 +3103,7 @@ for(let m=1;m&lt;=12;m++){
 }
 let monthlyNotes={}, dailyNotes={}, dailySpend={};
 window.__getDailySpend=function(){return dailySpend;};
+window.__getMonthlyBudget=function(){return monthlyBudget;};
 window.__getBudgetGroups=function(){return groups;};
 window.__getBudgetCols=function(){return cols;};
 let projectFilters={
@@ -5896,6 +5897,7 @@ async function loadMonthlyBudgetFromSheet(){
     const m=budgetParseMonth(r,idx); if(!m)return;
     budgetSheetColKeys.forEach(k=>{monthlyBudget[m][k]=budgetRawNumber(budgetFindValue(r,budgetSheetColAliases[k]));});
   });
+  window.__budgetMonthlyBudget = monthlyBudget;
   getBudgetFrame()?.postMessage({type:'TCM_BUDGET_MONTHLY_IMPORT', monthlyBudget}, '*');
   window.fbSaveSheetUrls&&window.fbSaveSheetUrls();
   return true;
@@ -5913,6 +5915,7 @@ async function loadDailySpendFromSheet(){
     if(!dailySpend[date]){dailySpend[date]={}; budgetSheetColKeys.forEach(k=>dailySpend[date][k]=0);}
     budgetSheetColKeys.forEach(k=>{dailySpend[date][k]+=budgetRawNumber(budgetFindValue(r,budgetSheetColAliases[k]));});
   });
+  window.__budgetDailySpend = dailySpend;
   getBudgetFrame()?.postMessage({type:'TCM_BUDGET_DAILY_IMPORT', dailySpend}, '*');
   window.fbSaveSheetUrls&&window.fbSaveSheetUrls();
   return true;
@@ -6053,8 +6056,8 @@ async function fetchMetaSheetRows(url,label){
   return {url:csvUrl,rows:parseMetaCSV(text)};
 }
 function applyMetaSheetLoadResult(key,url,rows){
-  if(key==='ad'){metaRawAd=rows;metaSheetUrlAd=url;window.metaSheetUrlAd=url;if(url)localStorage.setItem('meta_url_ad',url);else localStorage.removeItem('meta_url_ad');}
-  if(key==='adp'){metaRawAdP=rows;metaSheetUrlAdp=url;window.metaSheetUrlAdp=url;if(url)localStorage.setItem('meta_url_adp',url);else localStorage.removeItem('meta_url_adp');}
+  if(key==='ad'){metaRawAd=rows;window.metaRawAd=rows;metaSheetUrlAd=url;window.metaSheetUrlAd=url;if(url)localStorage.setItem('meta_url_ad',url);else localStorage.removeItem('meta_url_ad');}
+  if(key==='adp'){metaRawAdP=rows;window.metaRawAdP=rows;metaSheetUrlAdp=url;window.metaSheetUrlAdp=url;if(url)localStorage.setItem('meta_url_adp',url);else localStorage.removeItem('meta_url_adp');}
   if(key==='sales'){metaRawSales=rows;window.metaRawSales=rows;metaSheetUrlSales=url;window.metaSheetUrlSales=url;if(url)localStorage.setItem('meta_url_sales',url);else localStorage.removeItem('meta_url_sales');}
 }
 async function loadMetaFromSheets(){
@@ -15864,6 +15867,161 @@ if(document.readyState==='loading'){
   function boot(){
     if(typeof window.ovBuildChannelMonthlyTable === 'function') window.ovBuildChannelMonthlyTable(window._ovMonthlyFilter || 'all');
     else apply(window._ovMonthlyFilter || 'all');
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(boot,0); });
+  else setTimeout(boot,0);
+  window.addEventListener('load', function(){ setTimeout(boot,250); });
+})();
+</script>
+
+
+<!-- PATCH V80: Monthly summary budget/cost calculation only -->
+<script id="monthly-v80-summary-cost-patch">
+(function(){
+  'use strict';
+
+  function toNum(v){ return Number(String(v == null ? '' : v).replace(/[^0-9.-]/g,'')) || 0; }
+  function monthIndexFromDate(ds){
+    var d = new Date(String(ds || '').slice(0,10));
+    return isNaN(d.getTime()) ? -1 : d.getMonth();
+  }
+  function rowVal(row, keys){
+    row = row || {};
+    keys = Array.isArray(keys) ? keys : [keys];
+    if(typeof window.mRawVal === 'function'){
+      var v = window.mRawVal(row, keys);
+      if(v !== undefined && v !== null && String(v).trim() !== '') return v;
+    }
+    for(var i=0;i<keys.length;i++){
+      var k = keys[i];
+      if(row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== '') return row[k];
+    }
+    return '';
+  }
+  function rowNum(row, keys){
+    row = row || {};
+    keys = Array.isArray(keys) ? keys : [keys];
+    if(typeof window.mRawNum === 'function') return window.mRawNum(row, keys);
+    return toNum(rowVal(row, keys));
+  }
+  function getBudgetFrame(){ return document.getElementById('budget-module-frame')?.contentWindow || null; }
+  function getBudgetMonthly(){
+    try{
+      var fr = getBudgetFrame();
+      if(fr && typeof fr.__getMonthlyBudget === 'function') return fr.__getMonthlyBudget() || {};
+    }catch(e){}
+    return window.__budgetMonthlyBudget || null;
+  }
+  function getBudgetDaily(){
+    try{
+      var fr = getBudgetFrame();
+      if(fr && typeof fr.__getDailySpend === 'function') return fr.__getDailySpend() || {};
+    }catch(e){}
+    return window.__budgetDailySpend || {};
+  }
+  function budgetMonthlyTotal(m){
+    var monthNo = Number(m) + 1;
+    var monthly = getBudgetMonthly();
+    if(monthly && monthly[monthNo]){
+      return Object.keys(monthly[monthNo]).reduce(function(sum,k){ return sum + toNum(monthly[monthNo][k]); },0);
+    }
+    return ((window.budgets && window.budgets[m]) || []).reduce(function(sum,v){ return sum + toNum(v); },0);
+  }
+  function budgetDailyCelebEtcTotal(m){
+    var daily = getBudgetDaily();
+    return Object.keys(daily || {}).reduce(function(sum,ds){
+      if(monthIndexFromDate(ds) !== m) return sum;
+      var row = daily[ds] || {};
+      Object.keys(row).forEach(function(k){
+        var key = String(k || '').toLowerCase();
+        if(key.indexOf('celeb') >= 0 || key.indexOf('셀럽') >= 0 || key === 'branding_celeb' || key === 'etc' || key.indexOf('기타') >= 0){
+          sum += toNum(row[k]);
+        }
+      });
+      return sum;
+    },0);
+  }
+  function metaDailySpendTotal(m){
+    var rows = [];
+    if(Array.isArray(window.metaRawAd)) rows = rows.concat(window.metaRawAd);
+    if(Array.isArray(window.metaRawAdP)) rows = rows.concat(window.metaRawAdP);
+    return rows.reduce(function(sum,row){
+      var ds = String(rowVal(row, ['날짜','date','Date','DATE']) || '').slice(0,10);
+      if(monthIndexFromDate(ds) !== m) return sum;
+      return sum + rowNum(row, ['지출 금액','지출금액','Spend','spend','비용','금액']);
+    },0);
+  }
+  function listCostTotal(m){
+    return (window.creators || []).reduce(function(sum,r){
+      if(monthIndexFromDate(r.uploadDate) !== m) return sum;
+      var base = toNum(r.cost1) + toNum(r.cost2);
+      return sum + (r.payType === '사업자' ? Math.round(base * 1.1) : base);
+    },0);
+  }
+  function crmCostTotal(m){
+    return (window.crmData || []).reduce(function(sum,r){
+      var ds = r.date || r.sendDate || r.sentDate || r['발송 일자'] || r['발송일'];
+      if(monthIndexFromDate(ds) !== m) return sum;
+      return sum + toNum(r.cost || r['발송 비용'] || r['발송비용'] || r['비용']);
+    },0);
+  }
+  function seedingCostTotal(m){
+    return (window.seedData || []).reduce(function(sum,r){
+      if(monthIndexFromDate(r.uploadDate) !== m) return sum;
+      var cost = toNum(r.cost || r['원가']);
+      if(!cost && typeof window.seedLookupCostByProduct === 'function') cost = toNum(window.seedLookupCostByProduct(r.product));
+      return sum + cost;
+    },0);
+  }
+  function monthlyProgressCost(m){
+    return budgetDailyCelebEtcTotal(m)
+      + metaDailySpendTotal(m)
+      + listCostTotal(m)
+      + crmCostTotal(m)
+      + seedingCostTotal(m);
+  }
+  function refreshMonthlySummary(){
+    var m = (typeof curM !== 'undefined') ? curM : (new Date()).getMonth();
+    var budget = budgetMonthlyTotal(m);
+    var cost = monthlyProgressCost(m);
+    var budgetEl = document.getElementById('ms-budget');
+    var costEl = document.getElementById('ms-cost');
+    var remainEl = document.getElementById('ms-remain');
+    var weekEl = document.getElementById('ms-week');
+    if(budgetEl) budgetEl.textContent = fmtWon(budget);
+    if(costEl) costEl.textContent = fmtWon(cost);
+    if(remainEl) remainEl.textContent = fmtWon(budget - cost);
+    if(weekEl && typeof getWeekUpload === 'function') weekEl.textContent = getWeekUpload() + '건';
+  }
+  function wrapAfter(name){
+    var fn = window[name];
+    if(typeof fn !== 'function' || fn.__monthlyV80Wrapped) return;
+    window[name] = function(){
+      var ret = fn.apply(this, arguments);
+      Promise.resolve(ret).finally(function(){ setTimeout(refreshMonthlySummary,0); });
+      return ret;
+    };
+    window[name].__monthlyV80Wrapped = true;
+  }
+  window.getMonthBudget = budgetMonthlyTotal;
+  window.getTotalCostForMonth = monthlyProgressCost;
+  window.updateSummary = refreshMonthlySummary;
+  window.monthlyV80CostBreakdown = function(m){
+    m = Number.isFinite(Number(m)) ? Number(m) : ((typeof curM !== 'undefined') ? curM : (new Date()).getMonth());
+    return {
+      budgetDailyCelebEtc: budgetDailyCelebEtcTotal(m),
+      metaDailySpend: metaDailySpendTotal(m),
+      listCost: listCostTotal(m),
+      crmCost: crmCostTotal(m),
+      seedingCost: seedingCostTotal(m),
+      total: monthlyProgressCost(m)
+    };
+  };
+  function boot(){
+    var label = document.querySelector('#ms-cost')?.closest('.s-card')?.querySelector('.s-label');
+    if(label) label.textContent = '진행 총 비용';
+    ['loadMonthlyBudgetFromSheet','loadDailySpendFromSheet','loadMetaFromSheets','refreshMetaFromSheets','crmRender','seedRender','applyListFilter','renderBudget'].forEach(wrapAfter);
+    refreshMonthlySummary();
   }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(boot,0); });
   else setTimeout(boot,0);
