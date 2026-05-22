@@ -15491,11 +15491,16 @@ if(document.readyState==='loading'){
   }
   function salesRows(){ return (window.metaRawSales || (typeof metaRawSales !== 'undefined' ? metaRawSales : []) || []); }
   function calcRates(row){
-    var item = row.item || findItemByCodeOrName(row.code, row.name, row.platform);
-    var incoming = toNum(item && item.incoming);
-    var cost = toNum(item && item.cost);
-    var tag = toNum(item && (item.tag || item.tagPrice || item.tag1));
-    return {salesRate: incoming > 0 ? row.qty / incoming * 100 : NaN, costRate: tag > 0 ? cost / tag * 100 : NaN, incoming: incoming};
+    var item = row.item || findItemByCodeOrName(row.code, row.name, row.platform) || {};
+    var incoming = toNum(item.incoming || item.incomingQty || item['입고'] || item['입고수량']);
+    var cost = toNum(item.cost || item.costPrice || item.productCost || item['원가']);
+    var tag = toNum(item.tag || item.tagPrice || item.tag1 || item.TAG || item['TAG'] || item['태그가'] || item.price || item.normalPrice || item['정가']);
+    var qty = toNum(row.qty);
+    var amount = toNum(row.amount);
+    var costRate = NaN;
+    if(cost > 0 && tag > 0) costRate = cost / tag * 100;
+    else if(cost > 0 && qty > 0 && amount > 0) costRate = (cost * qty) / amount * 100;
+    return {salesRate: incoming > 0 ? qty / incoming * 100 : NaN, costRate: costRate, incoming: incoming};
   }
   function buildProductRows(view){
     view = view || getActiveOverviewView();
@@ -15536,9 +15541,13 @@ if(document.readyState==='loading'){
       }
     });
 
+    function isProductFeedbackPlatform(platform){
+      var key = normPlatform(platform);
+      return key === 'musinsa' || key === '29cm' || key === 'cm' || key === 'store';
+    }
     var arr = Object.values(productMap).map(function(product){
-      product.likes = Object.values(product.channels).reduce(function(s,ch){ return s + toNum(ch.likes); }, 0);
-      product.reviews = Object.values(product.channels).reduce(function(s,ch){ return s + toNum(ch.reviews); }, 0);
+      product.likes = Object.values(product.channels).reduce(function(s,ch){ return s + (isProductFeedbackPlatform(ch.platform) ? toNum(ch.likes) : 0); }, 0);
+      product.reviews = Object.values(product.channels).reduce(function(s,ch){ return s + (isProductFeedbackPlatform(ch.platform) ? toNum(ch.reviews) : 0); }, 0);
       var r = calcRates(product);
       product.salesRate = r.salesRate;
       product.costRate = r.costRate;
@@ -15572,32 +15581,54 @@ if(document.readyState==='loading'){
       + '<div style="font-size:10px;color:var(--color-text-tertiary);margin-bottom:4px;">'+label+'</div>'
       + '<div style="font-size:15px;font-weight:700;color:'+(accent || 'var(--color-text-primary)')+';">'+value+'</div></div>';
   }
-  function showProductDetail(key){
+  function isProductFeedbackPlatform(platform){
+    var key = normPlatform(platform);
+    return key === 'musinsa' || key === '29cm' || key === 'cm' || key === 'store';
+  }
+  function productFeedbackText(platform, value){
+    if(!isProductFeedbackPlatform(platform)) return '-';
+    var n = toNum(value);
+    return n ? n.toLocaleString('ko-KR') : '-';
+  }
+  function showProductDetail(key, anchorRow){
     var view = getActiveOverviewView();
     var rows = buildProductRows(view);
     var product = rows.find(function(r){ return String(r.key) === String(key); });
-    var box = ensureDetailBox();
-    if(!box || !product) return;
+    var tbody = document.getElementById('ov-item-tbody');
+    if(!tbody || !product) return;
+
+    var alreadyOpen = anchorRow && anchorRow.classList.contains('ov-item-selected-row');
+    tbody.querySelectorAll('tr.ov-item-channel-row').forEach(function(tr){ tr.remove(); });
+    tbody.querySelectorAll('tr.ov-item-selected-row').forEach(function(tr){ tr.classList.remove('ov-item-selected-row'); });
+    var detail = document.getElementById('ov-item-detail-cards');
+    if(detail) detail.style.display = 'none';
+    if(alreadyOpen) return;
+
+    if(anchorRow) anchorRow.classList.add('ov-item-selected-row');
     var channels = Object.values(product.channels || {}).filter(function(ch){ return isViewPlatform(view, ch.platform); }).sort(function(a,b){ return b.qty-a.qty || b.amount-a.amount; });
-    var cards = channels.length ? channels.map(function(ch){
-      var chRate = calcRates({item:ch.item || product.item, code:product.code, name:product.name, platform:ch.platform, qty:ch.qty});
-      return '<div style="background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:12px;padding:14px;">'
-        + '<div style="font-size:12px;font-weight:700;color:var(--color-text-primary);margin-bottom:10px;">'+channelLabel(ch.platform)+'</div>'
-        + '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;">'
-        + detailCardMetric('판매 수량', ch.qty ? ch.qty.toLocaleString('ko-KR')+'개' : '-')
-        + detailCardMetric('판매 금액', ch.amount ? fmtOvWon(ch.amount) : '-')
-        + detailCardMetric('판매율', isFinite(chRate.salesRate) ? chRate.salesRate.toFixed(1)+'%' : '-', isFinite(chRate.salesRate) && chRate.salesRate>=70 ? '#2d8c5a' : isFinite(chRate.salesRate) && chRate.salesRate>=40 ? '#d97706' : '#c0392b')
-        + detailCardMetric('원가율', isFinite(chRate.costRate) ? chRate.costRate.toFixed(1)+'%' : '-')
-        + detailCardMetric('좋아요', ch.likes ? ch.likes.toLocaleString('ko-KR') : '-', '#e04e8a')
-        + detailCardMetric('후기', ch.reviews ? ch.reviews.toLocaleString('ko-KR') : '-', '#185FA5')
-        + '</div></div>';
-    }).join('') : '<div style="font-size:11px;color:var(--color-text-tertiary);padding:4px;">선택된 채널 기준 판매 데이터가 없습니다.</div>';
-    box.style.display = 'block';
-    box.innerHTML = '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;"><div>'
-      + '<div style="font-size:12px;font-weight:700;color:var(--color-text-primary);">'+escHtml(product.name || '-')+'</div>'
-      + '<div style="font-size:10px;color:var(--color-text-tertiary);margin-top:2px;">'+escHtml(product.code || '-')+' · '+viewLabel(view)+'</div></div>'
-      + '<button type="button" onclick="document.getElementById(\'ov-item-detail-cards\').style.display=\'none\';document.querySelectorAll(\'#ov-item-tbody tr\').forEach(function(tr){tr.classList.remove(\'ov-item-selected-row\');});" style="border:none;background:transparent;color:var(--color-text-tertiary);font-size:18px;cursor:pointer;line-height:1;">×</button></div>'
-      + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;">'+cards+'</div>';
+    if(!channels.length){
+      var empty = document.createElement('tr');
+      empty.className = 'ov-item-channel-row';
+      empty.innerHTML = '<td colspan="8" style="padding:9px 10px;color:var(--color-text-tertiary);background:var(--color-background-secondary);">선택된 채널 기준 판매 데이터가 없습니다.</td>';
+      if(anchorRow) anchorRow.insertAdjacentElement('afterend', empty);
+      return;
+    }
+
+    var html = channels.map(function(ch){
+      var chRate = calcRates({item:ch.item || product.item, code:product.code, name:product.name, platform:ch.platform, qty:ch.qty, amount:ch.amount});
+      var rateColor = isFinite(chRate.salesRate) && chRate.salesRate>=70 ? '#2d8c5a' : isFinite(chRate.salesRate) && chRate.salesRate>=40 ? '#d97706' : '#c0392b';
+      return '<tr class="ov-item-channel-row" data-parent-key="'+escHtml(product.key)+'" style="border-bottom:0.5px dashed var(--color-border-tertiary);">'
+        + '<td style="padding:7px 8px;color:var(--color-text-primary);background:var(--color-background-secondary);font-weight:600;">↳ '+escHtml(channelLabel(ch.platform) || '-')+'</td>'
+        + '<td style="padding:7px 8px;color:var(--color-text-tertiary);background:var(--color-background-secondary);">'+escHtml(product.name || '-')+'</td>'
+        + '<td style="padding:7px 8px;text-align:right;background:var(--color-background-secondary);">'+(ch.qty ? ch.qty.toLocaleString('ko-KR') : '-')+'</td>'
+        + '<td style="padding:7px 8px;text-align:right;background:var(--color-background-secondary);font-weight:600;">'+(ch.amount ? fmtOvWon(ch.amount) : '-')+'</td>'
+        + '<td title="입고 '+(chRate.incoming ? chRate.incoming.toLocaleString('ko-KR') : '0')+'개 기준" style="padding:7px 8px;text-align:right;background:var(--color-background-secondary);color:'+rateColor+';font-weight:600;">'+(isFinite(chRate.salesRate) ? chRate.salesRate.toFixed(1)+'%' : '-')+'</td>'
+        + '<td title="원가 ÷ TAG 기준" style="padding:7px 8px;text-align:right;background:var(--color-background-secondary);">'+(isFinite(chRate.costRate) ? chRate.costRate.toFixed(1)+'%' : '-')+'</td>'
+        + '<td style="padding:7px 8px;text-align:right;background:#FFF0F8;color:#e04e8a;font-weight:600;">'+productFeedbackText(ch.platform, ch.likes)+'</td>'
+        + '<td style="padding:7px 8px;text-align:right;background:#EFF6FF;color:#185FA5;">'+productFeedbackText(ch.platform, ch.reviews)+'</td>'
+        + '</tr>';
+    }).join('');
+    if(anchorRow) anchorRow.insertAdjacentHTML('afterend', html);
   }
   window.ovShowProductDetail = showProductDetail;
   window.ovBuildItemTable = function(){
@@ -15612,7 +15643,7 @@ if(document.readyState==='loading'){
     }
     tbody.innerHTML = rows.map(function(r){
       var rateColor = isFinite(r.salesRate) && r.salesRate>=70 ? '#2d8c5a' : isFinite(r.salesRate) && r.salesRate>=40 ? '#d97706' : '#c0392b';
-      return '<tr data-product-key="'+escHtml(r.key)+'" onclick="document.querySelectorAll(\'#ov-item-tbody tr\').forEach(function(tr){tr.classList.remove(\'ov-item-selected-row\');});this.classList.add(\'ov-item-selected-row\');ovShowProductDetail(this.getAttribute(\'data-product-key\'));" style="border-bottom:0.5px solid var(--color-border-tertiary);cursor:pointer;">'
+      return '<tr data-product-key="'+escHtml(r.key)+'" onclick="ovShowProductDetail(this.getAttribute(\'data-product-key\'), this);" style="border-bottom:0.5px solid var(--color-border-tertiary);cursor:pointer;">'
         + '<td style="padding:6px 8px;color:var(--color-text-tertiary);">'+escHtml(r.code || '-')+'</td>'
         + '<td style="padding:6px 8px;font-weight:500;">'+escHtml(r.name || '-')+'</td>'
         + '<td style="padding:6px 8px;text-align:right;font-weight:600;">'+(r.qty ? r.qty.toLocaleString('ko-KR') : '-')+'</td>'
