@@ -16057,5 +16057,312 @@ if(document.readyState==='loading'){
 })();
 </script>
 
+
+<!-- PATCH V75: List ITEM popup z-index, product-name dropdown, manual item keep, item reordering -->
+<style id="list-v75-item-popup-fix-style">
+  /* ITEM 팝업이 List 탭 고정 컬럼/드롭다운보다 항상 위에 보이도록 보정 */
+  #item-modal.modal-overlay{
+    z-index:100000!important;
+  }
+  #item-modal .modal-box{
+    position:relative!important;
+    z-index:100001!important;
+    width:min(95vw, 640px)!important;
+    overflow:visible!important;
+  }
+  #item-modal .tbl-wrap{
+    max-height:58vh!important;
+    overflow:auto!important;
+    background:var(--color-background-primary)!important;
+  }
+  #item-modal table{
+    position:relative!important;
+    z-index:1!important;
+  }
+  #item-modal th,
+  #item-modal td{
+    background:var(--color-background-primary);
+  }
+  #item-modal thead th{
+    position:sticky;
+    top:0;
+    z-index:2;
+    background:var(--color-background-secondary)!important;
+  }
+  #item-modal input[list]::-webkit-calendar-picker-indicator{
+    opacity:.65;
+    cursor:pointer;
+  }
+  .list-v75-move-cell{
+    white-space:nowrap!important;
+    text-align:center!important;
+  }
+  .list-v75-move-btn{
+    font-size:10px!important;
+    line-height:1!important;
+    padding:3px 6px!important;
+    margin:0 1px!important;
+    border:0.5px solid var(--color-border-secondary)!important;
+    border-radius:6px!important;
+    background:var(--color-background-primary)!important;
+    color:var(--color-text-secondary)!important;
+    cursor:pointer!important;
+  }
+  .list-v75-move-btn:hover{
+    background:var(--color-background-secondary)!important;
+    color:var(--color-text-primary)!important;
+  }
+  .list-v75-move-btn:disabled{
+    opacity:.28!important;
+    cursor:not-allowed!important;
+  }
+</style>
+<script id="list-v75-item-popup-fix-script">
+(function(){
+  'use strict';
+
+  function esc(v){
+    return String(v == null ? '' : v)
+      .replace(/&/g,'&amp;')
+      .replace(/"/g,'&quot;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;');
+  }
+  function norm(v){ return String(v == null ? '' : v).trim().toLowerCase().replace(/\s+/g,''); }
+  function onlyNum(v){ return parseInt(String(v == null ? '' : v).replace(/[^0-9]/g,''),10) || 0; }
+  function firstVal(obj, keys){
+    obj = obj || {};
+    for(var i=0;i<keys.length;i++){
+      var k = keys[i];
+      if(obj[k] !== undefined && obj[k] !== null && String(obj[k]).trim() !== '') return obj[k];
+    }
+    return '';
+  }
+  function productCode(product){
+    return String(firstVal(product, ['code','productCode','itemCode','sku','상품 코드','상품코드']) || '').trim();
+  }
+  function productName(product){
+    return String(firstVal(product, ['name','productName','itemName','상품명','제품명']) || '').trim();
+  }
+  function productCost(product){
+    return onlyNum(firstVal(product, ['cost','원가','costPrice','productCost']));
+  }
+  function colorFromName(name){
+    var m = String(name || '').match(/\(([^()]*)\)\s*$/);
+    return m ? m[1].trim() : '';
+  }
+  function platformKey(v){
+    var x = norm(v);
+    if(x === '무신사' || x === 'musinsa') return 'musinsa';
+    if(x === '29cm') return 'cm';
+    if(x === '자사몰' || x === 'store' || x === '스토어' || x === '자사') return 'store';
+    return x;
+  }
+  function uidByPlatform(product, platform){
+    var p = product || {};
+    var key = platformKey(platform);
+    if(key === 'musinsa') return String(firstVal(p, ['musinsaUid','musinsaUID','musinsa_uid','무신사 UID','무신사UID']) || '').trim();
+    if(key === 'cm') return String(firstVal(p, ['cmUid','cmUID','cm_uid','29cmUid','29CMUid','29CM UID','29CMUID']) || '').trim();
+    if(key === 'store') return String(firstVal(p, ['storeUid','storeUID','store_uid','자사몰 UID','자사몰UID']) || '').trim();
+    return String(firstVal(p, ['uid','UID','musinsaUid','cmUid','storeUid']) || '').trim();
+  }
+  function getModalIndex(){
+    if(typeof window.__listModalIdx === 'number' && window.__listModalIdx > -1) return window.__listModalIdx;
+    try{ if(typeof modalIdx === 'number' && modalIdx > -1) return modalIdx; }catch(e){}
+    return -1;
+  }
+  function productNameDatalistId(){ return 'list-v75-product-name-options'; }
+  function ensureProductNameDatalist(){
+    var id = productNameDatalistId();
+    var old = document.getElementById(id);
+    if(old) old.remove();
+    var dl = document.createElement('datalist');
+    dl.id = id;
+    var seen = {};
+    (window.products || []).forEach(function(product){
+      var name = productName(product);
+      if(!name || seen[name]) return;
+      seen[name] = true;
+      var opt = document.createElement('option');
+      opt.value = name;
+      var code = productCode(product);
+      if(code) opt.label = code;
+      dl.appendChild(opt);
+    });
+    document.body.appendChild(dl);
+    return id;
+  }
+  function findByCode(code){
+    var q = norm(code);
+    if(!q) return null;
+    return (window.products || []).find(function(product){ return norm(productCode(product)) === q; }) || null;
+  }
+  function findByUid(uid, platform){
+    var q = norm(uid);
+    if(!q) return null;
+    return (window.products || []).find(function(product){ return norm(uidByPlatform(product, platform)) === q; }) || null;
+  }
+  function findByName(name){
+    var q = norm(name);
+    if(!q) return null;
+    return (window.products || []).find(function(product){ return norm(productName(product)) === q; }) || null;
+  }
+  function findProduct(keyword, platform, field){
+    if(field === 'uid') return findByUid(keyword, platform) || findByCode(keyword);
+    if(field === 'name') return findByName(keyword) || findByCode(keyword);
+    return findByCode(keyword);
+  }
+  function applyProduct(row, item, product){
+    if(!row || !item || !product) return;
+    var platform = row.platform || item.platform || '';
+    var name = productName(product);
+    item.platform = platform;
+    item.code = productCode(product) || item.code || '';
+    item.uid = uidByPlatform(product, platform) || item.uid || '';
+    item.name = name || item.name || '';
+    item.color = colorFromName(name) || item.color || '';
+    item.cost = productCost(product) || onlyNum(item.cost);
+    item.manual = false;
+  }
+  function markManualIfNoProduct(row, item){
+    if(!row || !item) return;
+    var platform = row.platform || item.platform || '';
+    var hasAnyValue = String(item.uid || item.code || item.name || item.color || '').trim() !== '';
+    var product = findByCode(item.code) || findByUid(item.uid, platform) || findByName(item.name);
+    item.manual = hasAnyValue && !product;
+  }
+  function doAutoFill(ii, keyword, field, shouldRender){
+    var idx = getModalIndex();
+    var row = (window.creators || [])[idx];
+    if(!row || !row.items || !row.items[ii]) return;
+    var item = row.items[ii];
+    var platform = row.platform || item.platform || '';
+    var product = findProduct(keyword, platform, field || 'code');
+    if(product) applyProduct(row, item, product);
+    else markManualIfNoProduct(row, item);
+    if(shouldRender !== false && typeof window.renderModalItems === 'function') window.renderModalItems();
+  }
+  function ensureHeader(){
+    var table = document.querySelector('#item-modal table');
+    if(!table) return;
+    var tr = table.querySelector('thead tr');
+    if(!tr) return;
+    var labels = Array.from(tr.children).map(function(th){ return (th.textContent || '').trim(); });
+    if(labels.indexOf('이동') === -1){
+      var th = document.createElement('th');
+      th.textContent = '이동';
+      th.style.width = '58px';
+      tr.appendChild(th);
+    }
+  }
+
+  var prevOpenModal = window.openModal;
+  window.openModal = function(ri){
+    window.__listModalIdx = ri;
+    var result;
+    if(typeof prevOpenModal === 'function') result = prevOpenModal.apply(this, arguments);
+    else {
+      var modal = document.getElementById('item-modal');
+      if(typeof window.renderModalItems === 'function') window.renderModalItems();
+      if(modal) modal.classList.add('open');
+    }
+    ensureHeader();
+    var modalEl = document.getElementById('item-modal');
+    if(modalEl) modalEl.style.zIndex = '100000';
+    return result;
+  };
+
+  window.autoFillModal = function(ii, keyword, field){
+    doAutoFill(ii, keyword, field || 'code', true);
+  };
+
+  window.addModalItem = function(){
+    var idx = getModalIndex();
+    var row = (window.creators || [])[idx];
+    if(!row) return;
+    if(!Array.isArray(row.items)) row.items = [];
+    row.items.push({platform:row.platform || '', uid:'', code:'', name:'', color:'', cost:0, manual:false});
+    if(typeof window.renderModalItems === 'function') window.renderModalItems();
+  };
+
+  window.moveModalItem = function(ii, dir){
+    var idx = getModalIndex();
+    var row = (window.creators || [])[idx];
+    if(!row || !Array.isArray(row.items)) return;
+    var next = ii + dir;
+    if(next < 0 || next >= row.items.length) return;
+    var moved = row.items.splice(ii, 1)[0];
+    row.items.splice(next, 0, moved);
+    row.items.forEach(function(item, order){ if(item) item._order = order; });
+    if(typeof window.renderModalItems === 'function') window.renderModalItems();
+  };
+
+  window.renderModalItems = function(){
+    var idx = getModalIndex();
+    var row = (window.creators || [])[idx];
+    var body = document.getElementById('modal-item-body');
+    if(!row || !body) return;
+    if(!Array.isArray(row.items)) row.items = [];
+    ensureHeader();
+    var dataListId = ensureProductNameDatalist();
+    body.innerHTML = row.items.map(function(item, ii){
+      if(!item) item = row.items[ii] = {};
+      item.platform = row.platform || item.platform || '';
+      if(!item.color) item.color = colorFromName(item.name);
+      markManualIfNoProduct(row, item);
+      var platform = row.platform || item.platform || '-';
+      var isFirst = ii === 0;
+      var isLast = ii === row.items.length - 1;
+      return '<tr>'+
+        '<td>'+esc(platform)+'</td>'+
+        '<td><input type="text" value="'+esc(item.uid)+'" onblur="window.creators[window.__listModalIdx].items['+ii+'].uid=this.value;window.autoFillModal('+ii+',this.value,\'uid\');" onchange="window.creators[window.__listModalIdx].items['+ii+'].uid=this.value;window.autoFillModal('+ii+',this.value,\'uid\');" placeholder="UID 입력"></td>'+
+        '<td><input type="text" value="'+esc(item.code)+'" onblur="window.creators[window.__listModalIdx].items['+ii+'].code=this.value;window.autoFillModal('+ii+',this.value,\'code\');" onchange="window.creators[window.__listModalIdx].items['+ii+'].code=this.value;window.autoFillModal('+ii+',this.value,\'code\');" placeholder="상품 코드 입력"></td>'+
+        '<td><input type="text" list="'+dataListId+'" value="'+esc(item.name)+'" oninput="window.creators[window.__listModalIdx].items['+ii+'].name=this.value;" onblur="window.creators[window.__listModalIdx].items['+ii+'].name=this.value;window.autoFillModal('+ii+',this.value,\'name\');" onchange="window.creators[window.__listModalIdx].items['+ii+'].name=this.value;window.autoFillModal('+ii+',this.value,\'name\');" placeholder="제품명 또는 기획전명 입력"></td>'+
+        '<td><input type="text" value="'+esc(item.color || colorFromName(item.name))+'" onchange="window.creators[window.__listModalIdx].items['+ii+'].color=this.value;window.creators[window.__listModalIdx].items['+ii+'].manual=true;" placeholder="자동"></td>'+
+        '<td><span class="del-btn" onclick="window.creators[window.__listModalIdx].items.splice('+ii+',1);window.renderModalItems();">&#10005;</span></td>'+
+        '<td class="list-v75-move-cell">'+
+          '<button type="button" class="list-v75-move-btn" '+(isFirst?'disabled':'')+' onclick="window.moveModalItem('+ii+',-1)">↑</button>'+
+          '<button type="button" class="list-v75-move-btn" '+(isLast?'disabled':'')+' onclick="window.moveModalItem('+ii+',1)">↓</button>'+
+        '</td>'+
+      '</tr>';
+    }).join('');
+  };
+
+  var prevSaveModal = window.saveModal;
+  window.saveModal = function(){
+    var idx = getModalIndex();
+    var row = (window.creators || [])[idx];
+    if(row && Array.isArray(row.items)){
+      row.items.forEach(function(item, order){
+        if(!item) return;
+        item._order = order;
+        var platform = row.platform || item.platform || '';
+        var product = findByCode(item.code) || findByUid(item.uid, platform) || findByName(item.name);
+        if(product) applyProduct(row, item, product);
+        else markManualIfNoProduct(row, item);
+      });
+    }
+    if(typeof prevSaveModal === 'function') return prevSaveModal.apply(this, arguments);
+    if(window.fbSaveCreators) window.fbSaveCreators();
+    if(window.closeModal) window.closeModal();
+  };
+
+  var prevCloseModal = window.closeModal;
+  window.closeModal = function(){
+    var result;
+    if(typeof prevCloseModal === 'function') result = prevCloseModal.apply(this, arguments);
+    var modalEl = document.getElementById('item-modal');
+    if(modalEl) modalEl.style.zIndex = '';
+    return result;
+  };
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', ensureHeader);
+  }else{
+    ensureHeader();
+  }
+})();
+</script>
+
 </body>
 </html>
