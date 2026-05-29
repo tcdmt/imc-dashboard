@@ -4744,6 +4744,63 @@ function fbdBlurNum(el,ci,key,field,fmt){
   fbSaveCreators();
   window.applyFeedbackFilter();
 }
+
+/* ── Feedback 상품별 판매/매출 데이터 헬퍼 ── */
+function fbFeedbackNorm(v){return String(v==null?'':v).trim().toLowerCase().replace(/\s+/g,'');}
+function fbFeedbackClean(v){var x=String(v==null?'':v).trim();return (x&&x!=='-')?x:'';}
+function fbFeedbackItemKey(item, platform){
+  item=item||{};
+  var uid=fbFeedbackClean(item.uid||item.UID);
+  var code=fbFeedbackClean(item.code||item.productCode||item['상품코드']||item['상품 코드']);
+  var name=fbFeedbackClean(item.name||item.productName||item['상품명']||item['제품명']);
+  var plt=fbFeedbackClean(item.platform||platform);
+  if(uid)return 'uid:'+fbFeedbackNorm(plt)+'|'+fbFeedbackNorm(uid);
+  if(code)return 'code:'+fbFeedbackNorm(plt)+'|'+fbFeedbackNorm(code);
+  return 'name:'+fbFeedbackNorm(plt)+'|'+fbFeedbackNorm(name);
+}
+function fbFeedbackJsArg(v){return String(v==null?'':v).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/[\r\n]/g,' ');}
+function fbdEnsureItemData(ci,key,itemKey){
+  if(!window.creators[ci]._fbData)window.creators[ci]._fbData={};
+  if(!window.creators[ci]._fbData[key])window.creators[ci]._fbData[key]={view:0,comment:0,like:0,click:0,productLike:0,sales:0,revenue:0,total:0,rankAll:0,rankCat:0};
+  var d=window.creators[ci]._fbData[key];
+  if(!d._itemData)d._itemData={};
+  if(!d._itemData[itemKey])d._itemData[itemKey]={sales:0,revenue:0};
+  return d._itemData[itemKey];
+}
+function fbdDcItemNum(ci,key,itemKey,field,curVal){
+  var display=curVal?fmtNum(curVal):'-';
+  return `<span class="dc-cell" style="text-align:right;min-width:50px;" ondblclick="fbdDcItemStartEdit(this,${ci},'${key}','${fbFeedbackJsArg(itemKey)}','${field}','num')" title="더블클릭하여 입력">${display}</span>`;
+}
+function fbdDcItemWon(ci,key,itemKey,field,curVal){
+  var display=curVal?fmtWon2(curVal):'-';
+  return `<span class="dc-cell" style="text-align:right;min-width:70px;" ondblclick="fbdDcItemStartEdit(this,${ci},'${key}','${fbFeedbackJsArg(itemKey)}','${field}','won')" title="더블클릭하여 입력">${display}</span>`;
+}
+function fbdDcItemStartEdit(span,ci,key,itemKey,field,fmt){
+  var itemData=fbdEnsureItemData(ci,key,itemKey);
+  var curVal=itemData[field]||0;
+  var input=document.createElement('input');
+  input.type='number'; input.value=curVal;
+  input.className='dc-input'; input.style.textAlign='right'; input.style.minWidth='60px';
+  span.style.display='none'; span.parentNode.insertBefore(input,span.nextSibling);
+  input.focus(); input.select();
+  function save(){
+    var v=Number(input.value)||0;
+    var itemData=fbdEnsureItemData(ci,key,itemKey);
+    itemData[field]=v;
+    var d=window.creators[ci]._fbData[key];
+    if(d._itemData){
+      d.sales=Object.keys(d._itemData).reduce(function(sum,k){return sum+(Number(d._itemData[k].sales)||0);},0);
+      d.revenue=Object.keys(d._itemData).reduce(function(sum,k){return sum+(Number(d._itemData[k].revenue)||0);},0);
+    }
+    span.textContent=fmt==='won'?(v?fmtWon2(v):'-'):(v?fmtNum(v):'-');
+    span.style.display=''; input.remove();
+    fbSaveCreators(); window.applyFeedbackFilter&&window.applyFeedbackFilter();
+  }
+  input.addEventListener('blur',save);
+  input.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();input.blur();} if(e.key==='Escape'){span.style.display='';input.remove();}});
+}
+window.fbdDcItemStartEdit=fbdDcItemStartEdit;
+
 function renderFeedbackRows(list){
   const body=document.getElementById('feedback-body');
   const elig=list.filter(r=>r.checked||r.progress);
@@ -4781,15 +4838,20 @@ function renderFeedbackRows(list){
       const prevData=di>0?dayData[di-1].data:null;
       items.forEach((item,ii)=>{
         const isFC=firstRow&&ii===0,isFD=ii===0,isDot=di>0&&ii===0;firstRow=false;
+        const itemKey=fbFeedbackItemKey(item,r.platform);
+        const itemData=(data._itemData&&data._itemData[itemKey])?data._itemData[itemKey]:{};
+        const salesVal=Number(itemData.sales)||0;
+        const revenueVal=Number(itemData.revenue)||0;
+        const prevItemData=(prevData&&prevData._itemData&&prevData._itemData[itemKey])?prevData._itemData[itemKey]:null;
         // 수식 계산 (업로드 당일은 '-')
         const ctr=(!isUploadDay&&data.view>0)?(data.click/data.view*100):NaN;
-        // 매출 증감 = (기준일 매출 / (직전일 매출-1)) * 100
-        const prevRev=prevData?prevData.revenue:0;
-        const revenueChange=(!isUploadDay&&prevRev>1)?((data.revenue/(prevRev-1))*100):NaN;
-        // CVR = (판매수량/링크클릭)*100
-        const cvr=(!isUploadDay&&data.click>0)?(data.sales/data.click*100):NaN;
-        const revShare=(!isUploadDay&&data.total>0)?(data.revenue/data.total*100):NaN;
-        const roas=(!isUploadDay&&(r.cost1+r.cost2)>0)?(data.revenue/(r.cost1+r.cost2)*100):NaN;
+        // 매출 증감 = (기준일 상품별 매출 / (직전일 상품별 매출-1)) * 100
+        const prevRev=prevItemData?Number(prevItemData.revenue)||0:0;
+        const revenueChange=(!isUploadDay&&prevRev>1)?((revenueVal/(prevRev-1))*100):NaN;
+        // CVR = (상품별 판매수량/링크클릭)*100
+        const cvr=(!isUploadDay&&data.click>0)?(salesVal/data.click*100):NaN;
+        const revShare=(!isUploadDay&&data.total>0)?(revenueVal/data.total*100):NaN;
+        const roas=(!isUploadDay&&(r.cost1+r.cost2)>0)?(revenueVal/(r.cost1+r.cost2)*100):NaN;
         // 셀 생성 헬퍼
         const mkInput=(field,fmt,val,w)=>{
           const fmtVal=isUploadDay?'-':fmt(val);
@@ -4832,10 +4894,10 @@ function renderFeedbackRows(list){
         // 매출/총매출 (업로드 당일은 '-')
         const revTd=isUploadDay
           ?`<td style="text-align:center;color:var(--color-text-tertiary);">-</td>`
-          :`<td style="text-align:right;">${fbdDcWon(ci,key,'revenue',data.revenue)}</td>`;
+          :`<td style="text-align:right;">${fbdDcItemWon(ci,key,itemKey,'revenue',revenueVal)}</td>`;
         const salesTd=isUploadDay
           ?`<td style="text-align:center;color:var(--color-text-tertiary);">-</td>`
-          :`<td style="text-align:right;">${fbdDcNum(ci,key,'sales',data.sales)}</td>`;
+          :`<td style="text-align:right;">${fbdDcItemNum(ci,key,itemKey,'sales',salesVal)}</td>`;
         let totTd='';
         if(isFD){
           totTd=isUploadDay
@@ -16498,55 +16560,86 @@ if(document.readyState==='loading'){
       return;
     }
     var updated = false;
+
+    function itemKeyFromTarget(item, platform){
+      var targetUid = getItemTargetUid(item, platform);
+      if(targetUid) return 'uid:' + fbFeedbackNorm(platform) + '|' + fbFeedbackNorm(targetUid);
+      return fbFeedbackItemKey(item, platform);
+    }
+    function rowCode(row){ return String(rowVal(row, ['상품 코드','상품코드','상품 code','Product Code','code','Code']) || '').trim(); }
+    function rowName(row){ return String(rowVal(row, ['상품명','제품명','상품 명','Product Name','name','Name']) || '').trim(); }
+
     window.creators.forEach(function(r, ci){
       if(!r || (!r.checked && !r.progress)) return;
       if(!r._fbData) r._fbData = {};
       var uploadD = r.uploadDate ? new Date(r.uploadDate) : null;
       if(!uploadD || isNaN(uploadD.getTime())) return;
-      var items = (r.items && r.items.length ? r.items : []).filter(function(item){
-        return item && (item.uid || item.code || item.name);
-      });
       var creatorPlatform = normalizePlatform(r.platform);
+      var items = (r.items && r.items.length ? r.items : []).filter(function(item){
+        return item && (fbFeedbackClean(item.uid||item.UID) || fbFeedbackClean(item.code) || fbFeedbackClean(item.name));
+      });
+
+      var itemTargets = items.map(function(item){
+        var platform = normalizePlatform(item.platform || r.platform) || creatorPlatform;
+        var targetUid = getItemTargetUid(item, platform);
+        return {
+          key: itemKeyFromTarget(item, platform),
+          uid: fbFeedbackNorm(targetUid || item.uid || item.UID),
+          code: fbFeedbackNorm(item.code),
+          name: fbFeedbackNorm(item.name),
+          platform: platform
+        };
+      });
+
       for(var di=0; di<7; di++){
         var d = new Date(uploadD.getTime() + di * 86400000);
         var ds = d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate());
         var key = ci + '_d' + di;
         if(!r._fbData[key]) r._fbData[key] = {view:0,comment:0,like:0,click:0,productLike:0,sales:0,revenue:0,total:0,rankAll:0,rankCat:0};
+        var dayData = r._fbData[key];
+        dayData._itemData = {};
 
-        var targetUids = [];
-        items.forEach(function(item){
-          var itemPlatform = normalizePlatform(item.platform || r.platform);
-          var targetUid = getItemTargetUid(item, itemPlatform || creatorPlatform);
-          if(targetUid) targetUids.push(norm(targetUid));
+        var dayTotalQty = 0;
+        var dayTotalRev = 0;
+        var usedRows = new Set();
+
+        itemTargets.forEach(function(target){
+          if(!target.key) return;
+          var matched = [];
+          rawRows.forEach(function(row, idx){
+            if(rowDate(row) !== ds) return;
+            var rowP = normalizePlatform(rowPlatform(row));
+            if(target.platform && rowP && rowP !== target.platform) return;
+            if(creatorPlatform && rowP && rowP !== creatorPlatform) return;
+
+            var rUid = fbFeedbackNorm(rowUid(row));
+            var rCode = fbFeedbackNorm(rowCode(row));
+            var rName = fbFeedbackNorm(rowName(row));
+
+            var ok = false;
+            if(target.uid && rUid) ok = (rUid === target.uid);
+            else if(target.code && rCode) ok = (rCode === target.code);
+            else if(target.name && rName) ok = (rName === target.name);
+            if(ok) matched.push({row:row, idx:idx});
+          });
+
+          var qty = matched.reduce(function(sum,m){ return sum + rowQty(m.row); }, 0);
+          var rev = matched.reduce(function(sum,m){ return sum + rowAmount(m.row); }, 0);
+          dayData._itemData[target.key] = {sales:qty, revenue:rev};
+          dayTotalQty += qty;
+          dayTotalRev += rev;
+          matched.forEach(function(m){ usedRows.add(m.idx); });
         });
-        targetUids = Array.from(new Set(targetUids.filter(Boolean)));
 
-        var matchedIdx = new Set();
-        rawRows.forEach(function(row, idx){
-          if(rowDate(row) !== ds) return;
-          var rowP = normalizePlatform(rowPlatform(row));
-          if(creatorPlatform && rowP && rowP !== creatorPlatform) return;
-          var uid = norm(rowUid(row));
-          if(!uid || targetUids.indexOf(uid) === -1) return;
-          matchedIdx.add(idx);
-        });
-
-        var dayQty = 0, dayRev = 0;
-        matchedIdx.forEach(function(idx){
-          var row = rawRows[idx];
-          dayQty += rowQty(row);
-          dayRev += rowAmount(row);
-        });
-
-        if(r._fbData[key].sales !== dayQty){ r._fbData[key].sales = dayQty; updated = true; }
-        if(r._fbData[key].revenue !== dayRev){ r._fbData[key].revenue = dayRev; updated = true; }
+        if(dayData.sales !== dayTotalQty){ dayData.sales = dayTotalQty; updated = true; }
+        if(dayData.revenue !== dayTotalRev){ dayData.revenue = dayTotalRev; updated = true; }
 
         var totalSalesForDay = rawRows.filter(function(row){
           if(rowDate(row) !== ds) return false;
           var rowP = normalizePlatform(rowPlatform(row));
           return !creatorPlatform || !rowP || rowP === creatorPlatform;
         }).reduce(function(sum,row){ return sum + rowAmount(row); }, 0);
-        if(r._fbData[key].total !== totalSalesForDay){ r._fbData[key].total = totalSalesForDay; updated = true; }
+        if(dayData.total !== totalSalesForDay){ dayData.total = totalSalesForDay; updated = true; }
       }
     });
     if(updated){
@@ -16555,7 +16648,7 @@ if(document.readyState==='loading'){
       if(typeof window.ovBuildItemTable === 'function') window.ovBuildItemTable();
       if(typeof window.ovBuildItemRankChart === 'function') window.ovBuildItemRankChart();
     }
-    console.log('Feedback 판매 자동 기입 완료: 일자 + UID 기준으로 플랫폼 별 매출 데이터를 반영했습니다.');
+    console.log('Feedback 판매 자동 기입 완료: 일자 + UID 기준으로 상품별 판매수량/매출을 반영했습니다.');
   };
 })();
 </script>
