@@ -16365,5 +16365,200 @@ if(document.readyState==='loading'){
 })();
 </script>
 
+
+
+<!-- PATCH v80: Feedback sales auto-fill date + UID matching fix (requested only) -->
+<script id="feedback-v80-sales-autofill-date-uid-fix">
+(function(){
+  'use strict';
+
+  function norm(v){ return String(v == null ? '' : v).trim().toLowerCase().replace(/\s+/g,''); }
+  function toNum(v){ return Number(String(v == null ? '' : v).replace(/[^0-9.\-]/g,'')) || 0; }
+  function pad2(v){ return String(v).padStart(2,'0'); }
+  function rowVal(row, keys){
+    row = row || {};
+    keys = Array.isArray(keys) ? keys : [keys];
+    if(typeof window.mRawVal === 'function'){
+      var mv = window.mRawVal(row, keys);
+      if(mv !== undefined && mv !== null && String(mv).trim() !== '') return mv;
+    }
+    for(var i=0;i<keys.length;i++){
+      var k = keys[i];
+      if(row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== '') return row[k];
+    }
+    return '';
+  }
+  function rowNum(row, keys){
+    if(typeof window.mRawNum === 'function'){
+      var n = window.mRawNum(row, keys);
+      if(n) return n;
+    }
+    return toNum(rowVal(row, keys));
+  }
+  function normalizeDate(value){
+    if(value instanceof Date && !isNaN(value.getTime())){
+      return value.getFullYear() + '-' + pad2(value.getMonth()+1) + '-' + pad2(value.getDate());
+    }
+    var raw = String(value == null ? '' : value).trim();
+    if(!raw) return '';
+    if(/^\d{5}(\.\d+)?$/.test(raw)){
+      var serial = Math.floor(Number(raw));
+      if(serial > 20000 && serial < 80000){
+        var d0 = new Date(Date.UTC(1899,11,30) + serial * 86400000);
+        return d0.getUTCFullYear() + '-' + pad2(d0.getUTCMonth()+1) + '-' + pad2(d0.getUTCDate());
+      }
+    }
+    var m = raw.match(/(\d{4})[-\/.년\s]+(\d{1,2})[-\/.월\s]+(\d{1,2})/);
+    if(m) return m[1] + '-' + pad2(m[2]) + '-' + pad2(m[3]);
+    m = raw.match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일?/);
+    if(m){
+      var y = String(new Date().getFullYear());
+      return y + '-' + pad2(m[1]) + '-' + pad2(m[2]);
+    }
+    return raw.slice(0,10);
+  }
+  function normalizePlatform(v){
+    if(typeof window.mNormMetaPlatform === 'function') return window.mNormMetaPlatform(v);
+    var x = norm(v);
+    if(!x || x === '전체' || x === 'all' || x === 'total') return '';
+    if(x === '무신사' || x === 'musinsa') return 'musinsa';
+    if(x === '29cm' || x === '29') return '29cm';
+    if(x === '자사몰' || x === 'store' || x === '스토어' || x === '자사') return 'store';
+    if(x === 'offline' || x.indexOf('오프') >= 0 || x.indexOf('플래그십') >= 0) return 'offline';
+    return x;
+  }
+  function rowDate(row){ return normalizeDate(rowVal(row, ['날짜','일자','date','Date','판매일','판매 일자','주문일','주문 일자','결제일','결제 일자'])); }
+  function rowUid(row){ return String(rowVal(row, ['UID','uid','Uid','상품 UID','상품UID','상품 uid','Product UID']) || '').trim(); }
+  function rowPlatform(row){ return rowVal(row, ['플랫폼','판매 채널','판매채널','채널','channel','Channel']); }
+  function rowQty(row){ return rowNum(row, ['실 구매 수량','실구매수량','실 구매수량','판매 수량','판매수량','수량','qty','Qty']); }
+  function rowAmount(row){ return rowNum(row, ['실 구매 금액','실구매금액','실 구매금액','판매 금액','판매금액','매출','실매출','revenue','Revenue','amount','Amount']); }
+  function productUidByPlatform(product, platform){
+    product = product || {};
+    var p = normalizePlatform(platform);
+    if(p === 'musinsa') return String(product.musinsaUid || product.musinsaUID || product.musinsa_uid || product['무신사 UID'] || product['무신사UID'] || ((normalizePlatform(product.platform) === 'musinsa') ? product.uid : '') || '').trim();
+    if(p === '29cm') return String(product.cmUid || product.cmUID || product.cm_uid || product['29cmUid'] || product['29CMUid'] || product['29CM UID'] || product['29CMUID'] || ((normalizePlatform(product.platform) === '29cm') ? product.uid : '') || '').trim();
+    if(p === 'store' || p === 'offline') return String(product.storeUid || product.storeUID || product.store_uid || product['자사몰 UID'] || product['자사몰UID'] || ((normalizePlatform(product.platform) === p) ? product.uid : '') || '').trim();
+    return String(product.uid || product.UID || product.musinsaUid || product.cmUid || product.storeUid || '').trim();
+  }
+  function findItemByUid(platform, uid){
+    var q = norm(uid);
+    if(!q) return null;
+    return (window.products || []).find(function(p){ return norm(productUidByPlatform(p, platform)) === q || norm(p.uid || p.UID) === q; }) || null;
+  }
+  function findItemByCodeOrName(code, name, platform){
+    var c = norm(code), n = norm(name);
+    return (window.products || []).find(function(p){
+      return (c && norm(p.code || p.productCode || p.itemCode || p['상품 코드'] || p['상품코드']) === c)
+        || (n && norm(p.name || p.productName || p.itemName || p['상품명'] || p['제품명']) === n)
+        || (c && norm(productUidByPlatform(p, platform)) === c);
+    }) || null;
+  }
+  function getItemTargetUid(item, platform){
+    item = item || {};
+    var direct = String(item.uid || item.UID || '').trim();
+    if(direct && direct !== '-') return direct;
+    var product = findItemByCodeOrName(item.code, item.name, platform);
+    return productUidByPlatform(product, platform);
+  }
+  function parseMetaCSVLineSafe(line){
+    if(typeof window.parseMetaCSVLine === 'function') return window.parseMetaCSVLine(line);
+    var vals=[], cur='', inQ=false;
+    for(var i=0;i<String(line).length;i++){
+      var c=line[i];
+      if(c === '"'){
+        if(inQ && line[i+1] === '"'){ cur += '"'; i++; }
+        else inQ = !inQ;
+      }else if(c === ',' && !inQ){ vals.push(cur.trim()); cur=''; }
+      else cur += c;
+    }
+    vals.push(cur.trim());
+    return vals.map(function(v){ return v.replace(/^"|"$/g,''); });
+  }
+
+  window.parseMetaCSV = function(text){
+    var lines = String(text || '').replace(/^\uFEFF/,'').trim().split(/\r?\n/).filter(Boolean);
+    if(lines.length < 2) return [];
+    var headers = parseMetaCSVLineSafe(lines[0]).map(function(h){ return h.trim(); });
+    var dateHeaders = ['날짜','일자','date','Date','판매일','판매 일자','주문일','주문 일자','결제일','결제 일자'];
+    return lines.slice(1).map(function(line){
+      var vals = parseMetaCSVLineSafe(line);
+      var obj = {};
+      headers.forEach(function(h,i){ obj[h] = vals[i] || ''; });
+      var rawDate = rowVal(obj, dateHeaders);
+      var ds = normalizeDate(rawDate);
+      if(ds) obj['날짜'] = ds;
+      return obj;
+    }).filter(function(r){ return r['날짜'] && /^\d{4}-\d{2}-\d{2}$/.test(r['날짜']); });
+  };
+
+  window.fbAutoFillSales = function(){
+    var rawRows = (window.metaRawSales || (typeof metaRawSales !== 'undefined' ? metaRawSales : []) || []);
+    if(!rawRows.length || !Array.isArray(window.creators)){
+      console.warn('Feedback 판매 자동 기입: 플랫폼 별 매출 데이터가 아직 로드되지 않았습니다.');
+      return;
+    }
+    var updated = false;
+    window.creators.forEach(function(r, ci){
+      if(!r || (!r.checked && !r.progress)) return;
+      if(!r._fbData) r._fbData = {};
+      var uploadD = r.uploadDate ? new Date(r.uploadDate) : null;
+      if(!uploadD || isNaN(uploadD.getTime())) return;
+      var items = (r.items && r.items.length ? r.items : []).filter(function(item){
+        return item && (item.uid || item.code || item.name);
+      });
+      var creatorPlatform = normalizePlatform(r.platform);
+      for(var di=0; di<7; di++){
+        var d = new Date(uploadD.getTime() + di * 86400000);
+        var ds = d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate());
+        var key = ci + '_d' + di;
+        if(!r._fbData[key]) r._fbData[key] = {view:0,comment:0,like:0,click:0,productLike:0,sales:0,revenue:0,total:0,rankAll:0,rankCat:0};
+
+        var targetUids = [];
+        items.forEach(function(item){
+          var itemPlatform = normalizePlatform(item.platform || r.platform);
+          var targetUid = getItemTargetUid(item, itemPlatform || creatorPlatform);
+          if(targetUid) targetUids.push(norm(targetUid));
+        });
+        targetUids = Array.from(new Set(targetUids.filter(Boolean)));
+
+        var matchedIdx = new Set();
+        rawRows.forEach(function(row, idx){
+          if(rowDate(row) !== ds) return;
+          var rowP = normalizePlatform(rowPlatform(row));
+          if(creatorPlatform && rowP && rowP !== creatorPlatform) return;
+          var uid = norm(rowUid(row));
+          if(!uid || targetUids.indexOf(uid) === -1) return;
+          matchedIdx.add(idx);
+        });
+
+        var dayQty = 0, dayRev = 0;
+        matchedIdx.forEach(function(idx){
+          var row = rawRows[idx];
+          dayQty += rowQty(row);
+          dayRev += rowAmount(row);
+        });
+
+        if(r._fbData[key].sales !== dayQty){ r._fbData[key].sales = dayQty; updated = true; }
+        if(r._fbData[key].revenue !== dayRev){ r._fbData[key].revenue = dayRev; updated = true; }
+
+        var totalSalesForDay = rawRows.filter(function(row){
+          if(rowDate(row) !== ds) return false;
+          var rowP = normalizePlatform(rowPlatform(row));
+          return !creatorPlatform || !rowP || rowP === creatorPlatform;
+        }).reduce(function(sum,row){ return sum + rowAmount(row); }, 0);
+        if(r._fbData[key].total !== totalSalesForDay){ r._fbData[key].total = totalSalesForDay; updated = true; }
+      }
+    });
+    if(updated){
+      if(typeof window.fbSaveCreators === 'function') window.fbSaveCreators();
+      if(typeof window.applyFeedbackFilter === 'function') window.applyFeedbackFilter();
+      if(typeof window.ovBuildItemTable === 'function') window.ovBuildItemTable();
+      if(typeof window.ovBuildItemRankChart === 'function') window.ovBuildItemRankChart();
+    }
+    console.log('Feedback 판매 자동 기입 완료: 일자 + UID 기준으로 플랫폼 별 매출 데이터를 반영했습니다.');
+  };
+})();
+</script>
+
 </body>
 </html>
