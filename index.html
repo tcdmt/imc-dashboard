@@ -4838,7 +4838,7 @@ function renderFeedbackRows(list){
       const prevData=di>0?dayData[di-1].data:null;
       items.forEach((item,ii)=>{
         const isFC=firstRow&&ii===0,isFD=ii===0,isDot=di>0&&ii===0;firstRow=false;
-        const itemKey=fbFeedbackItemKey(item,r.platform);
+        const itemKey=(typeof window.fbFeedbackAutoItemKey==='function')?window.fbFeedbackAutoItemKey(item,r.platform):fbFeedbackItemKey(item,r.platform);
         const itemData=(data._itemData&&data._itemData[itemKey])?data._itemData[itemKey]:{};
         const salesVal=Number(itemData.sales)||0;
         const revenueVal=Number(itemData.revenue)||0;
@@ -16493,7 +16493,7 @@ if(document.readyState==='loading'){
   function rowUid(row){ return String(rowVal(row, ['UID','uid','Uid','상품 UID','상품UID','상품 uid','Product UID']) || '').trim(); }
   function rowPlatform(row){ return rowVal(row, ['플랫폼','판매 채널','판매채널','채널','channel','Channel']); }
   function rowQty(row){ return rowNum(row, ['실 구매 수량','실구매수량','실 구매수량','판매 수량','판매수량','수량','qty','Qty']); }
-  function rowAmount(row){ return rowNum(row, ['실 구매 금액','실구매금액','실 구매금액','판매 금액','판매금액','매출','실매출','revenue','Revenue','amount','Amount']); }
+  function rowAmount(row){ return rowNum(row, ['실 구매 금액','실구매금액','실 구매금액','실 수매 금액','실수매금액','실수매 금액','판매 금액','판매금액','매출','실매출','revenue','Revenue','amount','Amount']); }
   function productUidByPlatform(product, platform){
     product = product || {};
     var p = normalizePlatform(platform);
@@ -16553,6 +16553,12 @@ if(document.readyState==='loading'){
     }).filter(function(r){ return r['날짜'] && /^\d{4}-\d{2}-\d{2}$/.test(r['날짜']); });
   };
 
+  window.fbFeedbackAutoItemKey = function(item, platform){
+    var targetUid = getItemTargetUid(item, platform);
+    if(targetUid) return 'uid:' + fbFeedbackNorm(platform) + '|' + fbFeedbackNorm(targetUid);
+    return fbFeedbackItemKey(item, platform);
+  };
+
   window.fbAutoFillSales = function(){
     var rawRows = (window.metaRawSales || (typeof metaRawSales !== 'undefined' ? metaRawSales : []) || []);
     if(!rawRows.length || !Array.isArray(window.creators)){
@@ -16562,9 +16568,7 @@ if(document.readyState==='loading'){
     var updated = false;
 
     function itemKeyFromTarget(item, platform){
-      var targetUid = getItemTargetUid(item, platform);
-      if(targetUid) return 'uid:' + fbFeedbackNorm(platform) + '|' + fbFeedbackNorm(targetUid);
-      return fbFeedbackItemKey(item, platform);
+      return (typeof window.fbFeedbackAutoItemKey === 'function') ? window.fbFeedbackAutoItemKey(item, platform) : fbFeedbackItemKey(item, platform);
     }
     function rowCode(row){ return String(rowVal(row, ['상품 코드','상품코드','상품 code','Product Code','code','Code']) || '').trim(); }
     function rowName(row){ return String(rowVal(row, ['상품명','제품명','상품 명','Product Name','name','Name']) || '').trim(); }
@@ -16617,7 +16621,9 @@ if(document.readyState==='loading'){
             var rName = fbFeedbackNorm(rowName(row));
 
             var ok = false;
-            if(target.uid && rUid) ok = (rUid === target.uid);
+            // UID가 확보된 상품은 반드시 날짜 + 플랫폼 + UID로만 매칭합니다.
+            // 같은 상품명/상품코드가 섞여도 다른 UID 매출이 들어오지 않도록 합니다.
+            if(target.uid) ok = (rUid === target.uid);
             else if(target.code && rCode) ok = (rCode === target.code);
             else if(target.name && rName) ok = (rName === target.name);
             if(ok) matched.push({row:row, idx:idx});
