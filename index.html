@@ -6437,52 +6437,138 @@ window.fbdDcStartEdit = fbdDcStartEdit;
 
 /* ══ Feedback 판매 자동 기입 (플랫폼판매 시트 연동) ══ */
 function fbAutoFillSales() {
-  if(!metaRawSales||!metaRawSales.length) return;
+  const salesRows = (window.metaRawSales || (typeof metaRawSales !== 'undefined' ? metaRawSales : []) || []);
+  if(!salesRows.length) return;
+
+  function fbNormText(v){return String(v==null?'':v).trim();}
+  function fbNormKey(v){return fbNormText(v).toLowerCase().replace(/\s+/g,'');}
+  function fbNormUid(v){return fbNormKey(v).replace(/\.0$/,'');}
+  function fbNormPlatform(v){
+    if(typeof mNormMetaPlatform === 'function') return mNormMetaPlatform(v);
+    var x=fbNormKey(v);
+    if(x==='무신사'||x==='musinsa')return 'musinsa';
+    if(x==='29cm'||x==='29')return '29cm';
+    if(x==='자사몰'||x==='store'||x==='스토어')return 'store';
+    if(x==='오프라인'||x==='offline')return 'offline';
+    return x;
+  }
+  function fbRowVal(row, keys){
+    if(typeof mRawVal === 'function') return mRawVal(row, keys);
+    row=row||{}; keys=Array.isArray(keys)?keys:[keys];
+    for(var i=0;i<keys.length;i++){
+      var k=keys[i];
+      if(row[k]!==undefined && row[k]!==null && String(row[k]).trim()!=='') return row[k];
+    }
+    return '';
+  }
+  function fbRowNum(row, keys){
+    if(typeof mRawNum === 'function') return mRawNum(row, keys);
+    var n=Number(String(fbRowVal(row, keys)||'').replace(/[^0-9.\-]/g,''));
+    return isNaN(n)?0:n;
+  }
+  function fbNormDate(v){
+    if(v instanceof Date && !isNaN(v.getTime())){
+      return v.getFullYear()+'-'+pad(v.getMonth()+1)+'-'+pad(v.getDate());
+    }
+    var raw=fbNormText(v);
+    if(!raw) return '';
+    var m=raw.match(/^(\d{4})[.\/\-]\s*(\d{1,2})[.\/\-]\s*(\d{1,2})/);
+    if(m) return m[1]+'-'+pad(m[2])+'-'+pad(m[3]);
+    m=raw.match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일?/);
+    if(m){
+      var y=(new Date()).getFullYear();
+      return y+'-'+pad(m[1])+'-'+pad(m[2]);
+    }
+    return raw.slice(0,10);
+  }
+  function fbGetItemUid(item, platform){
+    item=item||{};
+    var direct=fbNormText(item.uid || item.UID || item['UID']);
+    if(direct && direct !== '-') return direct;
+    try{
+      var found = null;
+      if(typeof findProduct === 'function'){
+        found = findProduct(item.code || item.productCode || item.name || item.productName || '', platform, item.code ? 'code' : 'name');
+      }
+      if(!found && typeof findProductByItem === 'function') found = findProductByItem(item, platform);
+      if(found && typeof uidByPlatform === 'function'){
+        var uid = uidByPlatform(found, platform);
+        if(uid) return uid;
+      }
+    }catch(e){}
+    return '';
+  }
+  function fbEnsureDayData(row, key){
+    if(!row._fbData) row._fbData = {};
+    if(!row._fbData[key]) row._fbData[key] = {view:0,comment:0,like:0,click:0,productLike:0,sales:0,revenue:0,total:0,rankAll:0,rankCat:0};
+    if(!row._fbData[key]._itemData) row._fbData[key]._itemData = {};
+    return row._fbData[key];
+  }
+
   let updated = false;
-  window.creators.forEach((r, ci) => {
-    if(!r.checked && !r.progress) return;
-    if(!r._fbData) r._fbData = {};
+  (window.creators || []).forEach((r, ci) => {
+    if(!r || (!r.checked && !r.progress)) return;
     const uploadD = r.uploadDate ? new Date(r.uploadDate) : null;
-    if(!uploadD) return;
-    const items = r.items && r.items.length ? r.items : [];
-    for(let di=0; di<7; di++) {
-      const d = new Date(uploadD.getTime() + di*86400000);
+    if(!uploadD || isNaN(uploadD.getTime())) return;
+
+    const platformKey = fbNormPlatform(r.platform);
+    const items = (r.items && r.items.length) ? r.items : [];
+
+    // Feedback 기준일은 업로드일 D+0 기준으로 D-1 ~ D+6까지 사용
+    for(let dayOffset=-1; dayOffset<=6; dayOffset++) {
+      const d = new Date(uploadD.getTime() + dayOffset*86400000);
       const ds = d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
-      const key = ci+'_d'+di;
-      if(!r._fbData[key]) r._fbData[key] = {view:0,comment:0,like:0,click:0,productLike:0,sales:0,revenue:0,total:0,rankAll:0,rankCat:0};
-      // 플랫폼판매 시트에서 날짜 + 플랫폼 + 상품코드 매칭
+      const key = ci + '_d' + dayOffset;
+      const dayData = fbEnsureDayData(r, key);
+
+      let daySales = 0;
+      let dayRevenue = 0;
+
       items.forEach(item => {
-        if(!item.code || item.code==='-') return;
-        const matched = metaRawSales.filter(row => {
-          const rowDate = (row['날짜']||'').trim();
-          const rowPlt = String(mRawVal(row, ['판매 채널','판매채널','플랫폼'])||'').trim();
-          const rowName = String(mRawVal(row, ['상품명','제품명'])||'').trim();
-          const rowCode = String(mRawVal(row, ['상품 코드','상품코드'])||'').trim();
-          const rowUid = String(mRawVal(row, ['UID','uid'])||'').trim();
-          const itemUid = (window.uidByPlatform && window.findProduct) ? (uidByPlatform(findProduct(item.code||item.name, r.platform, item.code?'code':'name'), r.platform)||'') : '';
-          // 날짜 + 플랫폼/판매채널 + 상품코드/UID/상품명 매칭
-          return rowDate === ds
-            && mNormMetaPlatform(rowPlt) === mNormMetaPlatform(r.platform)
-            && ((item.code && rowCode === item.code) || (itemUid && rowUid === itemUid) || rowName.includes(item.code) || rowName.includes(item.name));
+        const uid = fbGetItemUid(item, r.platform);
+        if(!uid) return;
+        const itemKey = (typeof window.fbFeedbackAutoItemKey === 'function')
+          ? window.fbFeedbackAutoItemKey(item, r.platform)
+          : fbFeedbackItemKey(item, r.platform);
+
+        const matched = salesRows.filter(row => {
+          const rowDate = fbNormDate(fbRowVal(row, ['날짜','일자','date','Date']));
+          const rowPlatform = fbNormPlatform(fbRowVal(row, ['플랫폼','판매 채널','판매채널','채널','channel','Channel']));
+          const rowUid = fbNormUid(fbRowVal(row, ['UID','uid','Uid','상품 UID','상품UID','상품 uid','Product UID']));
+          return rowDate === ds && rowPlatform === platformKey && rowUid === fbNormUid(uid);
         });
-        if(matched.length) {
-          const totalQty = matched.reduce((s,row)=>s+(mRawNum(row, ['실 구매 수량','실구매수량','실 구매수량'])),0);
-          const totalRev = matched.reduce((s,row)=>s+(mRawNum(row, ['실 구매 금액','실구매금액','실 구매금액'])),0);
-          if(totalQty > 0) { r._fbData[key].sales = totalQty; updated=true; }
-          if(totalRev > 0) { r._fbData[key].revenue = totalRev; updated=true; }
-        }
+
+        const qty = matched.reduce((sum,row)=>sum + fbRowNum(row, ['실구매수량','실 구매 수량','실 구매수량','판매수량','판매 수량','수량','qty','Qty']), 0);
+        const revenue = matched.reduce((sum,row)=>sum + fbRowNum(row, ['실구매금액','실 구매 금액','실 구매금액','실 수매 금액','실수매금액','실수매 금액','판매금액','판매 금액','매출','실매출','revenue','Revenue','amount','Amount']), 0);
+
+        dayData._itemData[itemKey] = dayData._itemData[itemKey] || {sales:0,revenue:0};
+        dayData._itemData[itemKey].sales = qty;
+        dayData._itemData[itemKey].revenue = revenue;
+        daySales += qty;
+        dayRevenue += revenue;
+        updated = true;
       });
-      // 총매출: 해당 날짜 + 플랫폼의 전체 실구매금액 합계
-      const totalSalesForDay = metaRawSales
-        .filter(row=>String(mRawVal(row, ['날짜'])||'').trim()===ds && mNormMetaPlatform(mRawVal(row, ['판매 채널','판매채널','플랫폼']))===mNormMetaPlatform(r.platform))
-        .reduce((s,row)=>s+(mRawNum(row, ['실 구매 금액','실구매금액','실 구매금액'])),0);
-      if(totalSalesForDay > 0) { r._fbData[key].total = totalSalesForDay; updated=true; }
+
+      // 총 매출: UID와 무관하게 플랫폼(C열) + 날짜(A열)가 같은 모든 실구매금액(G열) SUM
+      const totalSalesForDay = salesRows
+        .filter(row => {
+          const rowDate = fbNormDate(fbRowVal(row, ['날짜','일자','date','Date']));
+          const rowPlatform = fbNormPlatform(fbRowVal(row, ['플랫폼','판매 채널','판매채널','채널','channel','Channel']));
+          return rowDate === ds && rowPlatform === platformKey;
+        })
+        .reduce((sum,row)=>sum + fbRowNum(row, ['실구매금액','실 구매 금액','실 구매금액','실 수매 금액','실수매금액','실수매 금액','판매금액','판매 금액','매출','실매출','revenue','Revenue','amount','Amount']), 0);
+
+      dayData.sales = daySales;
+      dayData.revenue = dayRevenue;
+      dayData.total = totalSalesForDay;
+      updated = true;
     }
   });
+
   if(updated) {
     fbSaveCreators();
     window.applyFeedbackFilter && window.applyFeedbackFilter();
-    console.log('판매 자동 기입 완료');
+    console.log('판매 자동 기입 완료: 플랫폼 + 기준일 + UID 기준');
   }
 }
 window.fbAutoFillSales = fbAutoFillSales;
