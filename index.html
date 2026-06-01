@@ -1762,6 +1762,16 @@ html[data-user-role="viewer"] [data-delete]{opacity:.35!important;cursor:not-all
 .ov-platform-option.active{background:#185FA5;color:#fff;}
 </style>
 
+
+<style id="feedback-creator-collapse-patch">
+/* Feedback: 크리에이터별 상세 행 접기/펼치기 */
+#fb-main-table .fb-creator-toggle-row{cursor:pointer;}
+#fb-main-table .fb-creator-toggle-row:hover td{filter:brightness(0.98);}
+#fb-main-table .fb-creator-toggle-row .fb-collapse-cell{font-weight:600;}
+#fb-main-table .fb-creator-toggle-row.is-collapsed .fb-collapse-cell{background:#EAF3DE!important;color:#3B6D11!important;}
+#fb-main-table .fb-creator-toggle-row.is-expanded .fb-collapse-cell{background:#EAF3DE!important;color:#3B6D11!important;}
+</style>
+
 </head>
 <body>
 <div class="page">
@@ -4801,6 +4811,27 @@ function fbdDcItemStartEdit(span,ci,key,itemKey,field,fmt){
 }
 window.fbdDcItemStartEdit=fbdDcItemStartEdit;
 
+
+function fbEscHtml(v){
+  return String(v==null?'':v)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+function fbIsFeedbackCreatorCollapsed(ci){
+  window.fbCollapsedCreators = window.fbCollapsedCreators || {};
+  return window.fbCollapsedCreators[ci] !== false;
+}
+function fbToggleFeedbackCreator(ci, ev){
+  if(ev && ev.target && ev.target.closest && ev.target.closest('[data-fb-no-toggle="true"]')) return;
+  window.fbCollapsedCreators = window.fbCollapsedCreators || {};
+  window.fbCollapsedCreators[ci] = !fbIsFeedbackCreatorCollapsed(ci);
+  if(window.applyFeedbackFilter) window.applyFeedbackFilter();
+}
+window.fbToggleFeedbackCreator = fbToggleFeedbackCreator;
+
 function renderFeedbackRows(list){
   const body=document.getElementById('feedback-body');
   const elig=list.filter(r=>r.checked||r.progress);
@@ -4808,6 +4839,7 @@ function renderFeedbackRows(list){
   let html='';
   elig.forEach(r=>{
     const ci=window.creators.indexOf(r);
+    const collapsed=fbIsFeedbackCreatorCollapsed(ci);
     // 업로드 일자를 D+0으로 보고 D-1부터 D+6까지 노출
     const uploadD=r.uploadDate?new Date(r.uploadDate):null;
     const items=r.items&&r.items.length?r.items:[{uid:'-',code:'-',name:'-',color:'-'}];
@@ -4829,6 +4861,7 @@ function renderFeedbackRows(list){
       dayData.push({di,dayOffset,ds,key,data:r._fbData[key]});
     }
     // 각 기준일별 데이터 (개별 독립적)
+    if(!collapsed){
     for(let di=0;di<DAYS;di++){
       const {dayOffset,ds,key,data}=dayData[di];
       const isUploadDay=(dayOffset===-1); // 업로드 전일(D-1)은 '-' 표시
@@ -4945,6 +4978,7 @@ function renderFeedbackRows(list){
           +'</tr>';
       });
     }
+    }
     // TTL 합계 (업로드 전일 D-1 및 업로드 당일 D+0 제외하고 D+1~D+6만 계산)
     const activeDays=dayData.filter(d=>d.dayOffset>0);
     const totalView=activeDays.reduce((s,d)=>Math.max(s,d.data.view||0),0);
@@ -4959,9 +4993,21 @@ function renderFeedbackRows(list){
     const ttlCVR=totalClick>0?totalSales/totalClick*100:NaN;
     const ttlRevShare=totalTotal>0?totalRevenue/totalTotal*100:NaN;
     const ttlROAS=(r.cost1+r.cost2)>0?totalRevenue/(r.cost1+r.cost2)*100:NaN;
-    html+=`<tr class="ttl-row">`
-      +`<td colspan="10" style="text-align:center;position:sticky;left:0;z-index:3;background:#EAF3DE;">TTL</td>`
-      +`<td>-</td><td colspan="4" style="text-align:left;">-</td>`
+    const collapsedSummaryCells = collapsed
+      ? `<td class="fb-sticky-td fb-collapse-cell" style="left:0;text-align:left;min-width:100px;">▸ ${fbEscHtml(r.name||'-')}</td>`
+       +`<td class="fb-sticky-td fb-collapse-cell" style="left:100px;min-width:65px;">${fbEscHtml(r.followers||'-')}</td>`
+       +`<td class="fb-sticky-td fb-collapse-cell" style="left:165px;min-width:45px;">${fbEscHtml(ABB[r.ch]||r.ch||'-')}</td>`
+       +`<td class="fb-sticky-td fb-collapse-cell" style="left:210px;min-width:130px;">${fbEscHtml(r.contentType||'-')}</td>`
+       +`<td class="fb-sticky-td fb-collapse-cell" style="left:340px;min-width:65px;">${fbEscHtml(r.collab||'-')}</td>`
+       +`<td class="fb-sticky-td fb-collapse-cell" style="left:405px;min-width:80px;text-align:right;">${fmtWon2(r.cost1)}</td>`
+       +`<td class="fb-sticky-td fb-collapse-cell" style="left:485px;min-width:65px;">${fbEscHtml(r.sec||'-')}</td>`
+       +`<td class="fb-sticky-td fb-collapse-cell" style="left:550px;min-width:80px;text-align:right;">${fmtWon2(r.cost2)}</td>`
+       +`<td class="fb-sticky-td fb-collapse-cell" style="left:630px;min-width:85px;">${fbEscHtml(fmtKor(r.uploadDate)||'-')}</td>`
+       +`<td class="fb-sticky-td fb-collapse-cell" style="left:715px;min-width:65px;border-right:2px solid var(--color-border-primary)!important;">${fbEscHtml(r.platform||'-')}</td>`
+      : `<td colspan="10" class="fb-collapse-cell" style="text-align:center;position:sticky;left:0;z-index:3;background:#EAF3DE;">▾ TTL</td>`;
+    html+=`<tr class="ttl-row fb-creator-toggle-row ${collapsed?'is-collapsed':'is-expanded'}" onclick="fbToggleFeedbackCreator(${ci},event)" title="클릭하여 ${collapsed?'펼치기':'접기'}">`
+      +collapsedSummaryCells
+      +`<td>${collapsed?'TTL':'-'}</td><td colspan="4" style="text-align:left;">-</td>`
       +`<td style="text-align:right;">${fmtNum(totalView)}</td>`
       +`<td style="text-align:right;">${fmtNum(totalComment)}</td>`
       +`<td style="text-align:right;">${fmtNum(totalLike)}</td>`
@@ -5002,9 +5048,9 @@ function renderFeedbackRows(list){
 
         const badge=(txt,c)=>'<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:500;cursor:pointer;background:'+c.bg+';color:'+c.color+';">'+(txt||'-')+'</span>';
 
-        return '<td style="background:#f5f3ff;padding:4px 7px;border-bottom:0.5px solid #ede9fe;" ondblclick="fbLayerDropField(this,'+ci+',\'layer\')">'+badge(fb.layer||'선택',lc)+'</td>'
-          +'<td style="background:#f5f3ff;padding:4px 7px;border-bottom:0.5px solid #ede9fe;" ondblclick="fbLayerDropField(this,'+ci+',\'recolab\')">'+badge(fb.recolab||'선택',rc)+'</td>'
-          +'<td style="background:#f5f3ff;padding:4px 7px;border-bottom:0.5px solid #ede9fe;" ondblclick="fbLayerDropField(this,'+ci+',\'longterm\')">'+badge(fb.longterm||'선택',ltc)+'</td>'
+        return '<td data-fb-no-toggle="true" style="background:#f5f3ff;padding:4px 7px;border-bottom:0.5px solid #ede9fe;" ondblclick="fbLayerDropField(this,'+ci+',\'layer\')">'+badge(fb.layer||'선택',lc)+'</td>'
+          +'<td data-fb-no-toggle="true" style="background:#f5f3ff;padding:4px 7px;border-bottom:0.5px solid #ede9fe;" ondblclick="fbLayerDropField(this,'+ci+',\'recolab\')">'+badge(fb.recolab||'선택',rc)+'</td>'
+          +'<td data-fb-no-toggle="true" style="background:#f5f3ff;padding:4px 7px;border-bottom:0.5px solid #ede9fe;" ondblclick="fbLayerDropField(this,'+ci+',\'longterm\')">'+badge(fb.longterm||'선택',ltc)+'</td>'
           ;
       })()
       +`</tr>`;
