@@ -17750,5 +17750,194 @@ if(document.readyState==='loading'){
 })();
 </script>
 
+
+<!-- CHOI PATCH: Organic sales auto-fill from Channel Sales Sheets only -->
+<script id="organic-sales-autofill-platform-date-uid-script">
+(function(){
+  'use strict';
+
+  function clean(v){ return String(v == null ? '' : v).trim(); }
+  function normText(v){ return clean(v).toLowerCase().replace(/\s+/g,''); }
+  function normUid(v){
+    var x = normText(v).replace(/,/g,'');
+    if(/^\d+\.0+$/.test(x)) x = x.replace(/\.0+$/,'');
+    return x;
+  }
+  function toNum(v){ return Number(String(v == null ? '' : v).replace(/[^0-9.\-]/g,'')) || 0; }
+  function pad2(v){ return String(v).padStart(2,'0'); }
+  function normPlatform(v){
+    if(typeof window.mNormMetaPlatform === 'function') return window.mNormMetaPlatform(v);
+    var x = normText(v);
+    if(x === '무신사' || x === 'musinsa') return 'musinsa';
+    if(x === '29cm' || x === '29') return '29cm';
+    if(x === '자사몰' || x === 'store' || x === '스토어' || x === '자사') return 'store';
+    if(x === 'offline' || x === '오프라인' || x.indexOf('오프') > -1 || x.indexOf('플래그십') > -1) return 'offline';
+    return x;
+  }
+  function rowVal(row, keys){
+    row = row || {};
+    keys = Array.isArray(keys) ? keys : [keys];
+    if(typeof window.mRawVal === 'function'){
+      var mv = window.mRawVal(row, keys);
+      if(mv !== undefined && mv !== null && clean(mv) !== '') return mv;
+    }
+    for(var i=0;i<keys.length;i++){
+      var k = keys[i];
+      if(row[k] !== undefined && row[k] !== null && clean(row[k]) !== '') return row[k];
+    }
+    return '';
+  }
+  function rowNum(row, keys){
+    if(typeof window.mRawNum === 'function'){
+      var n = window.mRawNum(row, keys);
+      if(n) return n;
+    }
+    return toNum(rowVal(row, keys));
+  }
+  function normDate(v){
+    if(v instanceof Date && !isNaN(v.getTime())) return v.getFullYear() + '-' + pad2(v.getMonth()+1) + '-' + pad2(v.getDate());
+    var raw = clean(v);
+    if(!raw) return '';
+    if(/^\d{5}(\.\d+)?$/.test(raw)){
+      var serial = Math.floor(Number(raw));
+      if(serial > 20000 && serial < 80000){
+        var d0 = new Date(Date.UTC(1899,11,30) + serial * 86400000);
+        return d0.getUTCFullYear() + '-' + pad2(d0.getUTCMonth()+1) + '-' + pad2(d0.getUTCDate());
+      }
+    }
+    var m = raw.match(/(\d{4})[-\/.년\s]+(\d{1,2})[-\/.월\s]+(\d{1,2})/);
+    if(m) return m[1] + '-' + pad2(m[2]) + '-' + pad2(m[3]);
+    m = raw.match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일?/);
+    if(m) return (new Date()).getFullYear() + '-' + pad2(m[1]) + '-' + pad2(m[2]);
+    return raw.slice(0,10);
+  }
+  function rowDate(row){ return normDate(rowVal(row, ['날짜','일자','date','Date'])); }
+  function rowPlatform(row){ return normPlatform(rowVal(row, ['플랫폼','판매 채널','판매채널','채널','channel','Channel'])); }
+  function rowUid(row){ return normUid(rowVal(row, ['UID','uid','Uid','상품 UID','상품UID','상품 uid','Product UID'])); }
+  function rowQty(row){ return rowNum(row, ['실구매수량','실 구매 수량','실 구매수량','판매수량','판매 수량','수량','qty','Qty']); }
+  function rowRevenue(row){ return rowNum(row, ['실구매금액','실 구매 금액','실 구매금액','실 수매 금액','실수매금액','실수매 금액','판매금액','판매 금액','매출','실매출','revenue','Revenue','amount','Amount']); }
+
+  function productCode(product){ return clean((product || {}).code || (product || {}).productCode || (product || {}).itemCode || (product || {})['상품코드'] || (product || {})['상품 코드']); }
+  function productName(product){ return clean((product || {}).name || (product || {}).product || (product || {}).productName || (product || {}).itemName || (product || {})['상품명'] || (product || {})['제품명']); }
+  function productUid(product, platform){
+    var p = product || {};
+    var pk = normPlatform(platform);
+    if(pk === 'musinsa') return clean(p.musinsaUid || p.musinsaUID || p.musinsa_uid || p['무신사 UID'] || p['무신사UID'] || ((normPlatform(p.platform) === 'musinsa') ? (p.uid || p.UID) : ''));
+    if(pk === '29cm') return clean(p.cmUid || p.cmUID || p.cm_uid || p['29cmUid'] || p['29CMUid'] || p['29CM UID'] || p['29CMUID'] || ((normPlatform(p.platform) === '29cm') ? (p.uid || p.UID) : ''));
+    if(pk === 'store') return clean(p.storeUid || p.storeUID || p.store_uid || p['자사몰 UID'] || p['자사몰UID'] || ((normPlatform(p.platform) === 'store') ? (p.uid || p.UID) : ''));
+    return clean(p.uid || p.UID || p.musinsaUid || p.cmUid || p.storeUid);
+  }
+  function findProductForOrganicItem(item, platform){
+    item = item || {};
+    var iu = normUid(item.uid || item.UID);
+    var ic = normText(item.code || item.productCode || item['상품코드'] || item['상품 코드']);
+    var iname = normText(item.product || item.name || item.productName || item['상품명'] || item['제품명']);
+    return (window.products || []).find(function(p){
+      return (iu && normUid(productUid(p, platform)) === iu)
+        || (ic && normText(productCode(p)) === ic)
+        || (iname && normText(productName(p)) === iname);
+    }) || null;
+  }
+  function itemUid(item, platform){
+    item = item || {};
+    var direct = normUid(item.uid || item.UID || item['UID']);
+    if(direct && direct !== '-') return direct;
+    var product = findProductForOrganicItem(item, platform);
+    return normUid(productUid(product, platform));
+  }
+  function ensureProductMetric(product, key){
+    if(!product.metrics) product.metrics = {};
+    if(!product.metrics[key]) product.metrics[key] = {productLike:'', sales:'', revenue:'', total:''};
+    return product.metrics[key];
+  }
+  function saveOrganic(){
+    if(typeof window.fbSaveBatch === 'function') window.fbSaveBatch('organic', window.organicData || []);
+  }
+
+  window.orgAutoFillSales = function(){
+    var salesRows = (window.metaRawSales || (typeof metaRawSales !== 'undefined' ? metaRawSales : []) || []);
+    if(!salesRows.length || !Array.isArray(window.organicData)){
+      console.warn('Organic 판매 자동 기입: 플랫폼 별 매출 데이터가 아직 로드되지 않았습니다.');
+      return;
+    }
+
+    (window.organicData || []).forEach(function(r){
+      if(!r) return;
+      var uploadD = r.date || r.uploadDate || r.collectDate;
+      if(!uploadD) return;
+      var products = (r.products && r.products.length ? r.products : []);
+      if(!products.length) return;
+
+      [-1,0,1,2].forEach(function(offset, di){
+        var d = new Date(uploadD);
+        if(isNaN(d.getTime())) return;
+        d.setDate(d.getDate() + offset);
+        var ds = d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate());
+        var key = 'd' + di;
+
+        products.forEach(function(item){
+          if(!item) return;
+          var platformKey = normPlatform(item.platform || r.platform || '');
+          var uid = itemUid(item, item.platform || r.platform);
+          var metric = ensureProductMetric(item, key);
+          if(!platformKey || !uid) return;
+
+          var matched = salesRows.filter(function(row){
+            return rowDate(row) === ds
+              && rowPlatform(row) === platformKey
+              && rowUid(row) === uid;
+          });
+          metric.sales = matched.reduce(function(sum,row){ return sum + rowQty(row); }, 0);
+          metric.revenue = matched.reduce(function(sum,row){ return sum + rowRevenue(row); }, 0);
+          metric.total = salesRows.filter(function(row){
+            return rowDate(row) === ds && rowPlatform(row) === platformKey;
+          }).reduce(function(sum,row){ return sum + rowRevenue(row); }, 0);
+        });
+      });
+    });
+
+    saveOrganic();
+    if(typeof window.orgRender === 'function') window.orgRender();
+    if(typeof window.ovBuildItemTable === 'function') window.ovBuildItemTable();
+    if(typeof window.ovBuildItemRankChart === 'function') window.ovBuildItemRankChart();
+    console.log('Organic 판매 자동 기입 완료: 플랫폼 + 기준일 + UID 기준으로 판매 수량/매출/총 매출을 반영했습니다.');
+  };
+
+  function ensureOrganicSalesButton(){
+    var box = document.querySelector('#pg-organic #org-view-list') && document.querySelector('#pg-organic #org-view-list').parentElement;
+    if(!box || document.getElementById('org-sales-autofill-btn')) return;
+    var btn = document.createElement('button');
+    btn.id = 'org-sales-autofill-btn';
+    btn.type = 'button';
+    btn.className = 'add-btn';
+    btn.style.marginBottom = '0';
+    btn.textContent = '↻ 판매 자동 기입';
+    btn.onclick = function(){ window.orgAutoFillSales(); };
+    box.appendChild(btn);
+  }
+
+  var prevOrgRender = window.orgRender;
+  window.orgRender = function(){
+    if(typeof prevOrgRender === 'function') prevOrgRender.apply(this, arguments);
+    ensureOrganicSalesButton();
+  };
+
+  ['refreshMetaFromSheets','loadMetaFromSheets'].forEach(function(fn){
+    var original = window[fn];
+    if(typeof original !== 'function' || original.__organicSalesWrapped) return;
+    var wrapped = async function(){
+      var result = await original.apply(this, arguments);
+      setTimeout(function(){ if(typeof window.orgAutoFillSales === 'function') window.orgAutoFillSales(); }, 500);
+      return result;
+    };
+    wrapped.__organicSalesWrapped = true;
+    window[fn] = wrapped;
+  });
+
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(ensureOrganicSalesButton, 500); });
+  else setTimeout(ensureOrganicSalesButton, 500);
+})();
+</script>
+
 </body>
 </html>
