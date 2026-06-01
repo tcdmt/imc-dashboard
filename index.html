@@ -5028,8 +5028,8 @@ function renderFeedbackRows(list){
         const LT_COLOR = {상:{bg:'#DCFCE7',color:'#166534'},중:{bg:'#FEF3C7',color:'#92400E'},하:{bg:'#FEE2E2',color:'#991B1B'}};
 
         const lc = LAYER_COLOR[fb.layer]||{bg:'#f3f4f6',color:'#6b7280'};
-        const rc = REC_COLOR[fb.recolab]||{bg:'transparent',color:'var(--color-text-tertiary)'};
-        const ltc = LT_COLOR[fb.longterm]||{bg:'transparent',color:'var(--color-text-tertiary)'};
+        const rc = REC_COLOR[fb.recolab]||{bg:'#f3f4f6',color:'#6b7280'};
+        const ltc = LT_COLOR[fb.longterm]||{bg:'#f3f4f6',color:'#6b7280'};
 
         // 종합점수: Seeding 별점(12점) + 성과점수(8점)
         const starScore = ((parseInt(r.fit)||0)+(parseInt(r.style)||0)+(parseInt(r.mood)||0)+(parseInt(r.relation)||0));
