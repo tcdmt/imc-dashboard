@@ -4831,7 +4831,7 @@ function renderFeedbackRows(list){
     // 각 기준일별 데이터 (개별 독립적)
     for(let di=0;di<DAYS;di++){
       const {dayOffset,ds,key,data}=dayData[di];
-      const isUploadDay=(dayOffset===0); // 업로드 당일(D+0)은 '-' 표시
+      const isUploadDay=(dayOffset===-1); // 업로드 전일(D-1)은 '-' 표시
       const dayRs=items.length;
       const prevData=di>0?dayData[di-1].data:null;
       items.forEach((item,ii)=>{
@@ -4841,7 +4841,7 @@ function renderFeedbackRows(list){
         const salesVal=Number(itemData.sales)||0;
         const revenueVal=Number(itemData.revenue)||0;
         const prevItemData=(prevData&&prevData._itemData&&prevData._itemData[itemKey])?prevData._itemData[itemKey]:null;
-        // 수식 계산 (업로드 당일은 '-')
+        // 수식 계산 (업로드 전일은 '-')
         const ctr=(!isUploadDay&&data.view>0)?(data.click/data.view*100):NaN;
         // 매출 증감 = (기준일 상품별 매출 / (직전일 상품별 매출-1)) * 100
         const prevRev=prevItemData?Number(prevItemData.revenue)||0:0;
@@ -4876,7 +4876,7 @@ function renderFeedbackRows(list){
             linkTd=`<td style="text-align:right;">${fbdDcNum(ci,key,'click',data.click)}</td>`;
           }
         }
-        // 조회수/댓글수 (업로드 당일은 '-')
+        // 조회수/댓글수 (업로드 전일은 '-')
         let viewCommentTd='';
         if(isFD){
           if(isUploadDay){
@@ -4889,7 +4889,7 @@ function renderFeedbackRows(list){
               +`<td rowspan="${dayRs}" style="text-align:right;">${fbdDcNum(ci,key,'like',data.like)}</td>`;
           }
         }
-        // 매출/총매출 (업로드 당일은 '-')
+        // 매출/총매출 (업로드 전일은 '-')
         const revTd=isUploadDay
           ?`<td style="text-align:center;color:var(--color-text-tertiary);">-</td>`
           :`<td style="text-align:right;">${fbdDcItemWon(ci,key,itemKey,'revenue',revenueVal)}</td>`;
@@ -4911,9 +4911,8 @@ function renderFeedbackRows(list){
         const cvrTd=isUploadDay?'<td style="text-align:center;color:var(--color-text-tertiary);">-</td>':`<td style="text-align:center;color:var(--color-text-secondary);">${isNaN(cvr)?'-':cvr.toFixed(1)+'%'}</td>`;
         const revShareTd=isUploadDay?'<td style="text-align:center;color:var(--color-text-tertiary);">-</td>':`<td style="text-align:center;color:var(--color-text-secondary);">${isNaN(revShare)?'-':revShare.toFixed(1)+'%'}</td>`;
         const roasTd=isUploadDay?'<td style="text-align:center;color:var(--color-text-tertiary);">-</td>':`<td style="text-align:center;color:var(--color-text-secondary);">${isNaN(roas)?'-':roas.toFixed(0)+'%'}</td>`;
-        // 기준일 표시 (D-1 ~ D+6)
-        const dLabel=dayOffset<0?'D-1':('D+'+dayOffset);
-        const dateLabel=ds?`<span style="display:block;font-size:10px;color:var(--color-text-tertiary);">${dLabel}</span><span style="font-size:11px;color:${isUploadDay?'var(--color-text-tertiary)':'var(--color-text-primary)'};">${fmtKor(ds)}</span>`:'<span style="color:var(--color-text-tertiary);">-</span>';
+        // 기준일 표시
+        const dateLabel=ds?`<span style="font-size:11px;color:${isUploadDay?'var(--color-text-tertiary)':'var(--color-text-primary)'};">${fmtKor(ds)}</span>`:'<span style="color:var(--color-text-tertiary);">-</span>';
         const fbRowClass = isFC ? 'fb-creator-start' : (isDot ? 'fb-day-start' : (ii>0 ? 'fb-product-sub' : ''));
         html+=`<tr${fbRowClass?' class="'+fbRowClass+'"':''}>`
           +(isFC
