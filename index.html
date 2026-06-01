@@ -17157,72 +17157,98 @@ if(document.readyState==='loading'){
 
 <script id="feedback-all-rows-auto-width-script">
 (function(){
+  'use strict';
+
   var FB_STICKY_MIN_WIDTHS=[100,65,45,130,65,80,65,80,85,65];
   var syncing=false;
 
-  function cellNeedWidth(cell, fallback){
-    if(!cell) return fallback||0;
-    var oldWidth=cell.style.width;
-    var oldMinWidth=cell.style.minWidth;
-    var oldMaxWidth=cell.style.maxWidth;
-
-    cell.style.width='auto';
-    cell.style.minWidth=(fallback||0)+'px';
-    cell.style.maxWidth='none';
-
-    var rectW=Math.ceil(cell.getBoundingClientRect().width||0);
-    var scrollW=Math.ceil(cell.scrollWidth||0);
-    var childMax=0;
-    Array.prototype.forEach.call(cell.children||[], function(ch){
-      childMax=Math.max(childMax, Math.ceil(ch.scrollWidth||0), Math.ceil(ch.getBoundingClientRect().width||0));
+  function directStickyCellsByRow(table){
+    var groups=[];
+    Array.prototype.forEach.call(table.querySelectorAll('tbody tr'), function(tr){
+      var cells=Array.prototype.filter.call(tr.children||[], function(td){
+        return td.classList && td.classList.contains('fb-sticky-td');
+      });
+      if(cells.length>=FB_STICKY_MIN_WIDTHS.length){
+        groups.push(cells.slice(0, FB_STICKY_MIN_WIDTHS.length));
+      }
     });
+    return groups;
+  }
 
-    cell.style.width=oldWidth;
-    cell.style.minWidth=oldMinWidth;
-    cell.style.maxWidth=oldMaxWidth;
+  function measureCellContent(cell, fallback){
+    if(!cell) return fallback||0;
+    var clone=cell.cloneNode(true);
+    clone.style.position='absolute';
+    clone.style.left='-99999px';
+    clone.style.top='-99999px';
+    clone.style.width='auto';
+    clone.style.minWidth=(fallback||0)+'px';
+    clone.style.maxWidth='none';
+    clone.style.whiteSpace='nowrap';
+    clone.style.visibility='hidden';
+    clone.style.display='table-cell';
+    document.body.appendChild(clone);
+    var w=Math.ceil(Math.max(clone.scrollWidth||0, clone.getBoundingClientRect().width||0, fallback||0));
+    document.body.removeChild(clone);
+    return w;
+  }
 
-    return Math.max(fallback||0, rectW, scrollW, childMax+16);
+  function setImportant(el, prop, value){
+    if(el && el.style) el.style.setProperty(prop, value, 'important');
   }
 
   function syncFeedbackAllRowWidths(){
     if(syncing) return;
     syncing=true;
-
     try{
       var table=document.getElementById('fb-main-table');
       if(!table) return;
 
       var heads=Array.prototype.slice.call(table.querySelectorAll('thead th.fb-sticky')).slice(0, FB_STICKY_MIN_WIDTHS.length);
-      if(!heads.length) return;
+      if(heads.length<FB_STICKY_MIN_WIDTHS.length) return;
 
-      var widths=heads.map(function(th,idx){
-        var minW=FB_STICKY_MIN_WIDTHS[idx]||0;
-        var cells=[th].concat(Array.prototype.slice.call(table.querySelectorAll('tbody tr td:nth-child('+(idx+1)+')')));
-        return cells.reduce(function(maxW,cell){
-          return Math.max(maxW, cellNeedWidth(cell, minW));
-        }, minW);
+      var rowGroups=directStickyCellsByRow(table);
+      var widths=FB_STICKY_MIN_WIDTHS.slice();
+
+      heads.forEach(function(th,idx){
+        widths[idx]=Math.max(widths[idx], measureCellContent(th, widths[idx]));
+      });
+
+      rowGroups.forEach(function(cells){
+        cells.forEach(function(td,idx){
+          widths[idx]=Math.max(widths[idx], measureCellContent(td, widths[idx]));
+        });
       });
 
       var left=0;
       heads.forEach(function(th,idx){
         var width=widths[idx];
         th.setAttribute('data-fb-sticky-index', String(idx));
-        th.style.left=left+'px';
-        th.style.width=width+'px';
-        th.style.minWidth=width+'px';
-        th.style.maxWidth='none';
-
-        Array.prototype.forEach.call(table.querySelectorAll('tbody tr td:nth-child('+(idx+1)+')'), function(td){
-          if(td.classList.contains('fb-sticky-td') || td.classList.contains('fb-collapse-cell')){
-            td.setAttribute('data-fb-sticky-index', String(idx));
-            td.style.left=left+'px';
-            td.style.width=width+'px';
-            td.style.minWidth=width+'px';
-            td.style.maxWidth='none';
-          }
-        });
-
+        setImportant(th,'left',left+'px');
+        setImportant(th,'width',width+'px');
+        setImportant(th,'min-width',width+'px');
+        setImportant(th,'max-width','none');
         left+=width;
+      });
+
+      rowGroups.forEach(function(cells){
+        var rowLeft=0;
+        cells.forEach(function(td,idx){
+          var width=widths[idx];
+          td.setAttribute('data-fb-sticky-index', String(idx));
+          setImportant(td,'left',rowLeft+'px');
+          setImportant(td,'width',width+'px');
+          setImportant(td,'min-width',width+'px');
+          setImportant(td,'max-width','none');
+          rowLeft+=width;
+        });
+      });
+
+      Array.prototype.forEach.call(table.querySelectorAll('tbody tr.fb-creator-toggle-row.is-expanded .fb-collapse-cell[colspan="10"]'), function(td){
+        setImportant(td,'left','0px');
+        setImportant(td,'width',left+'px');
+        setImportant(td,'min-width',left+'px');
+        setImportant(td,'max-width','none');
       });
 
       var scrollInner=document.getElementById('fb-scroll-inner');
@@ -17252,20 +17278,27 @@ if(document.readyState==='loading'){
       return result;
     };
     window.applyFeedbackFilter.__fbAllRowsAutoWidthPatched=true;
+  }else if(typeof originalApplyFeedbackFilter==='function'){
+    var prev=originalApplyFeedbackFilter;
+    window.applyFeedbackFilter=function(){
+      var result=prev.apply(this, arguments);
+      scheduleSync();
+      return result;
+    };
   }
 
   function initObserver(){
     var body=document.getElementById('feedback-body');
-    if(body && !body.__fbAllRowsAutoWidthObserver){
+    if(body && !body.__fbAllRowsAutoWidthObserverSafe){
       var observer=new MutationObserver(function(){ scheduleSync(); });
       observer.observe(body,{childList:true,subtree:true,characterData:true});
-      body.__fbAllRowsAutoWidthObserver=observer;
+      body.__fbAllRowsAutoWidthObserverSafe=observer;
     }
 
     var table=document.getElementById('fb-main-table');
-    if(table && !table.__fbAllRowsAutoWidthClick){
+    if(table && !table.__fbAllRowsAutoWidthClickSafe){
       table.addEventListener('click', function(){ setTimeout(syncFeedbackAllRowWidths,0); }, true);
-      table.__fbAllRowsAutoWidthClick=true;
+      table.__fbAllRowsAutoWidthClickSafe=true;
     }
 
     scheduleSync();
