@@ -10158,7 +10158,7 @@ if(document.readyState==='loading'){
     source:{'자동':{bg:'#DBEAFE',color:'#1E40AF'},'직접':{bg:'#ECFDF5',color:'#065F46'},'선택':{bg:'#F3F4F6',color:'#6B7280'}},
     ch:{Instagram:{bg:'#FCE7F3',color:'#9D174D'},Youtube:{bg:'#FEE2E2',color:'#991B1B'},Tiktok:{bg:'#F3F4F6',color:'#111827'},X:{bg:'#DBEAFE',color:'#1E40AF'},Blog:{bg:'#FEF3C7',color:'#92400E'},'선택':{bg:'#F3F4F6',color:'#6B7280'}},
     ct:{'피드':{bg:'#EDE9FE',color:'#5B21B6'},'릴스':{bg:'#DBEAFE',color:'#1E40AF'},'롱폼':{bg:'#FEE2E2',color:'#991B1B'},'쇼츠':{bg:'#ECFDF5',color:'#065F46'},'게시글':{bg:'#FEF3C7',color:'#92400E'},'선택':{bg:'#F3F4F6',color:'#6B7280'}},
-    platform:{'무신사':{bg:'#F3F4F6',color:'#111827'},'29CM':{bg:'#EEF2FF',color:'#3730A3'},'자사몰':{bg:'#ECFDF5',color:'#065F46'},'선택':{bg:'#F3F4F6',color:'#6B7280'}}
+    platform:{'무신사':{bg:'#F3F4F6',color:'#111827'},'29CM':{bg:'#EEF2FF',color:'#3730A3'},'자사몰':{bg:'#ECFDF5',color:'#065F46'},'Offline':{bg:'#FEF3C7',color:'#92400E'},'선택':{bg:'#F3F4F6',color:'#6B7280'}}
   };
   function pill(txt,group){txt=txt||'선택';const c=(COLOR[group]&&COLOR[group][txt])||COLOR.neutral;return '<span class="org-pill" style="background:'+c.bg+';color:'+c.color+';">'+esc(txt)+'</span>';}
   function closeFloat(){const old=document.getElementById('org-v8-float-dd');if(old)old.remove();document.removeEventListener('mousedown',outside,true);} 
@@ -10280,7 +10280,7 @@ if(document.readyState==='loading'){
     if(head){head.innerHTML='<tr><th>업로드일</th><th>출처</th><th>계정명</th><th>채널</th><th class="r">팔로워</th><th>콘텐츠 유형</th><th>기준일</th><th class="r">조회수</th><th class="r">좋아요</th><th class="r">댓글</th><th>플랫폼</th><th>상품명</th><th>컬러</th><th class="r">상품 좋아요</th><th class="r">판매 수량</th><th class="r">매출</th><th class="r">매출 증감</th><th class="r">총 매출</th><th class="r">매출 비중</th><th>액션</th></tr>';}
   };
   window.orgV8EditField=function(anchor,idx,field){const opts=field==='source'?['직접','자동']:field==='ch'?['Instagram','Youtube','Tiktok','X','Blog']:['피드','릴스','롱폼','쇼츠','게시글'];const group=field==='source'?'source':field==='ch'?'ch':'ct';anchor.dataset.group=group;openDropdown(anchor,opts,(window.organicData[idx]||{})[field],val=>{window.organicData[idx][field]=val;if(window.fbSaveBatch)window.fbSaveBatch('organic',window.organicData);window.orgRender&&window.orgRender();});};
-  window.orgV8EditProductPlatform=function(anchor,idx,pi){anchor.dataset.group='platform';openDropdown(anchor,['무신사','29CM','자사몰'],((window.organicData[idx]||{}).products||[])[pi]?.platform,val=>{window.organicData[idx].products[pi].platform=val;if(window.fbSaveBatch)window.fbSaveBatch('organic',window.organicData);window.orgRender&&window.orgRender();});};
+  window.orgV8EditProductPlatform=function(anchor,idx,pi){anchor.dataset.group='platform';openDropdown(anchor,['무신사','29CM','자사몰','Offline'],((window.organicData[idx]||{}).products||[])[pi]?.platform,val=>{window.organicData[idx].products[pi].platform=val;if(window.fbSaveBatch)window.fbSaveBatch('organic',window.organicData);window.orgRender&&window.orgRender();});};
   window.orgV8EditDaily=function(idx,key,field){const r=window.organicData[idx];const d=ensureDaily(r,key);setMetricText(null,d[field],v=>{d[field]=v;if(window.fbSaveBatch)window.fbSaveBatch('organic',window.organicData);window.orgRender&&window.orgRender();});};
   window.orgV8EditProductMetric=function(idx,pi,key,field){const p=(window.organicData[idx].products||[])[pi];const m=ensureProdMetric(p,key);setMetricText(null,m[field],v=>{m[field]=v;if(window.fbSaveBatch)window.fbSaveBatch('organic',window.organicData);window.orgRender&&window.orgRender();},field==='revenue'||field==='total');};
   window.orgDel=function(idx){if(!confirm('삭제하시겠습니까?'))return;if(!confirm('진짜로 삭제하시겠습니까?'))return;window.organicData.splice(idx,1);if(window.fbSaveBatch)window.fbSaveBatch('organic',window.organicData);window.orgRender&&window.orgRender();};
@@ -10289,7 +10289,7 @@ if(document.readyState==='loading'){
     document.body.insertAdjacentHTML('beforeend','<div id="org-modal-v8"><div class="org-modal-box-v8"><div class="org-modal-head-v8"><div class="org-modal-title-v8" id="org-modal-title-v8">오가닉 노출 등록</div><button class="cp-close" onclick="orgCloseModal()">×</button></div><div class="org-modal-grid-v8"><div class="org-field-v8"><label>업로드일</label><input type="date" id="orgm-date-v8"></div><div class="org-field-v8"><label>출처</label><select id="orgm-source-v8"><option>직접</option><option>자동</option></select></div><div class="org-field-v8"><label>계정명</label><input type="text" id="orgm-handle-v8"></div><div class="org-field-v8"><label>팔로워</label><input type="text" id="orgm-followers-v8"></div><div class="org-field-v8"><label>채널</label><select id="orgm-ch-v8"><option>Instagram</option><option>Youtube</option><option>Tiktok</option><option>X</option><option>Blog</option></select></div><div class="org-field-v8"><label>콘텐츠 유형</label><select id="orgm-ct-v8"><option>피드</option><option>릴스</option><option>롱폼</option><option>쇼츠</option><option>게시글</option></select></div><div class="org-field-v8" style="grid-column:1/-1;"><label>업로드 링크</label><input type="text" id="orgm-link-v8" placeholder="https://..."></div></div><div style="font-size:11px;font-weight:700;margin:10px 0 8px;">노출 상품</div><div id="orgm-products-v8"></div><button class="add-btn" style="margin:6px 0 0;" onclick="orgModalAddProduct()">+ 상품 추가</button><div class="org-modal-actions-v8"><button class="org-cancel-v8" onclick="orgCloseModal()">취소</button><button class="org-save-v8" onclick="orgSaveModal()">저장</button></div></div></div>');
   }
   let editIndex=-1;
-  window.orgModalAddProduct=function(p){ensureModal();const wrap=document.getElementById('orgm-products-v8');const row=document.createElement('div');row.className='org-modal-product-row-v8';row.innerHTML='<select class="orgm-platform-v8"><option>무신사</option><option>29CM</option><option>자사몰</option></select><input class="orgm-product-v8" placeholder="상품명 (컬러)"><input class="orgm-color-v8" placeholder="컬러 자동"><button type="button" class="del-btn" onclick="this.parentNode.remove()">×</button>';wrap.appendChild(row);if(p){row.querySelector('.orgm-platform-v8').value=p.platform||'무신사';row.querySelector('.orgm-product-v8').value=p.product||'';row.querySelector('.orgm-color-v8').value=p.color||autoColor(p.product)||'';}row.querySelector('.orgm-product-v8').addEventListener('input',e=>{const c=autoColor(e.target.value);if(c)row.querySelector('.orgm-color-v8').value=c;});};
+  window.orgModalAddProduct=function(p){ensureModal();const wrap=document.getElementById('orgm-products-v8');const row=document.createElement('div');row.className='org-modal-product-row-v8';row.innerHTML='<select class="orgm-platform-v8"><option>무신사</option><option>29CM</option><option>자사몰</option><option>Offline</option></select><input class="orgm-product-v8" placeholder="상품명 (컬러)"><input class="orgm-color-v8" placeholder="컬러 자동"><button type="button" class="del-btn" onclick="this.parentNode.remove()">×</button>';wrap.appendChild(row);if(p){row.querySelector('.orgm-platform-v8').value=p.platform||'무신사';row.querySelector('.orgm-product-v8').value=p.product||'';row.querySelector('.orgm-color-v8').value=p.color||autoColor(p.product)||'';}row.querySelector('.orgm-product-v8').addEventListener('input',e=>{const c=autoColor(e.target.value);if(c)row.querySelector('.orgm-color-v8').value=c;});};
   window.orgAddRow=function(){ensureModal();editIndex=-1;document.getElementById('org-modal-title-v8').textContent='오가닉 노출 등록';const today=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Seoul'}));const ds=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');document.getElementById('orgm-date-v8').value=ds;document.getElementById('orgm-source-v8').value='직접';document.getElementById('orgm-handle-v8').value='';document.getElementById('orgm-followers-v8').value='';document.getElementById('orgm-ch-v8').value='Instagram';document.getElementById('orgm-ct-v8').value='피드';document.getElementById('orgm-link-v8').value='';document.getElementById('orgm-products-v8').innerHTML='';orgModalAddProduct();document.getElementById('org-modal-v8').classList.add('open');};
   window.orgEditRow=function(idx){ensureModal();editIndex=idx;const r=normalizeOrganicItem(window.organicData[idx]||{});document.getElementById('org-modal-title-v8').textContent='오가닉 노출 수정';document.getElementById('orgm-date-v8').value=r.date||'';document.getElementById('orgm-source-v8').value=r.source||'직접';document.getElementById('orgm-handle-v8').value=r.handle||'';document.getElementById('orgm-followers-v8').value=r.followers||'';document.getElementById('orgm-ch-v8').value=r.ch||'Instagram';document.getElementById('orgm-ct-v8').value=r.contentType||'피드';document.getElementById('orgm-link-v8').value=r.link||'';document.getElementById('orgm-products-v8').innerHTML='';r.products.forEach(p=>orgModalAddProduct(p));document.getElementById('org-modal-v8').classList.add('open');};
   window.orgCloseModal=function(){const m=document.getElementById('org-modal-v8');if(m)m.classList.remove('open');};
@@ -10345,7 +10345,7 @@ if(document.readyState==='loading'){
     source:{'자동':{bg:'#DBEAFE',color:'#1E40AF'},'직접':{bg:'#ECFDF5',color:'#065F46'},'선택':{bg:'#F3F4F6',color:'#6B7280'}},
     ch:{Instagram:{bg:'#FCE7F3',color:'#9D174D'},Youtube:{bg:'#FEE2E2',color:'#991B1B'},Tiktok:{bg:'#F3F4F6',color:'#111827'},X:{bg:'#DBEAFE',color:'#1E40AF'},Blog:{bg:'#FEF3C7',color:'#92400E'},'선택':{bg:'#F3F4F6',color:'#6B7280'}},
     ct:{'피드':{bg:'#EDE9FE',color:'#5B21B6'},'릴스':{bg:'#DBEAFE',color:'#1E40AF'},'롱폼':{bg:'#FEE2E2',color:'#991B1B'},'쇼츠':{bg:'#ECFDF5',color:'#065F46'},'게시글':{bg:'#FEF3C7',color:'#92400E'},'선택':{bg:'#F3F4F6',color:'#6B7280'}},
-    platform:{'무신사':{bg:'#F3F4F6',color:'#111827'},'29CM':{bg:'#EEF2FF',color:'#3730A3'},'자사몰':{bg:'#ECFDF5',color:'#065F46'},'선택':{bg:'#F3F4F6',color:'#6B7280'}}
+    platform:{'무신사':{bg:'#F3F4F6',color:'#111827'},'29CM':{bg:'#EEF2FF',color:'#3730A3'},'자사몰':{bg:'#ECFDF5',color:'#065F46'},'Offline':{bg:'#FEF3C7',color:'#92400E'},'선택':{bg:'#F3F4F6',color:'#6B7280'}}
   };
   function pill(txt,group){txt=txt||'선택';const c=(COLOR[group]&&COLOR[group][txt])||COLOR.neutral;return '<span class="org-pill" style="background:'+c.bg+';color:'+c.color+';">'+esc(txt)+'</span>';}
   function normalizeOrganicItem(r){
@@ -13436,7 +13436,7 @@ if(document.readyState==='loading'){
     wrap.style.display=(window._orgView==='list')?'block':'none';
     const table=wrap.querySelector('table'); if(table) table.className='org-table-v9';
     const thead=wrap.querySelector('thead');
-    if(thead){thead.innerHTML='<tr><th>업로드일</th><th>출처</th><th>계정명</th><th>채널</th><th class="r">팔로워</th><th>콘텐츠 유형</th><th>플랫폼</th><th>상품명</th><th>컬러</th><th>기준일</th><th class="r">조회수</th><th class="r">좋아요</th><th class="r">댓글</th><th class="r">상품 좋아요</th><th class="r">판매 수량</th><th class="r">매출</th><th class="r">매출 증감</th><th class="r">총 매출</th><th class="r">매출 비중</th><th>액션</th></tr>';}
+    if(thead){thead.innerHTML='<tr><th>업로드일</th><th>출처</th><th>계정명</th><th>채널</th><th class="r">팔로워</th><th>콘텐츠 유형</th><th>기준일</th><th class="r">조회수</th><th class="r">좋아요</th><th class="r">댓글</th><th>플랫폼</th><th>상품명</th><th>컬러</th><th class="r">상품 좋아요</th><th class="r">판매 수량</th><th class="r">매출</th><th class="r">매출 증감</th><th class="r">총 매출</th><th class="r">매출 비중</th><th>액션</th></tr>';}
     const list=filteredOrganic();
     let html='';
     list.forEach(r=>{
@@ -13445,6 +13445,8 @@ if(document.readyState==='loading'){
       const products=r.products&&r.products.length?r.products:[{platform:'무신사',product:'',color:'',metrics:{}}];
       const totalRows=days.length*products.length;
       const account=r.link?'<a href="'+esc(r.link)+'" target="_blank" class="org-account-link">'+esc(r.handle||'-')+'</a>':'<span class="org-edit-text-cell org-account-text" ondblclick="orgV70EditText(this,'+idx+',\'handle\')">'+esc(r.handle||'-')+'</span>';
+      const platformLabels=[...new Set(products.map(p=>(p&&p.platform)||'').filter(Boolean))];
+      const platformText=platformLabels.length?platformLabels.join(' / '):'-';
       let commonPrinted=false;
       const ttl={views:0,likes:0,comments:0,sales:0,revenue:0,total:0};
       days.forEach((date,di)=>{
@@ -13452,21 +13454,32 @@ if(document.readyState==='loading'){
         const daily=ensureDaily(r,dkey);
         ttl.views+=toNum(daily.views); ttl.likes+=toNum(daily.likes); ttl.comments+=toNum(daily.comments);
         const dayRows=products.length;
-        products.forEach((p,pi)=>{
+        const dayCache=products.map((p,pi)=>{
           const metric=ensureProdMetric(p,dkey);
           const lk=lookup(date,p.platform,p.product);
           const productLike=metric.productLike!==''?metric.productLike:(lk.productLike||'');
           const sales=metric.sales!==''?metric.sales:(lk.sales||'');
           const revenue=metric.revenue!==''?metric.revenue:(lk.revenue||'');
           const total=metric.total!==''?metric.total:(lk.total||revenue||'');
-          ttl.sales+=toNum(sales); ttl.revenue+=toNum(revenue); ttl.total+=toNum(total);
+          return {metric,lk,productLike,sales,revenue,total};
+        });
+        const daySales=dayCache.reduce((sum,row)=>sum+toNum(row.sales),0);
+        const dayRevenue=dayCache.reduce((sum,row)=>sum+toNum(row.revenue),0);
+        const totalValues=dayCache.map(row=>toNum(row.total)).filter(v=>v>0);
+        const dayTotal=totalValues.length?Math.max.apply(null,totalValues):dayRevenue;
+        const dayShare=dayTotal>0?(dayRevenue/dayTotal)*100:null;
+        ttl.sales+=daySales; ttl.revenue+=dayRevenue; ttl.total+=dayTotal;
+        products.forEach((p,pi)=>{
+          const cached=dayCache[pi]||{};
+          const productLike=cached.productLike||'';
+          const sales=cached.sales||'';
+          const revenue=cached.revenue||'';
           const prevDate=di>0?days[di-1]:'';
           const prevKey='d'+(di-1);
           const prevMetric=di>0?ensureProdMetric(p,prevKey):null;
           const prevLookup=di>0?lookup(prevDate,p.platform,p.product):{};
           const prevRevenue=di>0?(prevMetric.revenue!==''?prevMetric.revenue:(prevLookup.revenue||0)):0;
           const change=di===0?null:(toNum(prevRevenue)>0?((toNum(revenue)-toNum(prevRevenue))/toNum(prevRevenue))*100:null);
-          const share=toNum(total)>0?(toNum(revenue)/toNum(total))*100:null;
           const rowClass=(di===0&&pi===0)?'org-creator-group-start':((di>0&&pi===0)?'org-day-group-start':(pi>0?'org-product-dotted':''));
           html+='<tr'+(rowClass?' class="'+rowClass+'"':'')+'>';
           if(!commonPrinted){
@@ -13478,33 +13491,34 @@ if(document.readyState==='loading'){
               +'<td rowspan="'+totalRows+'" class="org-dd-cell" data-group="ct" ondblclick="orgV8EditField(this,'+idx+',\'contentType\')">'+pill(r.contentType,'ct')+'</td>';
             commonPrinted=true;
           }
-          if(isPlatformFirst(products,pi)){
-            const span=platformSpanCount(products,pi);
-            html+='<td rowspan="'+span+'" class="org-dd-cell org-platform-merged" data-group="platform" ondblclick="orgV8EditProductPlatform(this,'+idx+','+pi+')">'+pill(p.platform,'platform')+'</td>';
-          }
-          html+='<td class="l"><span class="org-edit-text-cell" ondblclick="orgV70EditProductText(this,'+idx+','+pi+',\'product\')">'+esc(p.product||'-')+'</span></td>'
-            +'<td><span class="org-edit-text-cell" ondblclick="orgV70EditProductText(this,'+idx+','+pi+',\'color\')">'+esc(p.color||autoColor(p.product)||'-')+'</span></td>';
           if(pi===0){
             html+='<td rowspan="'+dayRows+'" class="org-date-label">'+fmtDateKor(date)+'</td>'
               +'<td rowspan="'+dayRows+'" class="r"><span class="org-metric-cell" ondblclick="orgV8EditDaily('+idx+',\''+dkey+'\',\'views\')">'+fmtNum(daily.views)+'</span></td>'
               +'<td rowspan="'+dayRows+'" class="r"><span class="org-metric-cell" ondblclick="orgV8EditDaily('+idx+',\''+dkey+'\',\'likes\')">'+fmtNum(daily.likes)+'</span></td>'
               +'<td rowspan="'+dayRows+'" class="r"><span class="org-metric-cell" ondblclick="orgV8EditDaily('+idx+',\''+dkey+'\',\'comments\')">'+fmtNum(daily.comments)+'</span></td>';
           }
-          html+='<td class="r"><span class="org-metric-cell" ondblclick="orgV8EditProductMetric('+idx+','+pi+',\''+dkey+'\',\'productLike\')">'+fmtNum(productLike)+'</span></td>'
+          if(di===0&&pi===0){
+            html+='<td rowspan="'+totalRows+'" class="org-dd-cell org-platform-merged" data-group="platform" ondblclick="orgV8EditProductPlatform(this,'+idx+',0)">'+esc(platformText)+'</td>';
+          }
+          html+='<td class="l"><span class="org-edit-text-cell" ondblclick="orgV70EditProductText(this,'+idx+','+pi+',\'product\')">'+esc(p.product||'-')+'</span></td>'
+            +'<td><span class="org-edit-text-cell" ondblclick="orgV70EditProductText(this,'+idx+','+pi+',\'color\')">'+esc(p.color||autoColor(p.product)||'-')+'</span></td>'
+            +'<td class="r"><span class="org-metric-cell" ondblclick="orgV8EditProductMetric('+idx+','+pi+',\''+dkey+'\',\'productLike\')">'+fmtNum(productLike)+'</span></td>'
             +'<td class="r"><span class="org-metric-cell" ondblclick="orgV8EditProductMetric('+idx+','+pi+',\''+dkey+'\',\'sales\')">'+fmtNum(sales)+'</span></td>'
             +'<td class="r"><span class="org-metric-cell" ondblclick="orgV8EditProductMetric('+idx+','+pi+',\''+dkey+'\',\'revenue\')">'+fmtWon(revenue)+'</span></td>'
-            +'<td class="r" style="color:'+(change==null?'var(--color-text-tertiary)':change>=0?'#2d8c5a':'#c0392b')+';font-weight:600;">'+(change==null?'-':(change>=0?'+':'')+change.toFixed(1)+'%')+'</td>'
-            +'<td class="r"><span class="org-metric-cell" ondblclick="orgV8EditProductMetric('+idx+','+pi+',\''+dkey+'\',\'total\')">'+fmtWon(total)+'</span></td>'
-            +'<td class="r">'+(share==null?'-':share.toFixed(1)+'%')+'</td>';
+            +'<td class="r" style="color:'+(change==null?'var(--color-text-tertiary)':change>=0?'#2d8c5a':'#c0392b')+';font-weight:600;">'+(change==null?'-':(change>=0?'+':'')+change.toFixed(1)+'%')+'</td>';
+          if(pi===0){
+            html+='<td rowspan="'+dayRows+'" class="r"><span class="org-metric-cell" ondblclick="orgV8EditProductMetric('+idx+',0,\''+dkey+'\',\'total\')">'+fmtWon(dayTotal)+'</span></td>'
+              +'<td rowspan="'+dayRows+'" class="r">'+(dayShare==null?'-':dayShare.toFixed(1)+'%')+'</td>';
+          }
           if(di===0&&pi===0) html+='<td rowspan="'+totalRows+'"><button class="org-action-btn" onclick="orgEditRow('+idx+')">수정</button><button class="org-action-btn danger imc-list-delete-btn" onclick="orgDel('+idx+')">삭제</button></td>';
           html+='</tr>';
         });
       });
       const ttlShare=ttl.total>0?(ttl.revenue/ttl.total)*100:null;
       html+='<tr class="org-ttl-row"><td colspan="10" class="org-ttl-label">TTL</td>'
-        +'<td class="r">'+fmtNum(ttl.views)+'</td>'
-        +'<td class="r">'+fmtNum(ttl.likes)+'</td>'
-        +'<td class="r">'+fmtNum(ttl.comments)+'</td>'
+        +'<td class="r">-</td>'
+        +'<td class="r">-</td>'
+        +'<td class="r">-</td>'
         +'<td class="r">-</td>'
         +'<td class="r">'+fmtNum(ttl.sales)+'</td>'
         +'<td class="r">'+fmtWon(ttl.revenue)+'</td>'
