@@ -17328,5 +17328,173 @@ if(document.readyState==='loading'){
 })();
 </script>
 
+<!-- CHOI PATCH: Organic list column order + UID/code columns only -->
+<script id="organic-v71-column-order-uid-code-script">
+(function(){
+  'use strict';
+  function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function toNum(v){const n=Number(String(v||'').replace(/[^0-9.-]/g,''));return isNaN(n)?0:n;}
+  function fmtNum(v){const n=toNum(v);return n?Math.round(n).toLocaleString('ko-KR'):'-';}
+  function fmtWon(v){const n=toNum(v);return n?'₩'+Math.round(n).toLocaleString('ko-KR'):'-';}
+  function fmtDateKor(s){if(!s)return '-';const d=new Date(s);if(isNaN(d.getTime()))return s;return (d.getMonth()+1)+'월 '+d.getDate()+'일';}
+  function addDate(s,offset){if(!s)return '';const d=new Date(s);if(isNaN(d.getTime()))return '';d.setDate(d.getDate()+offset);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function autoColor(name){const m=String(name||'').match(/\(([^)]+)\)/);return m?m[1].trim():'';}
+  function fmtFollowers(v){const raw=String(v||'').trim();if(!raw)return '-';if(/[kKmM]$/.test(raw))return raw.toUpperCase();const n=toNum(raw);if(!n)return raw;if(n>=1000000)return (n/1000000).toFixed(1).replace(/\.0$/,'')+'M';if(n>=1000)return (n/1000).toFixed(1).replace(/\.0$/,'')+'K';return String(Math.round(n));}
+  const COLOR={neutral:{bg:'#F3F4F6',color:'#6B7280'},source:{'자동':{bg:'#DBEAFE',color:'#1E40AF'},'직접':{bg:'#ECFDF5',color:'#065F46'},'선택':{bg:'#F3F4F6',color:'#6B7280'}},ch:{Instagram:{bg:'#FCE7F3',color:'#9D174D'},Youtube:{bg:'#FEE2E2',color:'#991B1B'},Tiktok:{bg:'#F3F4F6',color:'#111827'},X:{bg:'#DBEAFE',color:'#1E40AF'},Blog:{bg:'#FEF3C7',color:'#92400E'},'선택':{bg:'#F3F4F6',color:'#6B7280'}},ct:{'피드':{bg:'#EDE9FE',color:'#5B21B6'},'릴스':{bg:'#DBEAFE',color:'#1E40AF'},'롱폼':{bg:'#FEE2E2',color:'#991B1B'},'쇼츠':{bg:'#ECFDF5',color:'#065F46'},'게시글':{bg:'#FEF3C7',color:'#92400E'},'선택':{bg:'#F3F4F6',color:'#6B7280'}},platform:{'무신사':{bg:'#F3F4F6',color:'#111827'},'29CM':{bg:'#EEF2FF',color:'#3730A3'},'자사몰':{bg:'#ECFDF5',color:'#065F46'},'Offline':{bg:'#FEF3C7',color:'#92400E'},'선택':{bg:'#F3F4F6',color:'#6B7280'}}};
+  function pill(txt,group){txt=txt||'선택';const c=(COLOR[group]&&COLOR[group][txt])||COLOR.neutral;return '<span class="org-pill" style="background:'+c.bg+';color:'+c.color+';">'+esc(txt)+'</span>';}
+  function normalizeOrganicItem(r){
+    r.date=r.date||r.uploadDate||r.collectDate||'';
+    r.source=r.source||r.src||'직접';
+    r.handle=r.handle||r.account||r.name||'';
+    r.contentType=r.contentType||r.type||'선택';
+    r.ch=r.ch||r.channel||'선택';
+    r.link=r.link||r.url||'';
+    r.products=(r.products&&r.products.length)?r.products:[{platform:r.platform||'무신사',uid:r.uid||'',code:r.code||'',product:r.product||r.productTag||'',color:r.color||autoColor(r.product||r.productTag||''),metrics:{}}];
+    r.products.forEach(p=>{p.platform=p.platform||'무신사';p.uid=p.uid||p.UID||'';p.code=p.code||p.productCode||p['상품코드']||p['상품 코드']||'';p.product=p.product||p.name||p.productName||p['상품명']||'';p.color=p.color||autoColor(p.product);if(!p.metrics)p.metrics={};});
+    return r;
+  }
+  function filteredOrganic(){
+    const data=(window.organicData||[]).map(normalizeOrganicItem);
+    const m=window._orgMonth||'all', ch=window._orgCh||'all', src=window._orgSrc||'all';
+    return data.filter(r=>{
+      if(m!=='all'){
+        const d=new Date(r.date); if(!isNaN(d.getTime())){
+          const ym=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+          if(String(m).length>2 ? ym!==String(m) : String(d.getMonth()+1)!==String(m)) return false;
+        }
+      }
+      if(ch!=='all'&&r.ch!==ch)return false;
+      if(src!=='all'&&r.source!==src)return false;
+      return true;
+    });
+  }
+  function norm(v){return String(v||'').trim().toLowerCase();}
+  function lookup(date,platform,p){
+    const pools=[window.orgSalesData,window.orgSheetData,window.productDailyData,window.metaSalesRows,window.metaSalesData,window.itemDailyData].filter(Array.isArray);
+    const prod=String((p&&p.product)||'');
+    const uid=String((p&&p.uid)||'');
+    const code=String((p&&p.code)||'');
+    for(const arr of pools){
+      const row=arr.find(x=>{
+        const rowDate=String(x.date||x.날짜||x.collectDate||'').slice(0,10);
+        const rowPlatform=String(x.platform||x.플랫폼||'');
+        const rowUid=String(x.uid||x.UID||x['상품 UID']||x['상품UID']||'');
+        const rowCode=String(x.code||x.productCode||x['상품코드']||x['상품 코드']||'');
+        const rowProduct=String(x.product||x.productName||x.상품명||x.name||'');
+        return rowDate===date && rowPlatform===String(platform||'') && ((uid&&norm(rowUid)===norm(uid)) || (code&&norm(rowCode)===norm(code)) || (!uid&&!code&&rowProduct===prod));
+      });
+      if(row)return {productLike:row.productLike||row.상품좋아요||row.likes||row.좋아요||'',sales:row.sales||row.판매수량||row.qty||row.quantity||'',revenue:row.revenue||row.매출||row.salesAmount||row.amount||'',total:row.total||row.총매출||row.totalRevenue||''};
+    }
+    return {};
+  }
+  function ensureDaily(r,key){if(!r.orgDaily)r.orgDaily={};if(!r.orgDaily[key])r.orgDaily[key]={views:'',likes:'',comments:''};return r.orgDaily[key];}
+  function ensureProdMetric(prod,key){if(!prod.metrics)prod.metrics={};if(!prod.metrics[key])prod.metrics[key]={productLike:'',sales:'',revenue:'',total:''};return prod.metrics[key];}
+  window.orgBuildTable=function(){
+    const wrap=document.getElementById('org-list-view'); const tbody=document.getElementById('org-tbody'); if(!wrap||!tbody)return;
+    wrap.style.display=(window._orgView==='list')?'block':'none';
+    const table=wrap.querySelector('table'); if(table) table.className='org-table-v9';
+    const thead=wrap.querySelector('thead');
+    if(thead){thead.innerHTML='<tr><th>업로드일</th><th>출처</th><th>계정명</th><th>채널</th><th class="r">팔로워</th><th>콘텐츠 유형</th><th>플랫폼</th><th>기준일</th><th>UID</th><th>상품 코드</th><th>상품명</th><th>컬러</th><th class="r">조회수</th><th class="r">좋아요</th><th class="r">댓글</th><th class="r">상품 좋아요</th><th class="r">판매 수량</th><th class="r">매출</th><th class="r">매출 증감</th><th class="r">총 매출</th><th class="r">매출 비중</th><th>액션</th></tr>';}
+    const list=filteredOrganic();
+    let html='';
+    list.forEach(r=>{
+      const idx=(window.organicData||[]).indexOf(r);
+      const days=[-1,0,1,2].map(off=>addDate(r.date,off));
+      const products=r.products&&r.products.length?r.products:[{platform:'무신사',uid:'',code:'',product:'',color:'',metrics:{}}];
+      const totalRows=days.length*products.length;
+      const account=r.link?'<a href="'+esc(r.link)+'" target="_blank" class="org-account-link">'+esc(r.handle||'-')+'</a>':'<span class="org-edit-text-cell org-account-text" ondblclick="orgV70EditText(this,'+idx+',\'handle\')">'+esc(r.handle||'-')+'</span>';
+      const platformLabels=[...new Set(products.map(p=>(p&&p.platform)||'').filter(Boolean))];
+      const platformText=platformLabels.length?platformLabels.join(' / '):'-';
+      let commonPrinted=false;
+      const ttl={views:0,likes:0,comments:0,sales:0,revenue:0,total:0};
+      days.forEach((date,di)=>{
+        const dkey='d'+di;
+        const daily=ensureDaily(r,dkey);
+        ttl.views+=toNum(daily.views); ttl.likes+=toNum(daily.likes); ttl.comments+=toNum(daily.comments);
+        const dayRows=products.length;
+        const dayCache=products.map((p,pi)=>{
+          const metric=ensureProdMetric(p,dkey);
+          const lk=lookup(date,p.platform,p);
+          const productLike=metric.productLike!==''?metric.productLike:(lk.productLike||'');
+          const sales=metric.sales!==''?metric.sales:(lk.sales||'');
+          const revenue=metric.revenue!==''?metric.revenue:(lk.revenue||'');
+          const total=metric.total!==''?metric.total:(lk.total||revenue||'');
+          return {metric,lk,productLike,sales,revenue,total};
+        });
+        const daySales=dayCache.reduce((sum,row)=>sum+toNum(row.sales),0);
+        const dayRevenue=dayCache.reduce((sum,row)=>sum+toNum(row.revenue),0);
+        const totalValues=dayCache.map(row=>toNum(row.total)).filter(v=>v>0);
+        const dayTotal=totalValues.length?Math.max.apply(null,totalValues):dayRevenue;
+        const dayShare=dayTotal>0?(dayRevenue/dayTotal)*100:null;
+        ttl.sales+=daySales; ttl.revenue+=dayRevenue; ttl.total+=dayTotal;
+        products.forEach((p,pi)=>{
+          const cached=dayCache[pi]||{};
+          const productLike=cached.productLike||'';
+          const sales=cached.sales||'';
+          const revenue=cached.revenue||'';
+          const prevDate=di>0?days[di-1]:'';
+          const prevKey='d'+(di-1);
+          const prevMetric=di>0?ensureProdMetric(p,prevKey):null;
+          const prevLookup=di>0?lookup(prevDate,p.platform,p):{};
+          const prevRevenue=di>0?(prevMetric.revenue!==''?prevMetric.revenue:(prevLookup.revenue||0)):0;
+          const change=di===0?null:(toNum(prevRevenue)>0?((toNum(revenue)-toNum(prevRevenue))/toNum(prevRevenue))*100:null);
+          const rowClass=(di===0&&pi===0)?'org-creator-group-start':((di>0&&pi===0)?'org-day-group-start':(pi>0?'org-product-dotted':''));
+          html+='<tr'+(rowClass?' class="'+rowClass+'"':'')+'>';
+          if(!commonPrinted){
+            html+='<td rowspan="'+totalRows+'" class="org-date-cell org-date-label">'+fmtDateKor(r.date)+'</td>'
+              +'<td rowspan="'+totalRows+'" class="org-dd-cell" data-group="source" ondblclick="orgV8EditField(this,'+idx+',\'source\')">'+pill(r.source,'source')+'</td>'
+              +'<td rowspan="'+totalRows+'" class="l">'+account+'</td>'
+              +'<td rowspan="'+totalRows+'" class="org-dd-cell" data-group="ch" ondblclick="orgV8EditField(this,'+idx+',\'ch\')">'+pill(r.ch,'ch')+'</td>'
+              +'<td rowspan="'+totalRows+'" class="r"><span class="org-edit-text-cell" ondblclick="orgV70EditText(this,'+idx+',\'followers\')">'+fmtFollowers(r.followers)+'</span></td>'
+              +'<td rowspan="'+totalRows+'" class="org-dd-cell" data-group="ct" ondblclick="orgV8EditField(this,'+idx+',\'contentType\')">'+pill(r.contentType,'ct')+'</td>'
+              +'<td rowspan="'+totalRows+'" class="org-dd-cell org-platform-merged" data-group="platform" ondblclick="orgV8EditProductPlatform(this,'+idx+',0)">'+esc(platformText)+'</td>';
+            commonPrinted=true;
+          }
+          if(pi===0){
+            html+='<td rowspan="'+dayRows+'" class="org-date-label">'+fmtDateKor(date)+'</td>';
+          }
+          html+='<td><span class="org-edit-text-cell" ondblclick="orgV70EditProductText(this,'+idx+','+pi+',\'uid\')">'+esc(p.uid||'-')+'</span></td>'
+            +'<td><span class="org-edit-text-cell" ondblclick="orgV70EditProductText(this,'+idx+','+pi+',\'code\')">'+esc(p.code||'-')+'</span></td>'
+            +'<td class="l"><span class="org-edit-text-cell" ondblclick="orgV70EditProductText(this,'+idx+','+pi+',\'product\')">'+esc(p.product||'-')+'</span></td>'
+            +'<td><span class="org-edit-text-cell" ondblclick="orgV70EditProductText(this,'+idx+','+pi+',\'color\')">'+esc(p.color||autoColor(p.product)||'-')+'</span></td>';
+          if(pi===0){
+            html+='<td rowspan="'+dayRows+'" class="r"><span class="org-metric-cell" ondblclick="orgV8EditDaily('+idx+',\''+dkey+'\',\'views\')">'+fmtNum(daily.views)+'</span></td>'
+              +'<td rowspan="'+dayRows+'" class="r"><span class="org-metric-cell" ondblclick="orgV8EditDaily('+idx+',\''+dkey+'\',\'likes\')">'+fmtNum(daily.likes)+'</span></td>'
+              +'<td rowspan="'+dayRows+'" class="r"><span class="org-metric-cell" ondblclick="orgV8EditDaily('+idx+',\''+dkey+'\',\'comments\')">'+fmtNum(daily.comments)+'</span></td>';
+          }
+          html+='<td class="r"><span class="org-metric-cell" ondblclick="orgV8EditProductMetric('+idx+','+pi+',\''+dkey+'\',\'productLike\')">'+fmtNum(productLike)+'</span></td>'
+            +'<td class="r"><span class="org-metric-cell" ondblclick="orgV8EditProductMetric('+idx+','+pi+',\''+dkey+'\',\'sales\')">'+fmtNum(sales)+'</span></td>'
+            +'<td class="r"><span class="org-metric-cell" ondblclick="orgV8EditProductMetric('+idx+','+pi+',\''+dkey+'\',\'revenue\')">'+fmtWon(revenue)+'</span></td>'
+            +'<td class="r" style="color:'+(change==null?'var(--color-text-tertiary)':change>=0?'#2d8c5a':'#c0392b')+';font-weight:600;">'+(change==null?'-':(change>=0?'+':'')+change.toFixed(1)+'%')+'</td>';
+          if(pi===0){
+            html+='<td rowspan="'+dayRows+'" class="r"><span class="org-metric-cell" ondblclick="orgV8EditProductMetric('+idx+',0,\''+dkey+'\',\'total\')">'+fmtWon(dayTotal)+'</span></td>'
+              +'<td rowspan="'+dayRows+'" class="r">'+(dayShare==null?'-':dayShare.toFixed(1)+'%')+'</td>';
+          }
+          if(di===0&&pi===0) html+='<td rowspan="'+totalRows+'"><button class="org-action-btn" onclick="orgEditRow('+idx+')">수정</button><button class="org-action-btn danger imc-list-delete-btn" onclick="orgDel('+idx+')">삭제</button></td>';
+          html+='</tr>';
+        });
+      });
+      const ttlShare=ttl.total>0?(ttl.revenue/ttl.total)*100:null;
+      html+='<tr class="org-ttl-row"><td colspan="15" class="org-ttl-label">TTL</td>'
+        +'<td class="r">-</td>'
+        +'<td class="r">'+fmtNum(ttl.sales)+'</td>'
+        +'<td class="r">'+fmtWon(ttl.revenue)+'</td>'
+        +'<td class="r">-</td>'
+        +'<td class="r">'+fmtWon(ttl.total)+'</td>'
+        +'<td class="r">'+(ttlShare==null?'-':ttlShare.toFixed(1)+'%')+'</td>'
+        +'<td></td></tr>';
+    });
+    tbody.innerHTML=html||'<tr><td colspan="22" style="text-align:center;padding:20px;color:var(--color-text-tertiary);">데이터가 없어요</td></tr>';
+  };
+  const previousOrgRender=window.orgRender;
+  window.orgRender=function(){
+    if(previousOrgRender)previousOrgRender();
+    if(window.orgBuildTable)window.orgBuildTable();
+  };
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(function(){if(window.orgRender)window.orgRender();},500);});
+  else setTimeout(function(){if(window.orgRender)window.orgRender();},500);
+})();
+</script>
+
 </body>
 </html>
