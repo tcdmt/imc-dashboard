@@ -16971,5 +16971,96 @@ if(document.readyState==='loading'){
 })();
 </script>
 
+
+<!-- PATCH: Feedback collapsed TTL row white + sticky column width lock (requested only) -->
+<style id="feedback-collapsed-ttl-white-sticky-width-lock">
+/* Feedback: 접힌 크리에이터 TTL 요약 행은 흰색 유지 */
+#fb-main-table .fb-creator-toggle-row.is-collapsed td,
+#fb-main-table .fb-creator-toggle-row.is-collapsed .fb-sticky-td,
+#fb-main-table .fb-creator-toggle-row.is-collapsed .fb-collapse-cell{
+  background:#fff!important;
+  color:var(--color-text-primary)!important;
+}
+
+/* Feedback: 좌우 스크롤 시 고정 컬럼 폭이 줄어들지 않도록 고정 */
+#fb-main-table .fb-sticky,
+#fb-main-table .fb-sticky-td{
+  box-sizing:border-box!important;
+  flex-shrink:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+
+#fb-main-table .fb-sticky[style*="left:0"],
+#fb-main-table .fb-sticky-td[style*="left:0"]{
+  width:100px!important;
+  min-width:100px!important;
+  max-width:100px!important;
+}
+
+#fb-main-table .fb-sticky[style*="left:100px"],
+#fb-main-table .fb-sticky-td[style*="left:100px"]{
+  width:65px!important;
+  min-width:65px!important;
+  max-width:65px!important;
+}
+
+#fb-main-table .fb-sticky[style*="left:165px"],
+#fb-main-table .fb-sticky-td[style*="left:165px"]{
+  width:45px!important;
+  min-width:45px!important;
+  max-width:45px!important;
+}
+
+#fb-main-table .fb-sticky[style*="left:210px"],
+#fb-main-table .fb-sticky-td[style*="left:210px"]{
+  width:130px!important;
+  min-width:130px!important;
+  max-width:130px!important;
+}
+
+#fb-main-table .fb-sticky[style*="left:340px"],
+#fb-main-table .fb-sticky-td[style*="left:340px"]{
+  width:65px!important;
+  min-width:65px!important;
+  max-width:65px!important;
+}
+
+#fb-main-table .fb-sticky[style*="left:405px"],
+#fb-main-table .fb-sticky-td[style*="left:405px"]{
+  width:80px!important;
+  min-width:80px!important;
+  max-width:80px!important;
+}
+
+#fb-main-table .fb-sticky[style*="left:485px"],
+#fb-main-table .fb-sticky-td[style*="left:485px"]{
+  width:65px!important;
+  min-width:65px!important;
+  max-width:65px!important;
+}
+
+#fb-main-table .fb-sticky[style*="left:550px"],
+#fb-main-table .fb-sticky-td[style*="left:550px"]{
+  width:80px!important;
+  min-width:80px!important;
+  max-width:80px!important;
+}
+
+#fb-main-table .fb-sticky[style*="left:630px"],
+#fb-main-table .fb-sticky-td[style*="left:630px"]{
+  width:85px!important;
+  min-width:85px!important;
+  max-width:85px!important;
+}
+
+#fb-main-table .fb-sticky[style*="left:715px"],
+#fb-main-table .fb-sticky-td[style*="left:715px"]{
+  width:65px!important;
+  min-width:65px!important;
+  max-width:65px!important;
+}
+</style>
+
 </body>
 </html>
