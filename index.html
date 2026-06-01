@@ -4922,18 +4922,12 @@ function renderFeedbackRows(list){
               +`<td rowspan="${dayRs}" style="text-align:right;">${fbdDcNum(ci,key,'like',data.like)}</td>`;
           }
         }
-        // 매출/총매출 (업로드 전일은 '-')
-        const revTd=isUploadDay
-          ?`<td style="text-align:center;color:var(--color-text-tertiary);">-</td>`
-          :`<td style="text-align:right;">${fbdDcItemWon(ci,key,itemKey,'revenue',revenueVal)}</td>`;
-        const salesTd=isUploadDay
-          ?`<td style="text-align:center;color:var(--color-text-tertiary);">-</td>`
-          :`<td style="text-align:right;">${fbdDcItemNum(ci,key,itemKey,'sales',salesVal)}</td>`;
+        // 매출/총매출: D-1도 플랫폼 + 기준일 + UID 기준 자동 연동값 노출
+        const revTd=`<td style="text-align:right;">${fbdDcItemWon(ci,key,itemKey,'revenue',revenueVal)}</td>`;
+        const salesTd=`<td style="text-align:right;">${fbdDcItemNum(ci,key,itemKey,'sales',salesVal)}</td>`;
         let totTd='';
         if(isFD){
-          totTd=isUploadDay
-            ?`<td rowspan="${dayRs}" style="text-align:center;color:var(--color-text-tertiary);">-</td>`
-            :`<td rowspan="${dayRs}" style="text-align:right;">${fbdDcWon(ci,key,'total',data.total)}</td>`;
+          totTd=`<td rowspan="${dayRs}" style="text-align:right;">${fbdDcWon(ci,key,'total',data.total)}</td>`;
         }
         const ctrTd=isUploadDay?'<td style="text-align:center;color:var(--color-text-tertiary);">-</td>':`<td style="text-align:center;color:var(--color-text-secondary);">${isNaN(ctr)?'-':ctr.toFixed(1)+'%'}</td>`;
         // 상품 좋아요 셀 (UID + 플랫폼 기반 링크 + 더블클릭 입력)
