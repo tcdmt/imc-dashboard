@@ -17062,5 +17062,25 @@ if(document.readyState==='loading'){
 }
 </style>
 
+
+<!-- PATCH: Feedback sticky 2차 활용 text wrap + auto row height (requested only) -->
+<style id="feedback-secondary-use-auto-height">
+/* Feedback: 틀 고정된 2차 활용 컬럼에서 긴 텍스트가 잘리지 않도록 줄바꿈/자동 높이만 허용 */
+#fb-main-table tbody tr,
+#fb-main-table tbody td{
+  height:auto!important;
+}
+
+#fb-main-table .fb-sticky-td[style*="left:485px"]{
+  white-space:normal!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+  word-break:keep-all!important;
+  overflow-wrap:anywhere!important;
+  line-height:1.35!important;
+  height:auto!important;
+}
+</style>
+
 </body>
 </html>
