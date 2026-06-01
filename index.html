@@ -17496,5 +17496,259 @@ if(document.readyState==='loading'){
 })();
 </script>
 
+
+<!-- CHOI PATCH: Organic manual item picker = List Item selector style only -->
+<style id="organic-manual-item-picker-v81-style">
+  #org-modal-v8 .org-modal-product-row-v8{
+    display:grid!important;
+    grid-template-columns:96px minmax(110px,1fr) minmax(120px,1fr) minmax(220px,2fr) minmax(100px,1fr) 28px!important;
+    gap:6px!important;
+    align-items:center!important;
+  }
+  #org-modal-v8 .org-modal-product-row-v8 select,
+  #org-modal-v8 .org-modal-product-row-v8 input{
+    min-width:0!important;
+  }
+  #org-modal-v8 .orgm-color-v8{
+    background:var(--color-background-secondary)!important;
+    color:var(--color-text-secondary)!important;
+  }
+</style>
+<script id="organic-manual-item-picker-v81-script">
+(function(){
+  'use strict';
+
+  function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function clean(v){return String(v==null?'':v).trim();}
+  function norm(v){return clean(v).toLowerCase().replace(/\s+/g,'');}
+  function platformKey(v){
+    var s=norm(v);
+    if(s==='무신사'||s.indexOf('musinsa')>-1)return 'musinsa';
+    if(s==='29cm'||s.indexOf('29')>-1||s.indexOf('cm')>-1)return 'cm';
+    if(s==='자사몰'||s.indexOf('store')>-1||s.indexOf('shop')>-1)return 'store';
+    if(s.indexOf('offline')>-1||s.indexOf('오프라인')>-1)return 'offline';
+    return s;
+  }
+  function firstVal(obj, keys){
+    obj=obj||{};
+    for(var i=0;i<keys.length;i++){
+      var v=obj[keys[i]];
+      if(v!==undefined&&v!==null&&String(v).trim()!=='')return v;
+    }
+    return '';
+  }
+  function productCode(product){return clean(firstVal(product,['code','productCode','itemCode','상품코드','상품 코드','상품 Code','상품CODE']));}
+  function productName(product){return clean(firstVal(product,['name','product','productName','itemName','상품명','제품명']));}
+  function uidByPlatform(product, platform){
+    var p=product||{};
+    var key=platformKey(platform);
+    if(key==='musinsa')return clean(firstVal(p,['musinsaUid','musinsaUID','musinsa_uid','무신사 UID','무신사UID']) || (platformKey(p.platform)==='musinsa'?firstVal(p,['uid','UID']):''));
+    if(key==='cm')return clean(firstVal(p,['cmUid','cmUID','cm_uid','29cmUid','29CMUid','29CM UID','29CMUID']) || (platformKey(p.platform)==='cm'?firstVal(p,['uid','UID']):''));
+    if(key==='store')return clean(firstVal(p,['storeUid','storeUID','store_uid','자사몰 UID','자사몰UID']) || (platformKey(p.platform)==='store'?firstVal(p,['uid','UID']):''));
+    return clean(firstVal(p,['uid','UID','musinsaUid','cmUid','storeUid','무신사 UID','29CM UID','자사몰 UID']));
+  }
+  function colorFromName(name){
+    var m=String(name||'').match(/\(([^()]*)\)\s*$/);
+    return m?m[1].trim():'';
+  }
+  function ensureOrganicNameDatalist(){
+    var id='organic-v81-product-name-options';
+    var old=document.getElementById(id);
+    if(old)old.remove();
+    var dl=document.createElement('datalist');
+    dl.id=id;
+    var seen={};
+    (window.products||[]).forEach(function(product){
+      var name=productName(product);
+      if(!name||seen[name])return;
+      seen[name]=true;
+      var opt=document.createElement('option');
+      opt.value=name;
+      var code=productCode(product);
+      var uid=uidByPlatform(product,'무신사')||uidByPlatform(product,'29CM')||uidByPlatform(product,'자사몰');
+      opt.label=[code,uid].filter(Boolean).join(' · ');
+      dl.appendChild(opt);
+    });
+    document.body.appendChild(dl);
+    return id;
+  }
+  function scoreProduct(product, keyword, platform, field){
+    var q=norm(keyword);
+    if(!q)return 0;
+    var code=norm(productCode(product));
+    var name=norm(productName(product));
+    var uid=norm(uidByPlatform(product,platform));
+    var score=0;
+    if(field==='uid'&&uid===q)score+=220;
+    if(field==='code'&&code===q)score+=220;
+    if(field==='name'&&name===q)score+=220;
+    if(uid===q)score+=130;
+    if(code===q)score+=125;
+    if(name===q)score+=120;
+    if(field==='uid'&&uid&&uid.indexOf(q)>-1)score+=40;
+    if(field==='code'&&code&&code.indexOf(q)>-1)score+=40;
+    if(field==='name'&&name&&name.indexOf(q)>-1)score+=40;
+    if(name&&name.indexOf(q)>-1)score+=20;
+    if(uidByPlatform(product,platform))score+=5;
+    return score;
+  }
+  function findProduct(keyword, platform, field){
+    var best=null,bestScore=0;
+    (window.products||[]).forEach(function(product){
+      var score=scoreProduct(product,keyword,platform,field||'name');
+      if(score>bestScore){best=product;bestScore=score;}
+    });
+    return bestScore>0?best:null;
+  }
+  function applyProductToItem(item, product, platform){
+    if(!item||!product)return;
+    var name=productName(product);
+    item.platform=platform||item.platform||'무신사';
+    item.uid=uidByPlatform(product,item.platform)||item.uid||'';
+    item.code=productCode(product)||item.code||'';
+    item.product=name||item.product||'';
+    item.name=name||item.name||'';
+    item.productName=name||item.productName||'';
+    item.color=colorFromName(name)||item.color||'';
+    if(!item.metrics)item.metrics={};
+  }
+  function syncRowFromProduct(row, field, keyword){
+    if(!row)return;
+    var platform=row.querySelector('.orgm-platform-v8')?.value||'무신사';
+    var product=findProduct(keyword,platform,field);
+    if(!product){
+      var nameInput=row.querySelector('.orgm-product-v8');
+      var colorInput=row.querySelector('.orgm-color-v8');
+      var color=colorFromName(nameInput&&nameInput.value);
+      if(colorInput&&color)colorInput.value=color;
+      return;
+    }
+    var name=productName(product);
+    row.querySelector('.orgm-uid-v81').value=uidByPlatform(product,platform)||'';
+    row.querySelector('.orgm-code-v81').value=productCode(product)||'';
+    row.querySelector('.orgm-product-v8').value=name||'';
+    row.querySelector('.orgm-color-v8').value=colorFromName(name)||'';
+  }
+  function rowToProduct(row){
+    var platform=row.querySelector('.orgm-platform-v8')?.value||'무신사';
+    var uid=clean(row.querySelector('.orgm-uid-v81')?.value||'');
+    var code=clean(row.querySelector('.orgm-code-v81')?.value||'');
+    var product=clean(row.querySelector('.orgm-product-v8')?.value||'');
+    var color=clean(row.querySelector('.orgm-color-v8')?.value||'')||colorFromName(product);
+    var item={platform:platform,uid:uid,code:code,product:product,name:product,productName:product,color:color,metrics:{}};
+    var matched=findProduct(uid,platform,'uid')||findProduct(code,platform,'code')||findProduct(product,platform,'name');
+    if(matched)applyProductToItem(item,matched,platform);
+    return item;
+  }
+
+  window.orgModalAddProduct=function(p){
+    if(typeof window.orgCloseModal!=='function'&&typeof window.orgAddRow==='function'){};
+    var wrap=document.getElementById('orgm-products-v8');
+    if(!wrap)return;
+    var dataListId=ensureOrganicNameDatalist();
+    p=p||{};
+    var row=document.createElement('div');
+    row.className='org-modal-product-row-v8';
+    row.innerHTML=''
+      +'<select class="orgm-platform-v8"><option>무신사</option><option>29CM</option><option>자사몰</option><option>Offline</option></select>'
+      +'<input class="orgm-uid-v81" placeholder="UID 입력">'
+      +'<input class="orgm-code-v81" placeholder="상품 코드 입력">'
+      +'<input class="orgm-product-v8" list="'+esc(dataListId)+'" placeholder="상품명 검색/선택">'
+      +'<input class="orgm-color-v8" placeholder="컬러 자동" readonly>'
+      +'<button type="button" class="del-btn" onclick="this.parentNode.remove()">×</button>';
+    wrap.appendChild(row);
+    var platform=p.platform||'무신사';
+    var productName=clean(p.product||p.name||p.productName||p['상품명']||'');
+    row.querySelector('.orgm-platform-v8').value=platform;
+    row.querySelector('.orgm-uid-v81').value=clean(p.uid||p.UID||'');
+    row.querySelector('.orgm-code-v81').value=clean(p.code||p.productCode||p['상품코드']||p['상품 코드']||'');
+    row.querySelector('.orgm-product-v8').value=productName;
+    row.querySelector('.orgm-color-v8').value=clean(p.color||colorFromName(productName));
+    row.querySelector('.orgm-platform-v8').addEventListener('change',function(){
+      var name=row.querySelector('.orgm-product-v8').value;
+      var code=row.querySelector('.orgm-code-v81').value;
+      var uid=row.querySelector('.orgm-uid-v81').value;
+      syncRowFromProduct(row,name?'name':(code?'code':'uid'),name||code||uid);
+    });
+    row.querySelector('.orgm-uid-v81').addEventListener('change',function(e){syncRowFromProduct(row,'uid',e.target.value);});
+    row.querySelector('.orgm-uid-v81').addEventListener('blur',function(e){syncRowFromProduct(row,'uid',e.target.value);});
+    row.querySelector('.orgm-code-v81').addEventListener('change',function(e){syncRowFromProduct(row,'code',e.target.value);});
+    row.querySelector('.orgm-code-v81').addEventListener('blur',function(e){syncRowFromProduct(row,'code',e.target.value);});
+    row.querySelector('.orgm-product-v8').addEventListener('input',function(e){
+      var c=colorFromName(e.target.value);
+      if(c)row.querySelector('.orgm-color-v8').value=c;
+    });
+    row.querySelector('.orgm-product-v8').addEventListener('change',function(e){syncRowFromProduct(row,'name',e.target.value);});
+    row.querySelector('.orgm-product-v8').addEventListener('blur',function(e){syncRowFromProduct(row,'name',e.target.value);});
+  };
+
+  window.orgSaveModal=function(){
+    window.organicData=window.organicData||[];
+    var rows=[].slice.call(document.querySelectorAll('#orgm-products-v8 .org-modal-product-row-v8'));
+    var products=rows.map(rowToProduct).filter(function(p){return p.uid||p.code||p.product||p.color;});
+    var idx=(typeof editIndex==='number')?editIndex:-1;
+    try{ if(typeof window.__orgEditIndex==='number')idx=window.__orgEditIndex; }catch(e){}
+    var existingIndex=-1;
+    var title=document.getElementById('org-modal-title-v8');
+    if(title&&/수정/.test(title.textContent||'')){
+      var date=document.getElementById('orgm-date-v8')?.value||'';
+      var handle=document.getElementById('orgm-handle-v8')?.value||'';
+      existingIndex=(window.organicData||[]).findIndex(function(r){return r&&r.date===date&&r.handle===handle;});
+    }
+    if(idx<0&&existingIndex>=0)idx=existingIndex;
+    var old=idx>=0?(window.organicData[idx]||{}):{};
+    var item={
+      _id:idx>=0?(old._id||('org_'+Date.now())):'org_'+Date.now(),
+      date:document.getElementById('orgm-date-v8')?.value||'',
+      source:document.getElementById('orgm-source-v8')?.value||'직접',
+      handle:document.getElementById('orgm-handle-v8')?.value||'',
+      followers:document.getElementById('orgm-followers-v8')?.value||'',
+      ch:document.getElementById('orgm-ch-v8')?.value||'Instagram',
+      contentType:document.getElementById('orgm-ct-v8')?.value||'피드',
+      link:document.getElementById('orgm-link-v8')?.value||'',
+      orgDaily:old.orgDaily||{},
+      products:products.length?products:[{platform:'무신사',uid:'',code:'',product:'',name:'',productName:'',color:'',metrics:{}}]
+    };
+    item.products.forEach(function(p,i){
+      if(old.products&&old.products[i]&&old.products[i].metrics)p.metrics=old.products[i].metrics;
+    });
+    if(idx>=0)window.organicData[idx]=item;
+    else window.organicData.push(item);
+    if(window.fbSaveBatch)window.fbSaveBatch('organic',window.organicData);
+    if(window.orgCloseModal)window.orgCloseModal();
+    if(window.orgRender)window.orgRender();
+  };
+
+  var previousOrgEditRow=window.orgEditRow;
+  window.orgEditRow=function(idx){
+    window.__orgEditIndex=idx;
+    if(typeof previousOrgEditRow==='function')previousOrgEditRow.apply(this,arguments);
+    setTimeout(function(){
+      var rows=[].slice.call(document.querySelectorAll('#orgm-products-v8 .org-modal-product-row-v8'));
+      rows.forEach(function(row){
+        if(!row.querySelector('.orgm-uid-v81')){
+          var p=((window.organicData[idx]||{}).products||[])[rows.indexOf(row)]||{};
+          row.remove();
+          window.orgModalAddProduct(p);
+        }
+      });
+    },0);
+  };
+
+  var previousOrgAddRow=window.orgAddRow;
+  window.orgAddRow=function(){
+    window.__orgEditIndex=-1;
+    if(typeof previousOrgAddRow==='function')previousOrgAddRow.apply(this,arguments);
+    setTimeout(function(){
+      var wrap=document.getElementById('orgm-products-v8');
+      if(wrap&&!wrap.querySelector('.orgm-uid-v81')){
+        wrap.innerHTML='';
+        window.orgModalAddProduct();
+      }
+    },0);
+  };
+})();
+</script>
+
 </body>
 </html>
