@@ -2299,6 +2299,8 @@ html[data-user-role="viewer"] [data-delete]{opacity:.35!important;cursor:not-all
       ↻ 판매 자동 기입
     </button>
   </div>
+  <!-- 크리에이터 탭 -->
+  <div id="fb-creator-tabs" style="display:flex;gap:6px;overflow-x:auto;margin-bottom:8px;padding-bottom:4px;"></div>
   <!-- 좌우 스크롤바를 상단에도 표시 -->
   <div id="fb-scroll-top" style="overflow-x:auto;overflow-y:hidden;height:12px;margin-bottom:2px;">
     <div id="fb-scroll-inner" style="height:1px;"></div>
@@ -4803,10 +4805,52 @@ window.fbdDcItemStartEdit=fbdDcItemStartEdit;
 
 function renderFeedbackRows(list){
   const body=document.getElementById('feedback-body');
+  const tabs=document.getElementById('fb-creator-tabs');
   const elig=list.filter(r=>r.checked||r.progress);
-  if(!elig.length){body.innerHTML='<tr><td colspan="30" style="text-align:center;color:var(--color-text-tertiary);padding:16px;">진행 체크 또는 진행 상태 선택 시 자동 기입됩니다.</td></tr>';return;}
+  if(!elig.length){
+    if(tabs)tabs.innerHTML='';
+    body.innerHTML='<tr><td colspan="30" style="text-align:center;color:var(--color-text-tertiary);padding:16px;">진행 체크 또는 진행 상태 선택 시 자동 기입됩니다.</td></tr>';
+    return;
+  }
+
+  const getFbTtl=function(r){
+    const uploadD=r.uploadDate?new Date(r.uploadDate):null;
+    const ci=window.creators.indexOf(r);
+    if(!r._fbData)r._fbData={};
+    let view=0,comment=0,like=0,click=0,productLike=0,sales=0,revenue=0,total=0;
+    for(let dayOffset=1;dayOffset<=6;dayOffset++){
+      const key=`${ci}_d${dayOffset}`;
+      if(!r._fbData[key])r._fbData[key]={view:0,comment:0,like:0,click:0,productLike:0,sales:0,revenue:0,total:0,rankAll:0,rankCat:0};
+      const data=r._fbData[key];
+      view=Math.max(view,data.view||0);
+      comment=Math.max(comment,data.comment||0);
+      like=Math.max(like,data.like||0);
+      click+=(data.click||0);
+      productLike=Math.max(productLike,data.productLike||0);
+      sales+=(data.sales||0);
+      revenue+=(data.revenue||0);
+      total=Math.max(total,data.total||0);
+    }
+    return {view,comment,like,click,productLike,sales,revenue,total};
+  };
+
+  const selectedExists=elig.some(r=>window.creators.indexOf(r)===window._fbSelectedCreatorCi);
+  if(!selectedExists)window._fbSelectedCreatorCi=window.creators.indexOf(elig[0]);
+
+  if(tabs){
+    tabs.innerHTML=elig.map(r=>{
+      const ci=window.creators.indexOf(r);
+      const ttl=getFbTtl(r);
+      const active=ci===window._fbSelectedCreatorCi;
+      return `<button type="button" onclick="window._fbSelectedCreatorCi=${ci};window.applyFeedbackFilter();" style="flex:0 0 auto;text-align:left;padding:6px 10px;border-radius:10px;border:0.5px solid ${active?'#185FA5':'var(--color-border-secondary)'};background:${active?'#EAF3FF':'var(--color-background-primary)'};color:var(--color-text-primary);cursor:pointer;font-size:11px;line-height:1.35;min-width:150px;">
+        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.name}</div>
+        <div style="color:var(--color-text-secondary);font-size:10px;">TTL 조회 ${fmtNum(ttl.view)} · 매출 ${fmtWon2(ttl.revenue)}</div>
+      </button>`;
+    }).join('');
+  }
+
   let html='';
-  elig.forEach(r=>{
+  elig.filter(r=>window.creators.indexOf(r)===window._fbSelectedCreatorCi).forEach(r=>{
     const ci=window.creators.indexOf(r);
     // 업로드 일자를 D+0으로 보고 D-1부터 D+6까지 노출
     const uploadD=r.uploadDate?new Date(r.uploadDate):null;
@@ -4911,9 +4955,8 @@ function renderFeedbackRows(list){
         const cvrTd=isUploadDay?'<td style="text-align:center;color:var(--color-text-tertiary);">-</td>':`<td style="text-align:center;color:var(--color-text-secondary);">${isNaN(cvr)?'-':cvr.toFixed(1)+'%'}</td>`;
         const revShareTd=isUploadDay?'<td style="text-align:center;color:var(--color-text-tertiary);">-</td>':`<td style="text-align:center;color:var(--color-text-secondary);">${isNaN(revShare)?'-':revShare.toFixed(1)+'%'}</td>`;
         const roasTd=isUploadDay?'<td style="text-align:center;color:var(--color-text-tertiary);">-</td>':`<td style="text-align:center;color:var(--color-text-secondary);">${isNaN(roas)?'-':roas.toFixed(0)+'%'}</td>`;
-        // 기준일 표시 (D-1 ~ D+6)
-        const dLabel=dayOffset<0?'D-1':('D+'+dayOffset);
-        const dateLabel=ds?`<span style="display:block;font-size:10px;color:var(--color-text-tertiary);">${dLabel}</span><span style="font-size:11px;color:${isUploadDay?'var(--color-text-tertiary)':'var(--color-text-primary)'};">${fmtKor(ds)}</span>`:'<span style="color:var(--color-text-tertiary);">-</span>';
+        // 기준일 표시
+        const dateLabel=ds?`<span style="font-size:11px;color:${isUploadDay?'var(--color-text-tertiary)':'var(--color-text-primary)'};">${fmtKor(ds)}</span>`:'<span style="color:var(--color-text-tertiary);">-</span>';
         const fbRowClass = isFC ? 'fb-creator-start' : (isDot ? 'fb-day-start' : (ii>0 ? 'fb-product-sub' : ''));
         html+=`<tr${fbRowClass?' class="'+fbRowClass+'"':''}>`
           +(isFC
