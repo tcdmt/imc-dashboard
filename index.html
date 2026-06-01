@@ -17063,24 +17063,73 @@ if(document.readyState==='loading'){
 </style>
 
 
-<!-- PATCH: Feedback sticky 2차 활용 text wrap + auto row height (requested only) -->
-<style id="feedback-secondary-use-auto-height">
-/* Feedback: 틀 고정된 2차 활용 컬럼에서 긴 텍스트가 잘리지 않도록 줄바꿈/자동 높이만 허용 */
-#fb-main-table tbody tr,
-#fb-main-table tbody td{
-  height:auto!important;
-}
-
-#fb-main-table .fb-sticky-td[style*="left:485px"]{
-  white-space:normal!important;
+<!-- PATCH: Feedback sticky 2차 활용 no-wrap auto-width + sticky offset sync (requested only) -->
+<style id="feedback-secondary-use-auto-width">
+/* Feedback: 2차 활용은 줄바꿈하지 않고 텍스트 길이에 맞춰 컬럼 폭이 넓어지도록 허용 */
+#fb-main-table .fb-sticky[style*="left:485px"],
+#fb-main-table .fb-sticky-td[style*="left:485px"],
+#fb-main-table .fb-sticky[data-fb-sticky-index="6"],
+#fb-main-table .fb-sticky-td[data-fb-sticky-index="6"]{
+  width:auto!important;
+  min-width:65px!important;
+  max-width:none!important;
+  white-space:nowrap!important;
   overflow:visible!important;
   text-overflow:clip!important;
-  word-break:keep-all!important;
-  overflow-wrap:anywhere!important;
-  line-height:1.35!important;
-  height:auto!important;
+  word-break:normal!important;
+  overflow-wrap:normal!important;
 }
 </style>
+
+<script id="feedback-secondary-use-auto-width-script">
+(function(){
+  function syncFeedbackStickyOffsets(){
+    var table=document.getElementById('fb-main-table');
+    if(!table) return;
+
+    var heads=Array.prototype.slice.call(table.querySelectorAll('thead th.fb-sticky')).slice(0,10);
+    if(!heads.length) return;
+
+    var left=0;
+    heads.forEach(function(th,idx){
+      th.setAttribute('data-fb-sticky-index', String(idx));
+      th.style.left=left+'px';
+
+      var bodyCells=Array.prototype.slice.call(table.querySelectorAll('tbody td.fb-sticky-td:nth-child('+(idx+1)+')'));
+      bodyCells.forEach(function(td){
+        td.setAttribute('data-fb-sticky-index', String(idx));
+        td.style.left=left+'px';
+      });
+
+      left += Math.ceil(th.getBoundingClientRect().width || th.offsetWidth || 0);
+    });
+
+    var wrap=document.getElementById('fb-scroll-inner');
+    if(wrap){
+      var currentWidth=parseInt(wrap.style.width,10)||0;
+      var tableWidth=Math.ceil(table.getBoundingClientRect().width || table.scrollWidth || 0);
+      if(tableWidth && tableWidth!==currentWidth) wrap.style.width=tableWidth+'px';
+    }
+  }
+
+  var originalApplyFeedbackFilter=window.applyFeedbackFilter;
+  if(typeof originalApplyFeedbackFilter==='function' && !originalApplyFeedbackFilter.__fbAutoWidthPatched){
+    window.applyFeedbackFilter=function(){
+      var result=originalApplyFeedbackFilter.apply(this, arguments);
+      setTimeout(syncFeedbackStickyOffsets,0);
+      return result;
+    };
+    window.applyFeedbackFilter.__fbAutoWidthPatched=true;
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(syncFeedbackStickyOffsets,0); });
+  }else{
+    setTimeout(syncFeedbackStickyOffsets,0);
+  }
+  window.addEventListener('resize', function(){ setTimeout(syncFeedbackStickyOffsets,0); });
+})();
+</script>
 
 </body>
 </html>
