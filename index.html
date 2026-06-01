@@ -4497,10 +4497,13 @@ window.buildCal=function(){
       if(!d)return '<div class="cal-cell empty"></div>';
       const nc='cal-num'+(di===0?' sun':di===6?' sat':'')+(today.getFullYear()===curY&&today.getMonth()===curM&&today.getDate()===d?' today':'');
       const ds=wds[di];
-      let evHtml=window.creators.filter(r=>r.uploadDate===ds).map(r=>'<div class="ev '+(r.ch==='Instagram'?'ev-ig':r.ch==='Youtube'?'ev-yt':r.ch==='Tiktok'?'ev-tt':'ev-x')+'" onclick="openCreatorPopup(\''+r.name+'\')" title="클릭하면 성과 팝업">'+r.name+'-'+r.contentType+'</div>'+(PSHOW.includes(r.progress)?'<div class="ev-status">'+r.progress+'</div>':'')+(SSHOW.includes(r.settle)?'<div class="ev-settle">'+r.settle+'</div>':'')).join('');
+      let evHtml=window.creators.filter(r=>r.uploadDate===ds && (typeof _monthlyCh==='undefined' || _monthlyCh==='all' || r.ch===_monthlyCh)).map(r=>{
+        const creatorIdx=window.creators.indexOf(r);
+        return '<div class="ev '+(r.ch==='Instagram'?'ev-ig':r.ch==='Youtube'?'ev-yt':r.ch==='Tiktok'?'ev-tt':'ev-x')+'" onclick="openCreatorPopup('+creatorIdx+')" title="클릭하면 성과 팝업">'+r.name+'-'+r.contentType+'</div>'+(PSHOW.includes(r.progress)?'<div class="ev-status">'+r.progress+'</div>':'')+(SSHOW.includes(r.settle)?'<div class="ev-settle">'+r.settle+'</div>':'');
+      }).join('');
       // Celeb → Monthly 자동기입
       const CH_ABR={Instagram:'IG',Youtube:'YT',Tiktok:'TT',X:'X',Media:'M',Offline:'OFF'};
-      evHtml+=(window.celebData||[]).filter(r=>r.date===ds).map(r=>{
+      evHtml+=(window.celebData||[]).filter(r=>r.date===ds && (typeof _monthlyCh==='undefined' || _monthlyCh==='all' || r.ch===_monthlyCh)).map(r=>{
         const abr=CH_ABR[r.ch]||r.ch||'';
         const label=(r.name||'')+(abr?'-'+abr:'')+(r.contentType?' '+r.contentType:'');
         const celebIdx=(window.celebData||[]).indexOf(r);
@@ -6582,8 +6585,10 @@ window.loadMetaFromSheets = async function() {
 /* ══ 크리에이터 성과 팝업 ══ */
 let _cpChart = null;
 
-function openCreatorPopup(creatorName) {
-  const r = window.creators.find(c => c.name === creatorName);
+function openCreatorPopup(creatorRef) {
+  const r = (typeof creatorRef === 'number')
+    ? (window.creators || [])[creatorRef]
+    : (window.creators || []).find(c => c.name === creatorRef);
   if(!r) return;
   const ci = window.creators.indexOf(r);
   if(!r._fbData) r._fbData = {};
@@ -6596,14 +6601,14 @@ function openCreatorPopup(creatorName) {
     const offset = di - 1; // -1, 0, 1, 2, 3, 4, 5, 6
     const d = uploadD ? new Date(uploadD.getTime() + offset*86400000) : null;
     const ds = d ? d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()) : '';
-    // _fbData 키는 기존 방식 유지 (di=0이 업로드 당일)
-    const fbKey = ci+'_d'+(di===0 ? 0 : di-1); // D-1은 데이터 없음
-    const data = (di>0 && r._fbData[fbKey]) ? r._fbData[fbKey]
-      : {view:0,comment:0,like:0,click:0,productLike:0,sales:0,revenue:0,total:0,rankAll:0,rankCat:0};
+    // Feedback 탭과 동일하게 D-1=ci_d-1, D+0=ci_d0, D+1=ci_d1 ... 로 읽어옵니다.
+    const fbKey = ci+'_d'+offset;
+    const data = r._fbData[fbKey] || {view:0,comment:0,like:0,click:0,productLike:0,sales:0,revenue:0,total:0,rankAll:0,rankCat:0};
     const isPrevDay = (di===0); // D-1: 업로드 전일
     const isUploadDay = (di===1); // 업로드 당일
     // 날짜 레이블: M/D 형식
-    const dateLabel = d ? (d.getMonth()+1)+'월 '+d.getDate()+'일' : '-';({di, offset, ds, data, isPrevDay, isUploadDay, dateLabel});
+    const dateLabel = d ? (d.getMonth()+1)+'월 '+d.getDate()+'일' : '-';
+    days.push({di, offset, ds, data, isPrevDay, isUploadDay, dateLabel});
   }
 
   // 집계
@@ -9226,6 +9231,7 @@ function monthlySetCh(ch, el){
   document.querySelectorAll('#monthly-ch-btns .ov-pbtn').forEach(b=>b.classList.remove('active'));
   el.classList.add('active');
   _monthlyCh = ch;
+  window._monthlyCh = ch;
   // buildCal에 채널 필터 적용 (크리에이터/셀럽 필터링)
   if(window.buildCal) window.buildCal();
 }
