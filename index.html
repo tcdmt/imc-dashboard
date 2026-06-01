@@ -4808,12 +4808,11 @@ function renderFeedbackRows(list){
   let html='';
   elig.forEach(r=>{
     const ci=window.creators.indexOf(r);
-    // D-1 = 업로드 날짜 당일 (기준일 0), 이후 D+1~D+6
+    // 업로드 일자를 D+0으로 보고 D-1부터 D+6까지 노출
     const uploadD=r.uploadDate?new Date(r.uploadDate):null;
-    // 기준일: 업로드 당일(di=0)부터 6일 후(di=6)까지 = 7일
     const items=r.items&&r.items.length?r.items:[{uid:'-',code:'-',name:'-',color:'-'}];
     const isTakgap=r.linkType==='취합';
-    const DAYS=7,totalRows=DAYS*items.length;
+    const DAYS=8,totalRows=DAYS*items.length;
     const hasLink=r.uploadLink&&r.uploadLink.trim();
     const nameTd=hasLink
       ?`<a href="${r.uploadLink}" target="_blank" rel="noopener" style="color:#185FA5;text-decoration:underline;cursor:pointer;font-size:11px;white-space:nowrap;" oncontextmenu="event.preventDefault();fbEditUploadLink(${ci});" title="클릭: 새 탭 열기 | 우클릭: 링크 수정">${r.name}</a>`
@@ -4822,18 +4821,17 @@ function renderFeedbackRows(list){
     let firstRow=true;
     const dayData=[];
     for(let di=0;di<DAYS;di++){
-      // di=0: 업로드 당일 (D-1일 아닌 업로드 당일 → '-' 처리)
-      // di=1~6: 업로드 후 1일~6일
-      const d=uploadD?new Date(uploadD.getTime()+di*86400000):null;
+      const dayOffset=di-1; // -1, 0, +1 ... +6
+      const d=uploadD?new Date(uploadD.getTime()+dayOffset*86400000):null;
       const ds=d?d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()):'';
-      const key=`${ci}_d${di}`;
+      const key=`${ci}_d${dayOffset}`;
       if(!r._fbData[key])r._fbData[key]={view:0,comment:0,like:0,click:0,productLike:0,sales:0,revenue:0,total:0,rankAll:0,rankCat:0};
-      dayData.push({di,ds,key,data:r._fbData[key]});
+      dayData.push({di,dayOffset,ds,key,data:r._fbData[key]});
     }
-    // 각 di별 데이터 (개별 독립적)
+    // 각 기준일별 데이터 (개별 독립적)
     for(let di=0;di<DAYS;di++){
-      const {ds,key,data}=dayData[di];
-      const isUploadDay=(di===0); // 업로드 당일 = D-1 효과 → '-' 표시
+      const {dayOffset,ds,key,data}=dayData[di];
+      const isUploadDay=(dayOffset===0); // 업로드 당일(D+0)은 '-' 표시
       const dayRs=items.length;
       const prevData=di>0?dayData[di-1].data:null;
       items.forEach((item,ii)=>{
@@ -4913,8 +4911,9 @@ function renderFeedbackRows(list){
         const cvrTd=isUploadDay?'<td style="text-align:center;color:var(--color-text-tertiary);">-</td>':`<td style="text-align:center;color:var(--color-text-secondary);">${isNaN(cvr)?'-':cvr.toFixed(1)+'%'}</td>`;
         const revShareTd=isUploadDay?'<td style="text-align:center;color:var(--color-text-tertiary);">-</td>':`<td style="text-align:center;color:var(--color-text-secondary);">${isNaN(revShare)?'-':revShare.toFixed(1)+'%'}</td>`;
         const roasTd=isUploadDay?'<td style="text-align:center;color:var(--color-text-tertiary);">-</td>':`<td style="text-align:center;color:var(--color-text-secondary);">${isNaN(roas)?'-':roas.toFixed(0)+'%'}</td>`;
-        // 기준일 표시 (날짜만)
-        const dateLabel=ds?`<span style="font-size:11px;color:${isUploadDay?'var(--color-text-tertiary)':'var(--color-text-primary)'};">${fmtKor(ds)}</span>`:'<span style="color:var(--color-text-tertiary);">-</span>';
+        // 기준일 표시 (D-1 ~ D+6)
+        const dLabel=dayOffset<0?'D-1':('D+'+dayOffset);
+        const dateLabel=ds?`<span style="display:block;font-size:10px;color:var(--color-text-tertiary);">${dLabel}</span><span style="font-size:11px;color:${isUploadDay?'var(--color-text-tertiary)':'var(--color-text-primary)'};">${fmtKor(ds)}</span>`:'<span style="color:var(--color-text-tertiary);">-</span>';
         const fbRowClass = isFC ? 'fb-creator-start' : (isDot ? 'fb-day-start' : (ii>0 ? 'fb-product-sub' : ''));
         html+=`<tr${fbRowClass?' class="'+fbRowClass+'"':''}>`
           +(isFC
@@ -4947,8 +4946,8 @@ function renderFeedbackRows(list){
           +'</tr>';
       });
     }
-    // TTL 합계 (업로드 당일 di=0 제외하고 계산)
-    const activeDays=dayData.filter(d=>d.di>0);
+    // TTL 합계 (업로드 전일 D-1 및 업로드 당일 D+0 제외하고 D+1~D+6만 계산)
+    const activeDays=dayData.filter(d=>d.dayOffset>0);
     const totalView=activeDays.reduce((s,d)=>Math.max(s,d.data.view||0),0);
     const totalComment=activeDays.reduce((s,d)=>Math.max(s,d.data.comment||0),0);
     const totalLike=activeDays.reduce((s,d)=>Math.max(s,d.data.like||0),0);
@@ -5044,7 +5043,7 @@ window.applyFeedbackFilter=function(){
   const tp=((document.getElementById('ff-type')||{}).value||'');
   const code=((document.getElementById('ff-code')||{}).value||'').toLowerCase();
   const nm=((document.getElementById('ff-name')||{}).value||'').toLowerCase();
-  renderFeedbackRows(window.creators.filter(r=>{
+  const filtered=window.creators.filter(r=>{
     if(m!==0&&dMonth(r.uploadDate)!==m)return false;
     if(plt&&plt!=='0'&&r.platform!==plt)return false;
     if(ch&&ch!=='0'&&r.ch!==ch)return false;
@@ -5052,7 +5051,15 @@ window.applyFeedbackFilter=function(){
     if(code&&!(r.items||[]).some(it=>it.code.toLowerCase().includes(code)))return false;
     if(nm&&!r.name.toLowerCase().includes(nm))return false;
     return true;
-  }));
+  }).sort((a,b)=>{
+    const at=a.uploadDate?new Date(a.uploadDate).getTime():Infinity;
+    const bt=b.uploadDate?new Date(b.uploadDate).getTime():Infinity;
+    const av=isNaN(at)?Infinity:at;
+    const bv=isNaN(bt)?Infinity:bt;
+    if(av!==bv)return av-bv;
+    return ((a._order!=null?a._order:window.creators.indexOf(a))-((b._order!=null?b._order:window.creators.indexOf(b))));
+  });
+  renderFeedbackRows(filtered);
 };
 
 /* ══ BUDGET ══ */
@@ -5504,7 +5511,7 @@ window.applyFeedbackFilter=function(){
   const tp=((document.getElementById('ff-type')||{}).value||'');
   const code=((document.getElementById('ff-code')||{}).value||'').toLowerCase();
   const nm=((document.getElementById('ff-name')||{}).value||'').toLowerCase();
-  renderFeedbackRows(window.creators.filter(r=>{
+  const filtered=window.creators.filter(r=>{
     if(m!==0&&dMonth(r.uploadDate)!==m)return false;
     if(plt&&plt!=='0'&&r.platform!==plt)return false;
     if(ch&&ch!=='0'&&r.ch!==ch)return false;
@@ -5512,7 +5519,15 @@ window.applyFeedbackFilter=function(){
     if(code&&!(r.items||[]).some(it=>it.code.toLowerCase().includes(code)))return false;
     if(nm&&!r.name.toLowerCase().includes(nm))return false;
     return true;
-  }));
+  }).sort((a,b)=>{
+    const at=a.uploadDate?new Date(a.uploadDate).getTime():Infinity;
+    const bt=b.uploadDate?new Date(b.uploadDate).getTime():Infinity;
+    const av=isNaN(at)?Infinity:at;
+    const bv=isNaN(bt)?Infinity:bt;
+    if(av!==bv)return av-bv;
+    return ((a._order!=null?a._order:window.creators.indexOf(a))-((b._order!=null?b._order:window.creators.indexOf(b))));
+  });
+  renderFeedbackRows(filtered);
 };
 
 /* ══ Meta 탭 함수 ══ */
