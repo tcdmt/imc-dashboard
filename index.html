@@ -17131,5 +17131,156 @@ if(document.readyState==='loading'){
 })();
 </script>
 
+
+<!-- PATCH: Feedback all-row no-wrap auto-width sync, including collapsed rows (requested only) -->
+<style id="feedback-all-rows-auto-width">
+/* Feedback: 접힘/펼침 상태 모두에서 텍스트가 잘리지 않도록 한 줄 기준으로 셀 폭 확장 */
+#fb-main-table{
+  table-layout:auto!important;
+  width:max-content!important;
+}
+
+#fb-main-table th,
+#fb-main-table td{
+  white-space:nowrap!important;
+}
+
+#fb-main-table .fb-sticky,
+#fb-main-table .fb-sticky-td,
+#fb-main-table .fb-collapse-cell{
+  max-width:none!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+  word-break:normal!important;
+  overflow-wrap:normal!important;
+}
+</style>
+
+<script id="feedback-all-rows-auto-width-script">
+(function(){
+  var FB_STICKY_MIN_WIDTHS=[100,65,45,130,65,80,65,80,85,65];
+  var syncing=false;
+
+  function cellNeedWidth(cell, fallback){
+    if(!cell) return fallback||0;
+    var oldWidth=cell.style.width;
+    var oldMinWidth=cell.style.minWidth;
+    var oldMaxWidth=cell.style.maxWidth;
+
+    cell.style.width='auto';
+    cell.style.minWidth=(fallback||0)+'px';
+    cell.style.maxWidth='none';
+
+    var rectW=Math.ceil(cell.getBoundingClientRect().width||0);
+    var scrollW=Math.ceil(cell.scrollWidth||0);
+    var childMax=0;
+    Array.prototype.forEach.call(cell.children||[], function(ch){
+      childMax=Math.max(childMax, Math.ceil(ch.scrollWidth||0), Math.ceil(ch.getBoundingClientRect().width||0));
+    });
+
+    cell.style.width=oldWidth;
+    cell.style.minWidth=oldMinWidth;
+    cell.style.maxWidth=oldMaxWidth;
+
+    return Math.max(fallback||0, rectW, scrollW, childMax+16);
+  }
+
+  function syncFeedbackAllRowWidths(){
+    if(syncing) return;
+    syncing=true;
+
+    try{
+      var table=document.getElementById('fb-main-table');
+      if(!table) return;
+
+      var heads=Array.prototype.slice.call(table.querySelectorAll('thead th.fb-sticky')).slice(0, FB_STICKY_MIN_WIDTHS.length);
+      if(!heads.length) return;
+
+      var widths=heads.map(function(th,idx){
+        var minW=FB_STICKY_MIN_WIDTHS[idx]||0;
+        var cells=[th].concat(Array.prototype.slice.call(table.querySelectorAll('tbody tr td:nth-child('+(idx+1)+')')));
+        return cells.reduce(function(maxW,cell){
+          return Math.max(maxW, cellNeedWidth(cell, minW));
+        }, minW);
+      });
+
+      var left=0;
+      heads.forEach(function(th,idx){
+        var width=widths[idx];
+        th.setAttribute('data-fb-sticky-index', String(idx));
+        th.style.left=left+'px';
+        th.style.width=width+'px';
+        th.style.minWidth=width+'px';
+        th.style.maxWidth='none';
+
+        Array.prototype.forEach.call(table.querySelectorAll('tbody tr td:nth-child('+(idx+1)+')'), function(td){
+          if(td.classList.contains('fb-sticky-td') || td.classList.contains('fb-collapse-cell')){
+            td.setAttribute('data-fb-sticky-index', String(idx));
+            td.style.left=left+'px';
+            td.style.width=width+'px';
+            td.style.minWidth=width+'px';
+            td.style.maxWidth='none';
+          }
+        });
+
+        left+=width;
+      });
+
+      var scrollInner=document.getElementById('fb-scroll-inner');
+      if(scrollInner){
+        requestAnimationFrame(function(){
+          var tableWidth=Math.ceil(table.scrollWidth||table.getBoundingClientRect().width||0);
+          if(tableWidth) scrollInner.style.width=tableWidth+'px';
+        });
+      }
+    } finally {
+      syncing=false;
+    }
+  }
+
+  function scheduleSync(){
+    requestAnimationFrame(function(){
+      syncFeedbackAllRowWidths();
+      setTimeout(syncFeedbackAllRowWidths, 0);
+    });
+  }
+
+  var originalApplyFeedbackFilter=window.applyFeedbackFilter;
+  if(typeof originalApplyFeedbackFilter==='function' && !originalApplyFeedbackFilter.__fbAllRowsAutoWidthPatched){
+    window.applyFeedbackFilter=function(){
+      var result=originalApplyFeedbackFilter.apply(this, arguments);
+      scheduleSync();
+      return result;
+    };
+    window.applyFeedbackFilter.__fbAllRowsAutoWidthPatched=true;
+  }
+
+  function initObserver(){
+    var body=document.getElementById('feedback-body');
+    if(body && !body.__fbAllRowsAutoWidthObserver){
+      var observer=new MutationObserver(function(){ scheduleSync(); });
+      observer.observe(body,{childList:true,subtree:true,characterData:true});
+      body.__fbAllRowsAutoWidthObserver=observer;
+    }
+
+    var table=document.getElementById('fb-main-table');
+    if(table && !table.__fbAllRowsAutoWidthClick){
+      table.addEventListener('click', function(){ setTimeout(syncFeedbackAllRowWidths,0); }, true);
+      table.__fbAllRowsAutoWidthClick=true;
+    }
+
+    scheduleSync();
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded', initObserver);
+  }else{
+    initObserver();
+  }
+  window.addEventListener('load', scheduleSync);
+  window.addEventListener('resize', scheduleSync);
+})();
+</script>
+
 </body>
 </html>
