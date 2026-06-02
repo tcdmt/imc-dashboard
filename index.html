@@ -5940,7 +5940,7 @@ function openSheetSyncPanel(){
     'monthly-budget-sheet-url': window.monthlyBudgetSheetUrl || localStorage.getItem('monthly_budget_sheet_url') || window.budgetSheetUrl || localStorage.getItem('budget_sheet_url') || '',
     'daily-spend-sheet-url': window.dailySpendSheetUrl || localStorage.getItem('daily_spend_sheet_url') || '',
     'sales-goal-sheet-url': window.salesGoalSheetUrl || localStorage.getItem('sales_goal_sheet_url') || '',
-    'product-stats-sheet-url': window.productStatsSheetUrl || localStorage.getItem('product_stats_sheet_url') || 'https://docs.google.com/spreadsheets/d/1Ls9qpau2TCHuErOK-TQ0PXCuNrjS4ffSL_AbyvPomdQ/edit?gid=941858684#gid=941858684'
+    'product-stats-sheet-url': window.productStatsSheetUrl || localStorage.getItem('product_stats_sheet_url') || 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQD0YdS7n4fzE58BOLyLibhXGQUmJqpTc_KZsAr_YMBDZxQg05COrUcNsf0yhzsV_mR126TBEPGzrA9/pub?gid=586741712&single=true&output=csv'
   };
   Object.entries(map).forEach(([id,val])=>{const el=document.getElementById(id);if(el&&!el.value)el.value=val;});
 }
@@ -15779,6 +15779,20 @@ if(document.readyState==='loading'){
       }
     });
 
+    // 상품 좋아요/후기는 통합 탭 기준으로, 선택 날짜 범위의 마지막일 이하 최신 누적값을 사용
+    var productStatsMaxDate = to || '';
+    if(typeof window.__productStatsFindBest === 'function'){
+      Object.values(productMap).forEach(function(product){
+        Object.values(product.channels || {}).forEach(function(ch){
+          var st = window.__productStatsFindBest(ch.platform, ch.uid, product.code, product.name, productStatsMaxDate, false);
+          if(st){
+            ch.likes = toNum(st.likes);
+            ch.reviews = toNum(st.reviews);
+          }
+        });
+      });
+    }
+
     function isProductFeedbackPlatform(platform){
       var key = normPlatform(platform);
       return key === 'musinsa' || key === '29cm' || key === 'cm' || key === 'store';
@@ -15795,7 +15809,16 @@ if(document.readyState==='loading'){
 
     if(!arr.length && Array.isArray(window.products) && window.products.length){
       arr = window.products.map(function(p){
-        var fallback = {key:itemCode(p)||itemName(p), code:itemCode(p), name:itemName(p), item:p, qty:0, amount:0, likes:toNum(p.likes), reviews:toNum(p.reviews), channels:{}, platform:'', salesRate:NaN, costRate:calcRates({item:p, qty:0}).costRate, incoming:toNum(p.incoming || p.incomingQty || p['입고'] || p['입고수량'] || p['입고 수량'])};
+        var fallbackLikes = 0, fallbackReviews = 0, fallbackChannels = {};
+        ['musinsa','29cm','store'].forEach(function(platform){
+          var st = (typeof window.__productStatsFindBest === 'function') ? window.__productStatsFindBest(platform, productUidByPlatform(p, platform), itemCode(p), itemName(p), productStatsMaxDate, false) : null;
+          if(st){
+            fallbackChannels[platform] = {platform:platform, uid:productUidByPlatform(p, platform), qty:0, amount:0, likes:toNum(st.likes), reviews:toNum(st.reviews), lastDate:st.date || '', item:p};
+            fallbackLikes += toNum(st.likes);
+            fallbackReviews += toNum(st.reviews);
+          }
+        });
+        var fallback = {key:itemCode(p)||itemName(p), code:itemCode(p), name:itemName(p), item:p, qty:0, amount:0, likes:fallbackLikes || toNum(p.likes), reviews:fallbackReviews || toNum(p.reviews), channels:fallbackChannels, platform:'', salesRate:NaN, costRate:calcRates({item:p, qty:0}).costRate, incoming:toNum(p.incoming || p.incomingQty || p['입고'] || p['입고수량'] || p['입고 수량'])};
         return fallback;
       });
     }
@@ -18121,22 +18144,32 @@ if(document.readyState==='loading'){
   function productStats(){
     return (window.productStatsRows || []).map(rowToStat).filter(function(r){ return r.platform || r.uid || r.code || r.name; });
   }
-  function findStat(platform, uid, code, name, date){
+  function findStat(platform, uid, code, name, date, exactOnly){
     var pk = normPlatform(platform), u = normUid(uid), c = norm(code), n = norm(name), ds = normalizeDate(date);
-    var rows = productStats().filter(function(r){
+    var baseRows = productStats().filter(function(r){
       if(pk && r.platform && r.platform !== pk) return false;
-      return (u && r.uid === u) || (c && r.code === c) || (n && norm(r.name) === n);
+      return true;
     });
+    var rows = [];
+    // 1순위: 플랫폼 + UID 정확 매칭
+    if(u) rows = baseRows.filter(function(r){ return r.uid && r.uid === u; });
+    // UID가 없거나 UID 매칭값이 없을 때만 상품코드 보조 매칭
+    if(!rows.length && !u && c) rows = baseRows.filter(function(r){ return r.code && r.code === c; });
+    // UID/상품코드 매칭값이 없을 때만 상품명 보조 매칭
+    if(!rows.length && !u && n) rows = baseRows.filter(function(r){ return r.name && norm(r.name) === n; });
     if(!rows.length) return null;
     rows.sort(function(a,b){ return String(b.date || '').localeCompare(String(a.date || '')); });
     if(ds){
       var exact = rows.find(function(r){ return r.date === ds; });
       if(exact) return exact;
+      if(exactOnly) return null;
       var before = rows.find(function(r){ return r.date && r.date <= ds; });
       if(before) return before;
     }
     return rows[0];
   }
+  window.__productStatsFindBest = findStat;
+  window.__productStatsRows = productStats;
   function itemStat(item, platform, date){
     item = item || {};
     var product = null;
@@ -18277,6 +18310,121 @@ if(document.readyState==='loading'){
     wrapLoader('loadUnifiedSheets');
     wrapLoader('refreshUnifiedSheets');
     if((window.productStatsRows || []).length) window.applyProductStatsToDashboard();
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(boot,0); });
+  else setTimeout(boot,0);
+  window.addEventListener('load', function(){ setTimeout(boot,300); });
+})();
+</script>
+
+
+
+<!-- PATCH v82: Product stats sheet exact linkage for Overview/Product + Feedback (requested only) -->
+<script id="product-stats-v82-exact-linkage">
+(function(){
+  'use strict';
+  var DEFAULT_PRODUCT_STATS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQD0YdS7n4fzE58BOLyLibhXGQUmJqpTc_KZsAr_YMBDZxQg05COrUcNsf0yhzsV_mR126TBEPGzrA9/pub?gid=586741712&single=true&output=csv';
+  function clean(v){ return String(v == null ? '' : v).trim(); }
+  function norm(v){ return clean(v).toLowerCase().replace(/\s+/g,''); }
+  function normPlatform(v){
+    var x = norm(v);
+    if(!x || x === '전체' || x === 'all' || x === 'total') return '';
+    if(x === '무신사' || x === 'musinsa') return 'musinsa';
+    if(x === '29cm' || x === '29') return '29cm';
+    if(x === '자사몰' || x === 'store' || x === '스토어' || x === '자사') return 'store';
+    if(x === 'offline' || x === '오프라인' || x.indexOf('오프') >= 0 || x.indexOf('플래그십') >= 0) return 'offline';
+    return x;
+  }
+  function toNum(v){ return Number(String(v == null ? '' : v).replace(/[^0-9.-]/g,'')) || 0; }
+  function pad2(n){ return String(n).padStart(2,'0'); }
+  function dateStr(d){ return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate()); }
+  function productCode(p){ return clean((p||{}).code || (p||{}).productCode || (p||{}).itemCode || (p||{})['상품코드'] || (p||{})['상품 코드']); }
+  function productName(p){ return clean((p||{}).name || (p||{}).product || (p||{}).productName || (p||{}).itemName || (p||{})['상품명'] || (p||{})['제품명']); }
+  function productUidByPlatform(p, platform){
+    p = p || {};
+    var pk = normPlatform(platform || p.platform);
+    if(pk === 'musinsa') return clean(p.musinsaUid || p.musinsaUID || p.musinsa_uid || p['무신사 UID'] || p['무신사UID'] || ((normPlatform(p.platform) === 'musinsa') ? (p.uid || p.UID) : ''));
+    if(pk === '29cm') return clean(p.cmUid || p.cmUID || p.cm_uid || p['29CM UID'] || p['29CMUID'] || p['29cmUid'] || ((normPlatform(p.platform) === '29cm') ? (p.uid || p.UID) : ''));
+    if(pk === 'store') return clean(p.storeUid || p.storeUID || p.store_uid || p['자사몰 UID'] || p['자사몰UID'] || ((normPlatform(p.platform) === 'store') ? (p.uid || p.UID) : ''));
+    return clean(p.uid || p.UID || p.musinsaUid || p.cmUid || p.storeUid);
+  }
+  function findItemForFeedback(item, platform){
+    item = item || {};
+    var directUid = clean(item.uid || item.UID || item['UID']);
+    var qCode = norm(item.code || item.productCode || item['상품코드'] || item['상품 코드']);
+    var qName = norm(item.product || item.name || item.productName || item['상품명'] || item['제품명']);
+    if(!Array.isArray(window.products)) return null;
+    if(directUid){
+      var byUid = window.products.find(function(p){ return norm(productUidByPlatform(p, platform)) === norm(directUid); });
+      if(byUid) return byUid;
+    }
+    return window.products.find(function(p){
+      return (qCode && norm(productCode(p)) === qCode) || (qName && norm(productName(p)) === qName);
+    }) || null;
+  }
+  function findStatForItem(item, platform, ds, exactOnly){
+    item = item || {};
+    var product = findItemForFeedback(item, platform);
+    var uid = clean(item.uid || item.UID || item['UID']) || productUidByPlatform(product, platform);
+    var code = clean(item.code || item.productCode || item['상품코드'] || item['상품 코드']) || productCode(product);
+    var name = clean(item.product || item.name || item.productName || item['상품명'] || item['제품명']) || productName(product);
+    return (typeof window.__productStatsFindBest === 'function') ? window.__productStatsFindBest(platform, uid, code, name, ds, !!exactOnly) : null;
+  }
+  function applyFeedbackExactProductLikes(){
+    var updated = 0;
+    (window.creators || []).forEach(function(cr, ci){
+      if(!cr) return;
+      var uploadD = cr.uploadDate ? new Date(cr.uploadDate) : null;
+      if(!uploadD || isNaN(uploadD.getTime())) return;
+      var items = cr.items || [];
+      if(!items.length) return;
+      if(!cr._fbData) cr._fbData = {};
+      for(var off=-1; off<=6; off++){
+        var d = new Date(uploadD.getTime() + off * 86400000);
+        var ds = dateStr(d);
+        var key = ci + '_d' + off;
+        if(!cr._fbData[key]) cr._fbData[key] = {view:0,comment:0,like:0,click:0,productLike:0,sales:0,revenue:0,total:0,rankAll:0,rankCat:0};
+        var totalLike = 0;
+        var hasExact = false;
+        items.forEach(function(item){
+          var stat = findStatForItem(item, item.platform || cr.platform, ds, true);
+          if(stat){ totalLike += toNum(stat.likes); hasExact = true; }
+        });
+        // 기준일 데이터가 없으면 0으로 덮어써서 화면에서는 '-'로 표시되게 처리
+        if(cr._fbData[key].productLike !== (hasExact ? totalLike : 0)){
+          cr._fbData[key].productLike = hasExact ? totalLike : 0;
+          updated++;
+        }
+      }
+    });
+    return updated;
+  }
+  function syncDefaultUrlToPanel(){
+    window.productStatsSheetUrl = window.productStatsSheetUrl || localStorage.getItem('product_stats_sheet_url') || DEFAULT_PRODUCT_STATS_URL;
+    var el = document.getElementById('product-stats-sheet-url');
+    if(el && (!el.value || /docs\.google\.com\/spreadsheets\/d\/1Ls9qpau2TCHuErOK/.test(el.value))) el.value = window.productStatsSheetUrl || DEFAULT_PRODUCT_STATS_URL;
+  }
+  var prevApply = window.applyProductStatsToDashboard;
+  window.applyProductStatsToDashboard = function(){
+    var result = (typeof prevApply === 'function') ? (prevApply.apply(this, arguments) || {}) : {};
+    result.feedback = applyFeedbackExactProductLikes();
+    if(result.feedback && typeof window.fbSaveCreators === 'function') window.fbSaveCreators();
+    if(typeof window.applyFeedbackFilter === 'function') window.applyFeedbackFilter();
+    if(typeof window.ovBuildItemTable === 'function') window.ovBuildItemTable();
+    if(typeof window.ovBuildItemRankChart === 'function') window.ovBuildItemRankChart();
+    return result;
+  };
+  var prevOpen = window.openSheetSyncPanel;
+  if(typeof prevOpen === 'function'){
+    window.openSheetSyncPanel = function(){
+      var ret = prevOpen.apply(this, arguments);
+      syncDefaultUrlToPanel();
+      return ret;
+    };
+  }
+  function boot(){
+    syncDefaultUrlToPanel();
+    if((window.productStatsRows || []).length && typeof window.applyProductStatsToDashboard === 'function') window.applyProductStatsToDashboard();
   }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(boot,0); });
   else setTimeout(boot,0);
