@@ -4988,7 +4988,16 @@ function renderFeedbackRows(list){
     const totalComment=activeDays.reduce((s,d)=>Math.max(s,d.data.comment||0),0);
     const totalLike=activeDays.reduce((s,d)=>Math.max(s,d.data.like||0),0);
     const totalClick=activeDays.reduce((s,d)=>s+(d.data.click||0),0);
-    const totalProductLike=activeDays.reduce((s,d)=>Math.max(s,d.data.productLike||0),0);
+    // 상품 좋아요 TTL은 누적값이므로, 기준일별 SUM 값 중 최댓값으로 계산
+    const totalProductLike=(function(){
+      const byDate={};
+      activeDays.forEach(d=>{
+        const k=d.ds||String(d.dayOffset||'');
+        byDate[k]=(byDate[k]||0)+(Number(d.data.productLike)||0);
+      });
+      const vals=Object.values(byDate);
+      return vals.length?Math.max(...vals):0;
+    })();
     const totalSales=activeDays.reduce((s,d)=>s+(d.data.sales||0),0);
     const totalRevenue=activeDays.reduce((s,d)=>s+(d.data.revenue||0),0);
     const totalTotal=activeDays.reduce((s,d)=>Math.max(s,d.data.total||0),0);
