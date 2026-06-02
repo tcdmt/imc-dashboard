@@ -6090,18 +6090,7 @@ async function loadUnifiedSheets(){
     if(hasItem) await loadItemFromSheet();
     if(hasBudget) await loadBudgetFromSheet();
     if(hasSalesGoal) await loadSalesGoalFromSheet();
-    if(hasProductStats && typeof window.loadProductStatsFromSheet === 'function') {
-      try{
-        await Promise.race([
-          window.loadProductStatsFromSheet(),
-          new Promise(function(_, reject){ setTimeout(function(){ reject(new Error('상품 좋아요/후기 시트 응답 지연')); }, 18000); })
-        ]);
-      }catch(psErr){
-        console.warn('상품 좋아요/후기 연동 실패:', psErr);
-        setSheetSyncStatus('❌ 상품 좋아요/후기 연동 실패: ' + (psErr.message || psErr), 'error');
-        return;
-      }
-    }
+    if(hasProductStats && typeof window.loadProductStatsFromSheet === 'function') await window.loadProductStatsFromSheet();
     const btn=document.getElementById('sheet-sync-refresh'); if(btn)btn.style.display='inline-block';
     setSheetSyncStatus('✅ 시트 연동 완료!','ok');
   }catch(e){setSheetSyncStatus('❌ '+(e.message||e),'error');}
@@ -6118,18 +6107,7 @@ async function refreshUnifiedSheets(){
     if(hasItem) await refreshItemFromSheet();
     if(hasBudget) await loadBudgetFromSheet();
     if(hasSalesGoal) await loadSalesGoalFromSheet();
-    if(hasProductStats && typeof window.refreshProductStatsFromSheet === 'function') {
-      try{
-        await Promise.race([
-          window.refreshProductStatsFromSheet(),
-          new Promise(function(_, reject){ setTimeout(function(){ reject(new Error('상품 좋아요/후기 시트 응답 지연')); }, 18000); })
-        ]);
-      }catch(psErr){
-        console.warn('상품 좋아요/후기 새로고침 실패:', psErr);
-        setSheetSyncStatus('❌ 상품 좋아요/후기 연동 실패: ' + (psErr.message || psErr), 'error');
-        return;
-      }
-    }
+    if(hasProductStats && typeof window.refreshProductStatsFromSheet === 'function') await window.refreshProductStatsFromSheet();
     setSheetSyncStatus('✅ 새로고침 완료!','ok');
   }catch(e){setSheetSyncStatus('❌ '+(e.message||e),'error');}
 }
@@ -15801,23 +15779,19 @@ if(document.readyState==='loading'){
       }
     });
 
-    // 상품 좋아요/후기는 통합 탭 기준으로, 선택 날짜 범위의 마지막일 이하 최신 누적값을 사용
-    var productStatsMaxDate = to || '';
-    if(typeof window.__productStatsFindBest === 'function'){
-      Object.values(productMap).forEach(function(product){
-        Object.values(product.channels || {}).forEach(function(ch){
-          var st = window.__productStatsFindBest(ch.platform, ch.uid, product.code, product.name, productStatsMaxDate, false);
-          if(st){
-            ch.likes = toNum(st.likes);
-            ch.reviews = toNum(st.reviews);
-          }
-        });
-      });
-    }
-
     function isProductFeedbackPlatform(platform){
       var key = normPlatform(platform);
       return key === 'musinsa' || key === '29cm' || key === 'cm' || key === 'store';
+    }
+    var statDate = to || from || '';
+    if(typeof window.tcmProductStatsForItem === 'function'){
+      Object.values(productMap).forEach(function(product){
+        Object.values(product.channels || {}).forEach(function(ch){
+          var stat = window.tcmProductStatsForItem(ch.item || product.item || {code:product.code,name:product.name,uid:ch.uid}, ch.platform, statDate, {exactOnly:false});
+          ch.likes = stat ? (Number(stat.likes)||0) : 0;
+          ch.reviews = stat ? (Number(stat.reviews)||0) : 0;
+        });
+      });
     }
     var arr = Object.values(productMap).map(function(product){
       product.likes = Object.values(product.channels).reduce(function(s,ch){ return s + (isProductFeedbackPlatform(ch.platform) ? toNum(ch.likes) : 0); }, 0);
@@ -15831,16 +15805,8 @@ if(document.readyState==='loading'){
 
     if(!arr.length && Array.isArray(window.products) && window.products.length){
       arr = window.products.map(function(p){
-        var fallbackLikes = 0, fallbackReviews = 0, fallbackChannels = {};
-        ['musinsa','29cm','store'].forEach(function(platform){
-          var st = (typeof window.__productStatsFindBest === 'function') ? window.__productStatsFindBest(platform, productUidByPlatform(p, platform), itemCode(p), itemName(p), productStatsMaxDate, false) : null;
-          if(st){
-            fallbackChannels[platform] = {platform:platform, uid:productUidByPlatform(p, platform), qty:0, amount:0, likes:toNum(st.likes), reviews:toNum(st.reviews), lastDate:st.date || '', item:p};
-            fallbackLikes += toNum(st.likes);
-            fallbackReviews += toNum(st.reviews);
-          }
-        });
-        var fallback = {key:itemCode(p)||itemName(p), code:itemCode(p), name:itemName(p), item:p, qty:0, amount:0, likes:fallbackLikes || toNum(p.likes), reviews:fallbackReviews || toNum(p.reviews), channels:fallbackChannels, platform:'', salesRate:NaN, costRate:calcRates({item:p, qty:0}).costRate, incoming:toNum(p.incoming || p.incomingQty || p['입고'] || p['입고수량'] || p['입고 수량'])};
+        var statAgg = (typeof window.tcmProductStatsAggregateForProduct === 'function') ? window.tcmProductStatsAggregateForProduct(p, viewPlatformKeys(view), to || from || '') : null;
+        var fallback = {key:itemCode(p)||itemName(p), code:itemCode(p), name:itemName(p), item:p, qty:0, amount:0, likes:statAgg ? statAgg.likes : toNum(p.likes), reviews:statAgg ? statAgg.reviews : toNum(p.reviews), channels:{}, platform:'', salesRate:NaN, costRate:calcRates({item:p, qty:0}).costRate, incoming:toNum(p.incoming || p.incomingQty || p['입고'] || p['입고수량'] || p['입고 수량'])};
         return fallback;
       });
     }
@@ -18058,58 +18024,41 @@ if(document.readyState==='loading'){
     if(!url) return '';
     var pub = url.match(/\/spreadsheets\/d\/e\/([^\/?#]+)\/pub/i);
     if(pub){
-      var pgid = (url.match(/[?#&]gid=(\d+)/) || [,'941858684'])[1] || '941858684';
+      var pgid = (url.match(/[?#&]gid=(\d+)/) || [,'586741712'])[1] || '586741712';
       return 'https://docs.google.com/spreadsheets/d/e/' + pub[1] + '/pub?gid=' + pgid + '&single=true&output=csv';
     }
     var id = url.match(/\/spreadsheets\/d\/([^\/?#]+)/);
     if(id && !/[?&](format|output)=csv/i.test(url)){
-      var gid = (url.match(/[?#&]gid=(\d+)/) || [,'941858684'])[1] || '941858684';
+      var gid = (url.match(/[?#&]gid=(\d+)/) || [,'586741712'])[1] || '586741712';
       return 'https://docs.google.com/spreadsheets/d/' + id[1] + '/export?format=csv&gid=' + gid;
     }
     return url;
   }
-  function csvCandidates(url){
-    var first = csvUrl(url);
-    var list = [first];
-    var raw = clean(url);
-    var pub = raw.match(/\/spreadsheets\/d\/e\/([^\/?#]+)\/pub/i);
-    if(pub){
-      var gid = (raw.match(/[?#&]gid=(\d+)/) || [,'941858684'])[1] || '941858684';
-      list.push('https://docs.google.com/spreadsheets/d/e/' + pub[1] + '/pub?output=csv&gid=' + gid + '&single=true');
-    }
-    return list.filter(function(v,i,a){ return v && a.indexOf(v) === i; });
+  async function withTimeout(promise, ms, message){
+    var timer;
+    try{
+      return await Promise.race([
+        promise,
+        new Promise(function(_, reject){ timer = setTimeout(function(){ reject(new Error(message || '응답 시간이 너무 오래 걸려 중단했어요.')); }, ms || 15000); })
+      ]);
+    }finally{ if(timer) clearTimeout(timer); }
   }
   async function fetchCsvWithTimeout(url, timeoutMs){
-    var candidates = csvCandidates(url);
-    var lastErr = null;
-    var limit = timeoutMs || 15000;
-    for(var i=0;i<candidates.length;i++){
-      var target = candidates[i];
-      var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-      var timer = null;
-      try{
-        var fetchJob = (async function(){
-          var res = await fetch(target, { cache:'no-store', redirect:'follow', signal: ctrl ? ctrl.signal : undefined });
-          if(!res.ok) throw new Error('HTTP ' + res.status);
-          return await res.text();
-        })();
-        var timeoutJob = new Promise(function(_, reject){
-          timer = setTimeout(function(){
-            try{ if(ctrl) ctrl.abort(); }catch(e){}
-            reject(new Error('응답 시간이 너무 오래 걸려 중단했어요.'));
-          }, limit);
-        });
-        var text = await Promise.race([fetchJob, timeoutJob]);
-        if(timer) clearTimeout(timer);
-        if(/^\s*</.test(text) || /<html[\s>]/i.test(text.slice(0,500))) throw new Error('CSV가 아니라 웹페이지 응답입니다.');
-        return text;
-      }catch(e){
-        if(timer) clearTimeout(timer);
-        lastErr = e;
-      }
+    var target = csvUrl(url);
+    var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var abortTimer = ctrl ? setTimeout(function(){ try{ ctrl.abort(); }catch(e){} }, timeoutMs || 15000) : null;
+    try{
+      var res = await withTimeout(fetch(target, { cache:'no-store', redirect:'follow', signal: ctrl ? ctrl.signal : undefined }), timeoutMs || 15000, '상품 좋아요/후기 CSV 응답이 지연되어 중단했어요.');
+      if(abortTimer) clearTimeout(abortTimer);
+      if(!res.ok) throw new Error('상품 좋아요/후기 CSV HTTP ' + res.status);
+      var text = await withTimeout(res.text(), timeoutMs || 15000, '상품 좋아요/후기 CSV 본문 응답이 지연되어 중단했어요.');
+      if(/^\s*</.test(text) || /<html[\s>]/i.test(text.slice(0,500))) throw new Error('상품 좋아요/후기 링크가 CSV가 아니라 웹페이지로 응답했어요.');
+      return text;
+    }catch(e){
+      if(abortTimer) clearTimeout(abortTimer);
+      if(e && e.name === 'AbortError') throw new Error('상품 좋아요/후기 CSV 응답이 지연되어 중단했어요.');
+      throw e;
     }
-    var msg = lastErr && lastErr.message ? lastErr.message : 'CSV를 불러오지 못했어요.';
-    throw new Error(msg);
   }
   function parseCSVLine(line){
     var vals=[], cur='', inQ=false;
@@ -18135,18 +18084,15 @@ if(document.readyState==='loading'){
     }).filter(function(row){ return Object.values(row).some(Boolean); });
   }
   function rowVal(row, keys){
-    row = row || {};
-    keys = Array.isArray(keys) ? keys : [keys];
+    row = row || {}; keys = Array.isArray(keys) ? keys : [keys];
     if(typeof window.mRawVal === 'function'){
       var mv = window.mRawVal(row, keys);
       if(mv !== undefined && mv !== null && clean(mv) !== '') return mv;
     }
     for(var i=0;i<keys.length;i++){
-      var key = keys[i];
-      if(row[key] !== undefined && row[key] !== null && clean(row[key]) !== '') return row[key];
+      if(row[keys[i]] !== undefined && row[keys[i]] !== null && clean(row[keys[i]]) !== '') return row[keys[i]];
     }
-    var normKeys = keys.map(norm);
-    var realKeys = Object.keys(row || {});
+    var normKeys = keys.map(norm), realKeys = Object.keys(row || {});
     for(var j=0;j<realKeys.length;j++){
       if(normKeys.indexOf(norm(realKeys[j])) !== -1 && clean(row[realKeys[j]]) !== '') return row[realKeys[j]];
     }
@@ -18155,8 +18101,7 @@ if(document.readyState==='loading'){
   function productCode(p){ return clean((p||{}).code || (p||{}).productCode || (p||{}).itemCode || (p||{})['상품코드'] || (p||{})['상품 코드']); }
   function productName(p){ return clean((p||{}).name || (p||{}).product || (p||{}).productName || (p||{}).itemName || (p||{})['상품명'] || (p||{})['제품명']); }
   function productUidByPlatform(p, platform){
-    p = p || {};
-    var pk = normPlatform(platform || p.platform);
+    p = p || {}; var pk = normPlatform(platform || p.platform);
     if(pk === 'musinsa') return clean(p.musinsaUid || p.musinsaUID || p.musinsa_uid || p['무신사 UID'] || p['무신사UID'] || ((normPlatform(p.platform) === 'musinsa') ? (p.uid || p.UID) : ''));
     if(pk === '29cm') return clean(p.cmUid || p.cmUID || p.cm_uid || p['29CM UID'] || p['29CMUID'] || p['29cmUid'] || ((normPlatform(p.platform) === '29cm') ? (p.uid || p.UID) : ''));
     if(pk === 'store') return clean(p.storeUid || p.storeUID || p.store_uid || p['자사몰 UID'] || p['자사몰UID'] || ((normPlatform(p.platform) === 'store') ? (p.uid || p.UID) : ''));
@@ -18168,7 +18113,7 @@ if(document.readyState==='loading'){
       platform: normPlatform(rowVal(row, ['플랫폼','플랫폼명','판매 채널','판매채널','채널','channel','Channel'])),
       uid: normUid(rowVal(row, ['UID','uid','Uid','상품 UID','상품UID','상품 uid','Product UID','goodsNo','itemNo'])),
       code: norm(rowVal(row, ['상품코드','상품 코드','productCode','code','itemCode'])),
-      name: clean(rowVal(row, ['상품명','제품명','제품명','상품 이름','product','productName','goodsName','itemName','name'])),
+      name: clean(rowVal(row, ['상품명','제품명','상품 이름','product','productName','goodsName','itemName','name'])),
       likes: toNum(rowVal(row, ['좋아요','상품 좋아요','상품좋아요','좋아요 수','좋아요수','likes','heartCount','likeCount'])),
       reviews: toNum(rowVal(row, ['후기','리뷰','후기 수','후기수','리뷰 수','리뷰수','reviews','reviewCount']))
     };
@@ -18176,20 +18121,8 @@ if(document.readyState==='loading'){
   function productStats(){
     return (window.productStatsRows || []).map(rowToStat).filter(function(r){ return r.platform || r.uid || r.code || r.name; });
   }
-  function findStat(platform, uid, code, name, date, exactOnly){
-    var pk = normPlatform(platform), u = normUid(uid), c = norm(code), n = norm(name), ds = normalizeDate(date);
-    var baseRows = productStats().filter(function(r){
-      if(pk && r.platform && r.platform !== pk) return false;
-      return true;
-    });
-    var rows = [];
-    // 1순위: 플랫폼 + UID 정확 매칭
-    if(u) rows = baseRows.filter(function(r){ return r.uid && r.uid === u; });
-    // UID가 없거나 UID 매칭값이 없을 때만 상품코드 보조 매칭
-    if(!rows.length && !u && c) rows = baseRows.filter(function(r){ return r.code && r.code === c; });
-    // UID/상품코드 매칭값이 없을 때만 상품명 보조 매칭
-    if(!rows.length && !u && n) rows = baseRows.filter(function(r){ return r.name && norm(r.name) === n; });
-    if(!rows.length) return null;
+  function pickByDate(rows, date, exactOnly){
+    var ds = normalizeDate(date);
     rows.sort(function(a,b){ return String(b.date || '').localeCompare(String(a.date || '')); });
     if(ds){
       var exact = rows.find(function(r){ return r.date === ds; });
@@ -18198,11 +18131,20 @@ if(document.readyState==='loading'){
       var before = rows.find(function(r){ return r.date && r.date <= ds; });
       if(before) return before;
     }
-    return rows[0];
+    return exactOnly ? null : rows[0];
   }
-  window.__productStatsFindBest = findStat;
-  window.__productStatsRows = productStats;
-  function itemStat(item, platform, date){
+  function findStat(platform, uid, code, name, date, opts){
+    opts = opts || {};
+    var pk = normPlatform(platform), u = normUid(uid), c = norm(code), n = norm(name);
+    var rows = productStats().filter(function(r){ return !pk || !r.platform || r.platform === pk; });
+    var matched = [];
+    if(u) matched = rows.filter(function(r){ return r.uid && r.uid === u; });
+    if(!matched.length && !u && c) matched = rows.filter(function(r){ return r.code && r.code === c; });
+    if(!matched.length && !u && n) matched = rows.filter(function(r){ return norm(r.name) === n; });
+    if(!matched.length) return null;
+    return pickByDate(matched, date, !!opts.exactOnly);
+  }
+  function itemStat(item, platform, date, opts){
     item = item || {};
     var product = null;
     var directUid = clean(item.uid || item.UID || item['UID']);
@@ -18213,36 +18155,50 @@ if(document.readyState==='loading'){
         return (qCode && norm(productCode(p)) === qCode) || (qName && norm(productName(p)) === qName);
       }) || null;
     }
-    var uid = directUid || productUidByPlatform(product, platform);
-    var code = item.code || item.productCode || productCode(product);
-    var name = item.product || item.name || item.productName || productName(product);
-    return findStat(platform, uid, code, name, date);
+    var uid = directUid || productUidByPlatform(product || item, platform);
+    var code = item.code || item.productCode || item['상품코드'] || productCode(product);
+    var name = item.product || item.name || item.productName || item['상품명'] || item['제품명'] || productName(product);
+    return findStat(platform, uid, code, name, date, opts);
   }
+  function aggregateForProduct(product, platforms, date){
+    var list = Array.isArray(platforms) && platforms.length ? platforms : ['musinsa','29cm','store'];
+    var totalLikes = 0, totalReviews = 0, hit = false;
+    list.forEach(function(platform){
+      platform = normPlatform(platform);
+      if(platform === 'offline' || platform === 'etc') return;
+      var stat = itemStat(product, platform, date, {exactOnly:false});
+      if(stat){ totalLikes += toNum(stat.likes); totalReviews += toNum(stat.reviews); hit = true; }
+    });
+    return hit ? {likes:totalLikes, reviews:totalReviews} : null;
+  }
+  window.tcmProductStatsFind = findStat;
+  window.tcmProductStatsForItem = itemStat;
+  window.tcmProductStatsAggregateForProduct = aggregateForProduct;
+
   function saveSheetUrl(){
-    try{
-      if(window.fbSaveSheetUrls) window.fbSaveSheetUrls();
-    }catch(e){ console.warn('상품 좋아요/후기 시트 URL 저장 실패:', e); }
+    try{ if(window.fbSaveSheetUrls) window.fbSaveSheetUrls(); }
+    catch(e){ console.warn('상품 좋아요/후기 시트 URL 저장 실패:', e); }
   }
   function refreshViews(){
     if(typeof window.applyFeedbackFilter === 'function') window.applyFeedbackFilter();
-    if(typeof window.orgRender === 'function') window.orgRender();
     if(typeof window.ovBuildItemTable === 'function') window.ovBuildItemTable();
     if(typeof window.ovBuildItemRankChart === 'function') window.ovBuildItemRankChart();
     if(typeof window.ovRender === 'function' && (window._ovCurrentSub || '') === 'item') window.ovRender(window._ovCurrentView || 'total');
   }
   function applyProductStatsToProducts(){
+    var date = (window._ovDateTo || (document.getElementById('ov-date-to') || {}).value || '');
     var updated = 0;
     (window.products || []).forEach(function(p){
       ['musinsa','29cm','store'].forEach(function(platform){
-        var stat = findStat(platform, productUidByPlatform(p, platform), productCode(p), productName(p));
+        var stat = itemStat(p, platform, date, {exactOnly:false});
         if(!stat) return;
         if(platform === 'musinsa'){ p.musinsaLikes = stat.likes; p.musinsaReviews = stat.reviews; }
         if(platform === '29cm'){ p.cmLikes = stat.likes; p.cmReviews = stat.reviews; }
         if(platform === 'store'){ p.storeLikes = stat.likes; p.storeReviews = stat.reviews; }
-        p.likes = Math.max(toNum(p.likes), toNum(stat.likes));
-        p.reviews = Math.max(toNum(p.reviews), toNum(stat.reviews));
         updated++;
       });
+      var agg = aggregateForProduct(p, ['musinsa','29cm','store'], date);
+      if(agg){ p.likes = agg.likes; p.reviews = agg.reviews; }
     });
     return updated;
   }
@@ -18260,46 +18216,24 @@ if(document.readyState==='loading'){
         var ds = d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate());
         var key = ci + '_d' + off;
         if(!cr._fbData[key]) cr._fbData[key] = {view:0,comment:0,like:0,click:0,productLike:0,sales:0,revenue:0,total:0,rankAll:0,rankCat:0};
-        var totalLike = 0;
+        var totalLike = 0, hasLike = false;
         items.forEach(function(item){
-          var stat = itemStat(item, item.platform || cr.platform, ds);
-          if(stat) totalLike += toNum(stat.likes);
+          var stat = itemStat(item, item.platform || cr.platform, ds, {exactOnly:true});
+          if(stat){ totalLike += toNum(stat.likes); hasLike = true; }
         });
-        if(totalLike){ cr._fbData[key].productLike = totalLike; updated++; }
+        cr._fbData[key].productLike = hasLike ? totalLike : 0;
+        if(hasLike) updated++;
       }
-    });
-    return updated;
-  }
-  function applyProductStatsToOrganic(){
-    var updated = 0;
-    (window.organicData || []).forEach(function(r){
-      if(!r || !r.date) return;
-      var products = r.products || [];
-      [-1,0,1,2].forEach(function(off, di){
-        var d = new Date(r.date);
-        if(isNaN(d.getTime())) return;
-        d.setDate(d.getDate() + off);
-        var ds = d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate());
-        var key = 'd' + di;
-        products.forEach(function(p){
-          if(!p.metrics) p.metrics = {};
-          if(!p.metrics[key]) p.metrics[key] = {productLike:'', sales:'', revenue:'', total:''};
-          var stat = itemStat(p, p.platform || r.platform, ds);
-          if(stat){ p.metrics[key].productLike = stat.likes; updated++; }
-        });
-      });
     });
     return updated;
   }
   window.applyProductStatsToDashboard = function(){
     var productCount = applyProductStatsToProducts();
     var feedbackCount = applyProductStatsToFeedback();
-    var organicCount = applyProductStatsToOrganic();
     if(productCount && typeof window.fbSaveProducts === 'function') window.fbSaveProducts();
     if(feedbackCount && typeof window.fbSaveCreators === 'function') window.fbSaveCreators();
-    if(organicCount && typeof window.fbSaveBatch === 'function') window.fbSaveBatch('organic', window.organicData || []);
     refreshViews();
-    return {products:productCount, feedback:feedbackCount, organic:organicCount};
+    return {products:productCount, feedback:feedbackCount};
   };
   window.loadProductStatsFromSheet = async function(){
     var el = document.getElementById('product-stats-sheet-url');
@@ -18314,10 +18248,10 @@ if(document.readyState==='loading'){
       if(!window.productStatsRows.length) throw new Error('상품 좋아요/후기 통합 시트에서 데이터를 찾지 못했어요.');
       saveSheetUrl();
       var result = window.applyProductStatsToDashboard();
-      if(window.setSheetSyncStatus) window.setSheetSyncStatus('✅ 상품 좋아요/후기 연동 완료! 통합 '+window.productStatsRows.length+'행 · Overview '+result.products+'건 · Feedback '+result.feedback+'건 · Organic '+result.organic+'건','ok');
+      if(window.setSheetSyncStatus) window.setSheetSyncStatus('✅ 상품 좋아요/후기 연동 완료! 통합 '+window.productStatsRows.length+'행 · Overview '+result.products+'건 · Feedback '+result.feedback+'건','ok');
       return true;
     }catch(e){
-      if(window.setSheetSyncStatus) window.setSheetSyncStatus('❌ 상품 좋아요/후기 연동 실패: ' + ((e && e.message) || e), 'error');
+      if(window.setSheetSyncStatus) window.setSheetSyncStatus('❌ 상품 좋아요/후기 연동 실패: '+(e.message||e),'error');
       throw e;
     }
   };
@@ -18327,151 +18261,13 @@ if(document.readyState==='loading'){
     return window.loadProductStatsFromSheet();
   };
 
-  function wrapLoader(name){
-    // loadUnifiedSheets/refreshUnifiedSheets 내부에서 이미 상품 좋아요/후기 시트를 직접 호출합니다.
-    // 여기서 한 번 더 자동 호출하면 실패 시 상태가 '불러오는 중...'에 멈출 수 있어 중복 래핑을 막습니다.
-    if(name === 'loadUnifiedSheets' || name === 'refreshUnifiedSheets') return;
-    var original = window[name];
-    if(typeof original !== 'function' || original.__productStatsWrapped) return;
-    var wrapped = async function(){
-      var ret = await original.apply(this, arguments);
-      var hasUrl = window.productStatsSheetUrl || localStorage.getItem('product_stats_sheet_url') || (document.getElementById('product-stats-sheet-url') || {}).value;
-      if(hasUrl && typeof window.loadProductStatsFromSheet === 'function'){
-        try{ await window.loadProductStatsFromSheet(); }catch(e){
-          console.warn('상품 좋아요/후기 자동 연동 실패:', e);
-          if(window.setSheetSyncStatus) window.setSheetSyncStatus('❌ 상품 좋아요/후기 연동 실패: ' + ((e && e.message) || e), 'error');
-        }
-      }
-      return ret;
-    };
-    wrapped.__productStatsWrapped = true;
-    window[name] = wrapped;
-  }
   function boot(){
     var el = document.getElementById('product-stats-sheet-url');
     if(el && !el.value) el.value = window.productStatsSheetUrl || DEFAULT_PRODUCT_STATS_URL;
-    wrapLoader('loadUnifiedSheets');
-    wrapLoader('refreshUnifiedSheets');
     if((window.productStatsRows || []).length) window.applyProductStatsToDashboard();
   }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(boot,0); });
   else setTimeout(boot,0);
-  window.addEventListener('load', function(){ setTimeout(boot,300); });
-})();
-</script>
-
-
-
-<!-- PATCH v82: Product stats sheet exact linkage for Overview/Product + Feedback (requested only) -->
-<script id="product-stats-v82-exact-linkage">
-(function(){
-  'use strict';
-  var DEFAULT_PRODUCT_STATS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQD0YdS7n4fzE58BOLyLibhXGQUmJqpTc_KZsAr_YMBDZxQg05COrUcNsf0yhzsV_mR126TBEPGzrA9/pub?gid=586741712&single=true&output=csv';
-  function clean(v){ return String(v == null ? '' : v).trim(); }
-  function norm(v){ return clean(v).toLowerCase().replace(/\s+/g,''); }
-  function normPlatform(v){
-    var x = norm(v);
-    if(!x || x === '전체' || x === 'all' || x === 'total') return '';
-    if(x === '무신사' || x === 'musinsa') return 'musinsa';
-    if(x === '29cm' || x === '29') return '29cm';
-    if(x === '자사몰' || x === 'store' || x === '스토어' || x === '자사') return 'store';
-    if(x === 'offline' || x === '오프라인' || x.indexOf('오프') >= 0 || x.indexOf('플래그십') >= 0) return 'offline';
-    return x;
-  }
-  function toNum(v){ return Number(String(v == null ? '' : v).replace(/[^0-9.-]/g,'')) || 0; }
-  function pad2(n){ return String(n).padStart(2,'0'); }
-  function dateStr(d){ return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate()); }
-  function productCode(p){ return clean((p||{}).code || (p||{}).productCode || (p||{}).itemCode || (p||{})['상품코드'] || (p||{})['상품 코드']); }
-  function productName(p){ return clean((p||{}).name || (p||{}).product || (p||{}).productName || (p||{}).itemName || (p||{})['상품명'] || (p||{})['제품명']); }
-  function productUidByPlatform(p, platform){
-    p = p || {};
-    var pk = normPlatform(platform || p.platform);
-    if(pk === 'musinsa') return clean(p.musinsaUid || p.musinsaUID || p.musinsa_uid || p['무신사 UID'] || p['무신사UID'] || ((normPlatform(p.platform) === 'musinsa') ? (p.uid || p.UID) : ''));
-    if(pk === '29cm') return clean(p.cmUid || p.cmUID || p.cm_uid || p['29CM UID'] || p['29CMUID'] || p['29cmUid'] || ((normPlatform(p.platform) === '29cm') ? (p.uid || p.UID) : ''));
-    if(pk === 'store') return clean(p.storeUid || p.storeUID || p.store_uid || p['자사몰 UID'] || p['자사몰UID'] || ((normPlatform(p.platform) === 'store') ? (p.uid || p.UID) : ''));
-    return clean(p.uid || p.UID || p.musinsaUid || p.cmUid || p.storeUid);
-  }
-  function findItemForFeedback(item, platform){
-    item = item || {};
-    var directUid = clean(item.uid || item.UID || item['UID']);
-    var qCode = norm(item.code || item.productCode || item['상품코드'] || item['상품 코드']);
-    var qName = norm(item.product || item.name || item.productName || item['상품명'] || item['제품명']);
-    if(!Array.isArray(window.products)) return null;
-    if(directUid){
-      var byUid = window.products.find(function(p){ return norm(productUidByPlatform(p, platform)) === norm(directUid); });
-      if(byUid) return byUid;
-    }
-    return window.products.find(function(p){
-      return (qCode && norm(productCode(p)) === qCode) || (qName && norm(productName(p)) === qName);
-    }) || null;
-  }
-  function findStatForItem(item, platform, ds, exactOnly){
-    item = item || {};
-    var product = findItemForFeedback(item, platform);
-    var uid = clean(item.uid || item.UID || item['UID']) || productUidByPlatform(product, platform);
-    var code = clean(item.code || item.productCode || item['상품코드'] || item['상품 코드']) || productCode(product);
-    var name = clean(item.product || item.name || item.productName || item['상품명'] || item['제품명']) || productName(product);
-    return (typeof window.__productStatsFindBest === 'function') ? window.__productStatsFindBest(platform, uid, code, name, ds, !!exactOnly) : null;
-  }
-  function applyFeedbackExactProductLikes(){
-    var updated = 0;
-    (window.creators || []).forEach(function(cr, ci){
-      if(!cr) return;
-      var uploadD = cr.uploadDate ? new Date(cr.uploadDate) : null;
-      if(!uploadD || isNaN(uploadD.getTime())) return;
-      var items = cr.items || [];
-      if(!items.length) return;
-      if(!cr._fbData) cr._fbData = {};
-      for(var off=-1; off<=6; off++){
-        var d = new Date(uploadD.getTime() + off * 86400000);
-        var ds = dateStr(d);
-        var key = ci + '_d' + off;
-        if(!cr._fbData[key]) cr._fbData[key] = {view:0,comment:0,like:0,click:0,productLike:0,sales:0,revenue:0,total:0,rankAll:0,rankCat:0};
-        var totalLike = 0;
-        var hasExact = false;
-        items.forEach(function(item){
-          var stat = findStatForItem(item, item.platform || cr.platform, ds, true);
-          if(stat){ totalLike += toNum(stat.likes); hasExact = true; }
-        });
-        // 기준일 데이터가 없으면 0으로 덮어써서 화면에서는 '-'로 표시되게 처리
-        if(cr._fbData[key].productLike !== (hasExact ? totalLike : 0)){
-          cr._fbData[key].productLike = hasExact ? totalLike : 0;
-          updated++;
-        }
-      }
-    });
-    return updated;
-  }
-  function syncDefaultUrlToPanel(){
-    window.productStatsSheetUrl = window.productStatsSheetUrl || localStorage.getItem('product_stats_sheet_url') || DEFAULT_PRODUCT_STATS_URL;
-    var el = document.getElementById('product-stats-sheet-url');
-    if(el && (!el.value || /docs\.google\.com\/spreadsheets\/d\/1Ls9qpau2TCHuErOK/.test(el.value))) el.value = window.productStatsSheetUrl || DEFAULT_PRODUCT_STATS_URL;
-  }
-  var prevApply = window.applyProductStatsToDashboard;
-  window.applyProductStatsToDashboard = function(){
-    var result = (typeof prevApply === 'function') ? (prevApply.apply(this, arguments) || {}) : {};
-    result.feedback = applyFeedbackExactProductLikes();
-    if(result.feedback && typeof window.fbSaveCreators === 'function') window.fbSaveCreators();
-    if(typeof window.applyFeedbackFilter === 'function') window.applyFeedbackFilter();
-    if(typeof window.ovBuildItemTable === 'function') window.ovBuildItemTable();
-    if(typeof window.ovBuildItemRankChart === 'function') window.ovBuildItemRankChart();
-    return result;
-  };
-  var prevOpen = window.openSheetSyncPanel;
-  if(typeof prevOpen === 'function'){
-    window.openSheetSyncPanel = function(){
-      var ret = prevOpen.apply(this, arguments);
-      syncDefaultUrlToPanel();
-      return ret;
-    };
-  }
-  function boot(){
-    syncDefaultUrlToPanel();
-    if((window.productStatsRows || []).length && typeof window.applyProductStatsToDashboard === 'function') window.applyProductStatsToDashboard();
-  }
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(boot,0); });
-  else setTimeout(boot,0);
-  window.addEventListener('load', function(){ setTimeout(boot,300); });
 })();
 </script>
 
