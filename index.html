@@ -4879,7 +4879,9 @@ function renderFeedbackRows(list){
         const isFC=firstRow&&ii===0,isFD=ii===0,isDot=di>0&&ii===0;firstRow=false;
         const itemKey=(typeof window.fbFeedbackAutoItemKey==='function')?window.fbFeedbackAutoItemKey(item,r.platform):fbFeedbackItemKey(item,r.platform);
         const itemData=(data._itemData&&data._itemData[itemKey])?data._itemData[itemKey]:{};
-        const productLikeVal=(itemData.productLike!==undefined&&itemData.productLike!==null&&String(itemData.productLike)!=='')?itemData.productLike:data.productLike;
+        // 상품 좋아요는 상품별 정확 매칭값만 표시합니다.
+        // 기준일 합산값(data.productLike)을 fallback으로 쓰면, 매칭값이 없는 상품에도 같은 숫자가 반복 노출될 수 있습니다.
+        const productLikeVal=(itemData.productLike!==undefined&&itemData.productLike!==null&&String(itemData.productLike)!=='')?itemData.productLike:'';
         const salesVal=Number(itemData.sales)||0;
         const revenueVal=Number(itemData.revenue)||0;
         const prevItemData=(prevData&&prevData._itemData&&prevData._itemData[itemKey])?prevData._itemData[itemKey]:null;
