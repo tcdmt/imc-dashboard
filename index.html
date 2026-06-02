@@ -18276,13 +18276,18 @@ if(document.readyState==='loading'){
     window.productStatsSheetUrl = url;
     localStorage.setItem('product_stats_sheet_url', url);
     if(window.setSheetSyncStatus) window.setSheetSyncStatus('상품 좋아요/후기 통합 시트 불러오는 중...','loading');
-    var text = await fetchCsvWithTimeout(url, 15000);
-    window.productStatsRows = parseCSVObjects(text);
-    if(!window.productStatsRows.length) throw new Error('상품 좋아요/후기 통합 시트에서 데이터를 찾지 못했어요.');
-    saveSheetUrl();
-    var result = window.applyProductStatsToDashboard();
-    if(window.setSheetSyncStatus) window.setSheetSyncStatus('✅ 상품 좋아요/후기 연동 완료! 통합 '+window.productStatsRows.length+'행 · Overview '+result.products+'건 · Feedback '+result.feedback+'건 · Organic '+result.organic+'건','ok');
-    return true;
+    try{
+      var text = await fetchCsvWithTimeout(url, 15000);
+      window.productStatsRows = parseCSVObjects(text);
+      if(!window.productStatsRows.length) throw new Error('상품 좋아요/후기 통합 시트에서 데이터를 찾지 못했어요.');
+      saveSheetUrl();
+      var result = window.applyProductStatsToDashboard();
+      if(window.setSheetSyncStatus) window.setSheetSyncStatus('✅ 상품 좋아요/후기 연동 완료! 통합 '+window.productStatsRows.length+'행 · Overview '+result.products+'건 · Feedback '+result.feedback+'건 · Organic '+result.organic+'건','ok');
+      return true;
+    }catch(e){
+      if(window.setSheetSyncStatus) window.setSheetSyncStatus('❌ 상품 좋아요/후기 연동 실패: ' + ((e && e.message) || e), 'error');
+      throw e;
+    }
   };
   window.refreshProductStatsFromSheet = async function(){
     var el = document.getElementById('product-stats-sheet-url');
@@ -18291,13 +18296,19 @@ if(document.readyState==='loading'){
   };
 
   function wrapLoader(name){
+    // loadUnifiedSheets/refreshUnifiedSheets 내부에서 이미 상품 좋아요/후기 시트를 직접 호출합니다.
+    // 여기서 한 번 더 자동 호출하면 실패 시 상태가 '불러오는 중...'에 멈출 수 있어 중복 래핑을 막습니다.
+    if(name === 'loadUnifiedSheets' || name === 'refreshUnifiedSheets') return;
     var original = window[name];
     if(typeof original !== 'function' || original.__productStatsWrapped) return;
     var wrapped = async function(){
       var ret = await original.apply(this, arguments);
       var hasUrl = window.productStatsSheetUrl || localStorage.getItem('product_stats_sheet_url') || (document.getElementById('product-stats-sheet-url') || {}).value;
       if(hasUrl && typeof window.loadProductStatsFromSheet === 'function'){
-        try{ await window.loadProductStatsFromSheet(); }catch(e){ console.warn('상품 좋아요/후기 자동 연동 실패:', e); }
+        try{ await window.loadProductStatsFromSheet(); }catch(e){
+          console.warn('상품 좋아요/후기 자동 연동 실패:', e);
+          if(window.setSheetSyncStatus) window.setSheetSyncStatus('❌ 상품 좋아요/후기 연동 실패: ' + ((e && e.message) || e), 'error');
+        }
       }
       return ret;
     };
