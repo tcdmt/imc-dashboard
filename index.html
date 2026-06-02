@@ -6604,6 +6604,14 @@ function openCreatorPopup(creatorRef) {
     // Feedback 탭과 동일하게 D-1=ci_d-1, D+0=ci_d0, D+1=ci_d1 ... 로 읽어옵니다.
     const fbKey = ci+'_d'+offset;
     const data = r._fbData[fbKey] || {view:0,comment:0,like:0,click:0,productLike:0,sales:0,revenue:0,total:0,rankAll:0,rankCat:0};
+    // 상품별 자동 연동값만 있는 경우에도 팝업에서는 기준일 합계가 보이도록 보정
+    if(data._itemData){
+      const itemRows = Object.keys(data._itemData).map(k => data._itemData[k] || {});
+      const itemSales = itemRows.reduce((sum,row)=>sum+(Number(row.sales)||0),0);
+      const itemRevenue = itemRows.reduce((sum,row)=>sum+(Number(row.revenue)||0),0);
+      if(!data.sales && itemSales) data.sales = itemSales;
+      if(!data.revenue && itemRevenue) data.revenue = itemRevenue;
+    }
     const isPrevDay = (di===0); // D-1: 업로드 전일
     const isUploadDay = (di===1); // 업로드 당일
     // 날짜 레이블: M/D 형식
@@ -6612,7 +6620,7 @@ function openCreatorPopup(creatorRef) {
   }
 
   // 집계
-  const activeDays = days.filter(d=>!d.isPrevDay && !d.isUploadDay);
+  const activeDays = days.filter(d=>!d.isPrevDay);
   const totalClick   = activeDays.reduce((s,d)=>s+(d.data.click||0),0);
   const totalSales   = activeDays.reduce((s,d)=>s+(d.data.sales||0),0);
   const totalRevenue = activeDays.reduce((s,d)=>s+(d.data.revenue||0),0);
@@ -6637,8 +6645,8 @@ function openCreatorPopup(creatorRef) {
 
   // 요약 카드
   document.getElementById('cp-summary').innerHTML = [
-    {label:'누적 조회수', val:fmtNum(maxView),      sub:'D+1~D+6 최대'},
-    {label:'누적 매출',   val:fmtWon2(totalRevenue), sub:'D+1~D+6 합계'},
+    {label:'누적 조회수', val:fmtNum(maxView),      sub:'D+0~D+6 최대'},
+    {label:'누적 매출',   val:fmtWon2(totalRevenue), sub:'D+0~D+6 합계'},
     {label:'ROAS',        val:roas,                  sub:'매출/총비용'},
     {label:'CVR',         val:cvr,                   sub:'판매/링크클릭'},
   ].map(c=>`<div class="cp-card">
@@ -6653,7 +6661,7 @@ function openCreatorPopup(creatorRef) {
   if(ctx && typeof Chart !== 'undefined'){
     const labels   = days.map(d=>d.dateLabel);
     const viewData = days.map(d=>d.isPrevDay ? null : (d.data.view||0));
-    const revData  = days.map(d=>d.isPrevDay ? null : (d.data.revenue||0));
+    const revData  = days.map(d=>(d.data.revenue||0));
     const roasData = days.map(d=>(d.isPrevDay||!totalCost) ? null : parseFloat((d.data.revenue/totalCost*100).toFixed(1)));
 
     _cpChart = new Chart(ctx.getContext('2d'), {
@@ -6720,27 +6728,27 @@ function openCreatorPopup(creatorRef) {
   </tr></thead>`;
   let tbody = '<tbody>';
   days.forEach((d,i)=>{
-    const isU = d.isUploadDay;
     const isP = d.isPrevDay;
-    const hide = isP || isU;
+    // D-1은 업로드 전이라 조회/댓글/좋아요/클릭 지표만 비활성화하고, 판매/매출은 기준일 기준 자동 연동값을 노출
+    const hidePerf = isP;
     const prev = i>0 ? days[i-1].data : null;
-    const ctr    = !hide&&d.data.view>0   ? (d.data.click/d.data.view*100).toFixed(1)+'%' : '-';
-    const cvr2   = !hide&&d.data.click>0  ? (d.data.sales/d.data.click*100).toFixed(1)+'%' : '-';
-    const revChg = !hide&&prev&&prev.revenue>1 ? ((d.data.revenue/(prev.revenue-1))*100).toFixed(1)+'%' : '-';
-    const roasD  = !hide&&totalCost>0 ? (d.data.revenue/totalCost*100).toFixed(0)+'%' : '-';
-    const cls    = isP||isU ? 'cp-upload-day' : '';
+    const ctr    = !hidePerf&&d.data.view>0   ? (d.data.click/d.data.view*100).toFixed(1)+'%' : '-';
+    const cvr2   = !hidePerf&&d.data.click>0  ? (d.data.sales/d.data.click*100).toFixed(1)+'%' : '-';
+    const revChg = !hidePerf&&prev&&prev.revenue>1 ? ((d.data.revenue/(prev.revenue-1))*100).toFixed(1)+'%' : '-';
+    const roasD  = !hidePerf&&totalCost>0 ? (d.data.revenue/totalCost*100).toFixed(0)+'%' : '-';
+    const cls    = isP ? 'cp-upload-day' : '';
     tbody += `<tr class="${cls}">
       <td style="font-weight:500;">${d.dateLabel}</td>
-      <td>${hide?'-':fmtNum(d.data.view)}</td>
-      <td>${hide?'-':fmtNum(d.data.comment)}</td>
-      <td>${hide?'-':fmtNum(d.data.like)}</td>
-      <td>${hide?'-':fmtNum(d.data.click)}</td>
-      <td>${hide?'-':ctr}</td>
-      <td>${hide?'-':fmtNum(d.data.sales)}</td>
-      <td>${hide?'-':fmtWon2(d.data.revenue)}</td>
-      <td>${hide?'-':revChg}</td>
-      <td>${hide?'-':cvr2}</td>
-      <td>${hide?'-':roasD}</td>
+      <td>${hidePerf?'-':fmtNum(d.data.view)}</td>
+      <td>${hidePerf?'-':fmtNum(d.data.comment)}</td>
+      <td>${hidePerf?'-':fmtNum(d.data.like)}</td>
+      <td>${hidePerf?'-':fmtNum(d.data.click)}</td>
+      <td>${hidePerf?'-':ctr}</td>
+      <td>${fmtNum(d.data.sales)}</td>
+      <td>${fmtWon2(d.data.revenue)}</td>
+      <td>${hidePerf?'-':revChg}</td>
+      <td>${hidePerf?'-':cvr2}</td>
+      <td>${hidePerf?'-':roasD}</td>
     </tr>`;
   });
   tbody += `<tr class="cp-ttl">
