@@ -10201,6 +10201,7 @@ if(document.readyState==='loading'){
   function openDropdown(anchor, opts, current, cb){closeFloat();const r=anchor.getBoundingClientRect();const pop=document.createElement('div');pop.id='org-v8-float-dd';pop.style.cssText='position:fixed;z-index:2000;left:'+r.left+'px;top:'+(r.bottom+6)+'px;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.16);padding:6px;display:flex;flex-direction:column;gap:4px;min-width:'+Math.max(120,r.width)+'px;';opts.forEach(o=>{const b=document.createElement('button');b.type='button';b.style.cssText='border:none;background:transparent;text-align:left;padding:4px 6px;border-radius:8px;cursor:pointer;';b.innerHTML=pill(o, anchor.dataset.group||'source');b.onclick=()=>{cb(o);closeFloat();};pop.appendChild(b);});document.body.appendChild(pop);setTimeout(()=>document.addEventListener('mousedown',outside,true),0);}
   function lookup(date,platform,product){
     const pools=[window.orgSalesData,window.orgSheetData,window.productDailyData,window.metaSalesRows,window.metaSalesData,window.itemDailyData].filter(Array.isArray);
+    const productLikePools=[window.productStatsRows,window.orgSalesData,window.orgSheetData,window.productDailyData,window.metaSalesRows,window.metaSalesData,window.itemDailyData].filter(Array.isArray);
     for(const arr of pools){
       const row=arr.find(x=>String(x.date||x.날짜||x.collectDate||'').slice(0,10)===date && String(x.platform||x.플랫폼||'')===String(platform||'') && String(x.product||x.productName||x.상품명||x.name||'')===String(product||''));
       if(row)return {productLike:row.productLike||row.상품좋아요||row.likes||row.좋아요||'',sales:row.sales||row.판매수량||row.qty||row.quantity||'',revenue:row.revenue||row.매출||row.salesAmount||row.amount||'',total:row.total||row.총매출||row.totalRevenue||''};
@@ -10439,7 +10440,7 @@ if(document.readyState==='loading'){
         products.forEach((p,pi)=>{
           const metric=ensureProdMetric(p,dkey);
           const lk=lookup(date,p.platform,p.product);
-          const productLike=metric.productLike!==''?metric.productLike:(lk.productLike||'');
+          const productLike=lk.productLike||'';
           const sales=metric.sales!==''?metric.sales:(lk.sales||'');
           const revenue=metric.revenue!==''?metric.revenue:(lk.revenue||'');
           const total=metric.total!==''?metric.total:(lk.total||revenue||'');
@@ -17436,14 +17437,28 @@ if(document.readyState==='loading'){
     };
     let productLikeRow=null;
     if(uid){
-      const targetDate=String(date||'').slice(0,10);
+      const normalizeOrgDate=function(v){
+        const raw=String(v||'').trim();
+        if(!raw)return '';
+        if(/^\d{5}(\.\d+)?$/.test(raw)){
+          const serial=Math.floor(Number(raw));
+          if(serial>20000&&serial<80000){
+            const d0=new Date(Date.UTC(1899,11,30)+serial*86400000);
+            return d0.getUTCFullYear()+'-'+String(d0.getUTCMonth()+1).padStart(2,'0')+'-'+String(d0.getUTCDate()).padStart(2,'0');
+          }
+        }
+        let m=raw.match(/(20\d{2})[-\/.년\s]+(\d{1,2})[-\/.월\s]+(\d{1,2})/);
+        if(m)return m[1]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[3]).padStart(2,'0');
+        return raw.slice(0,10);
+      };
+      const targetDate=normalizeOrgDate(date);
       const targetPlatform=normOrgPlatform(platform||'');
       const targetUid=normOrgUid(uid);
-      for(const arr of pools){
+      for(const arr of productLikePools){
         productLikeRow=arr.find(x=>{
-          const rowDate=String(x.date||x.날짜||x.collectDate||x.기준일||'').slice(0,10);
-          const rowPlatform=normOrgPlatform(x.platform||x.플랫폼||x['판매 채널']||x['판매채널']||x.채널||'');
-          const rowUid=normOrgUid(x.uid||x.UID||x['상품 UID']||x['상품UID']||x.goodsNo||x.itemNo||'');
+          const rowDate=normalizeOrgDate(x.date||x.날짜||x.collectDate||x.기준일||x.Date||x['수집일']||x['일자']||'');
+          const rowPlatform=normOrgPlatform(x.platform||x.플랫폼||x['판매 채널']||x['판매채널']||x.채널||x.channel||x.Channel||'');
+          const rowUid=normOrgUid(x.uid||x.UID||x.Uid||x['상품 UID']||x['상품UID']||x['상품 uid']||x['Product UID']||x.goodsNo||x.itemNo||'');
           return rowDate===targetDate && rowPlatform===targetPlatform && rowUid===targetUid;
         });
         if(productLikeRow) break;
