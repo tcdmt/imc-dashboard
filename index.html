@@ -4988,7 +4988,16 @@ function renderFeedbackRows(list){
     const totalComment=activeDays.reduce((s,d)=>Math.max(s,d.data.comment||0),0);
     const totalLike=activeDays.reduce((s,d)=>Math.max(s,d.data.like||0),0);
     const totalClick=activeDays.reduce((s,d)=>s+(d.data.click||0),0);
-    const totalProductLike=activeDays.reduce((s,d)=>Math.max(s,d.data.productLike||0),0);
+    // 상품 좋아요 TTL은 누적값이므로, 기준일별 SUM 값 중 최댓값으로 계산
+    const totalProductLike=(function(){
+      const byDate={};
+      activeDays.forEach(d=>{
+        const k=d.ds||String(d.dayOffset||'');
+        byDate[k]=(byDate[k]||0)+(Number(d.data.productLike)||0);
+      });
+      const vals=Object.values(byDate);
+      return vals.length?Math.max(...vals):0;
+    })();
     const totalSales=activeDays.reduce((s,d)=>s+(d.data.sales||0),0);
     const totalRevenue=activeDays.reduce((s,d)=>s+(d.data.revenue||0),0);
     const totalTotal=activeDays.reduce((s,d)=>Math.max(s,d.data.total||0),0);
@@ -10255,7 +10264,7 @@ if(document.readyState==='loading'){
         products.forEach((p,pi)=>{
           const metric=ensureProdMetric(p,dkey);
           const lk=lookup(date,p.platform,p.product);
-          const productLike=metric.productLike!==''?metric.productLike:(lk.productLike||'');
+          const productLike=lk.productLike||'';
           const sales=metric.sales!==''?metric.sales:(lk.sales||'');
           const revenue=metric.revenue!==''?metric.revenue:(lk.revenue||'');
           const total=metric.total!==''?metric.total:(lk.total||revenue||'');
@@ -17411,6 +17420,35 @@ if(document.readyState==='loading'){
     const prod=String((p&&p.product)||'');
     const uid=String((p&&p.uid)||'');
     const code=String((p&&p.code)||'');
+    const normOrgPlatform=function(v){
+      if(typeof window.mNormMetaPlatform==='function') return window.mNormMetaPlatform(v);
+      const x=norm(v);
+      if(x==='무신사'||x==='musinsa')return 'musinsa';
+      if(x==='29cm'||x==='29')return '29cm';
+      if(x==='자사몰'||x==='store'||x==='스토어'||x==='자사')return 'store';
+      if(x==='offline'||x==='오프라인'||x.indexOf('오프')>-1||x.indexOf('플래그십')>-1)return 'offline';
+      return x;
+    };
+    const normOrgUid=function(v){
+      let x=String(v||'').trim().toLowerCase().replace(/\s+/g,'').replace(/,/g,'');
+      if(/^\d+\.0+$/.test(x)) x=x.replace(/\.0+$/,'');
+      return x;
+    };
+    let productLikeRow=null;
+    if(uid){
+      const targetDate=String(date||'').slice(0,10);
+      const targetPlatform=normOrgPlatform(platform||'');
+      const targetUid=normOrgUid(uid);
+      for(const arr of pools){
+        productLikeRow=arr.find(x=>{
+          const rowDate=String(x.date||x.날짜||x.collectDate||x.기준일||'').slice(0,10);
+          const rowPlatform=normOrgPlatform(x.platform||x.플랫폼||x['판매 채널']||x['판매채널']||x.채널||'');
+          const rowUid=normOrgUid(x.uid||x.UID||x['상품 UID']||x['상품UID']||x.goodsNo||x.itemNo||'');
+          return rowDate===targetDate && rowPlatform===targetPlatform && rowUid===targetUid;
+        });
+        if(productLikeRow) break;
+      }
+    }
     for(const arr of pools){
       const row=arr.find(x=>{
         const rowDate=String(x.date||x.날짜||x.collectDate||'').slice(0,10);
@@ -17420,9 +17458,9 @@ if(document.readyState==='loading'){
         const rowProduct=String(x.product||x.productName||x.상품명||x.name||'');
         return rowDate===date && rowPlatform===String(platform||'') && ((uid&&norm(rowUid)===norm(uid)) || (code&&norm(rowCode)===norm(code)) || (!uid&&!code&&rowProduct===prod));
       });
-      if(row)return {productLike:row.productLike||row.상품좋아요||row.likes||row.좋아요||'',sales:row.sales||row.판매수량||row.qty||row.quantity||'',revenue:row.revenue||row.매출||row.salesAmount||row.amount||'',total:row.total||row.총매출||row.totalRevenue||''};
+      if(row)return {productLike:productLikeRow?(productLikeRow.productLike||productLikeRow.상품좋아요||productLikeRow['상품 좋아요']||productLikeRow.likes||productLikeRow.좋아요||''):'',sales:row.sales||row.판매수량||row.qty||row.quantity||'',revenue:row.revenue||row.매출||row.salesAmount||row.amount||'',total:row.total||row.총매출||row.totalRevenue||''};
     }
-    return {};
+    return {productLike:productLikeRow?(productLikeRow.productLike||productLikeRow.상품좋아요||productLikeRow['상품 좋아요']||productLikeRow.likes||productLikeRow.좋아요||''):''};
   }
   function ensureDaily(r,key){if(!r.orgDaily)r.orgDaily={};if(!r.orgDaily[key])r.orgDaily[key]={views:'',likes:'',comments:''};return r.orgDaily[key];}
   function ensureProdMetric(prod,key){if(!prod.metrics)prod.metrics={};if(!prod.metrics[key])prod.metrics[key]={productLike:'',sales:'',revenue:'',total:''};return prod.metrics[key];}
