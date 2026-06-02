@@ -1877,8 +1877,8 @@ html[data-user-role="viewer"] [data-delete]{opacity:.35!important;cursor:not-all
         <input id="sales-goal-sheet-url" type="text" placeholder="CSV 링크 입력" style="font-size:12px;padding:7px 9px;border:0.5px solid var(--color-border-secondary);border-radius:8px;background:var(--color-background-primary);color:var(--color-text-primary);width:100%;">
       </div>
       <div style="display:grid;grid-template-columns:180px minmax(0,1fr);gap:10px;align-items:center;">
-        <label for="product-stats-sheet-url" style="font-size:12px;color:var(--color-text-secondary);font-weight:500;">상품 좋아요/후기 연동<br><span style="font-size:10px;color:var(--color-text-tertiary);">2026 Platform Like & Review Script</span></label>
-        <input id="product-stats-sheet-url" type="text" placeholder="2026 Platform Like & Review Script Google Sheets 링크 입력" value="https://docs.google.com/spreadsheets/d/1Ls9qpau2TCHuErOK-TQ0PXCuNrjS4ffSL_AbyvPomdQ/edit?gid=941858684#gid=941858684" style="font-size:12px;padding:7px 9px;border:0.5px solid var(--color-border-secondary);border-radius:8px;background:var(--color-background-primary);color:var(--color-text-primary);width:100%;">
+        <label for="product-stats-sheet-url" style="font-size:12px;color:var(--color-text-secondary);font-weight:500;">상품 좋아요/후기 연동<br><span style="font-size:10px;color:var(--color-text-tertiary);">통합 탭</span></label>
+        <input id="product-stats-sheet-url" type="text" placeholder="통합 탭 Google Sheets 링크 입력" value="https://docs.google.com/spreadsheets/d/e/2PACX-1vQD0YdS7n4fzE58BOLyLibhXGQUmJqpTc_KZsAr_YMBDZxQg05COrUcNsf0yhzsV_mR126TBEPGzrA9/pub?gid=586741712&single=true&output=csv" style="font-size:12px;padding:7px 9px;border:0.5px solid var(--color-border-secondary);border-radius:8px;background:var(--color-background-primary);color:var(--color-text-primary);width:100%;">
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px;">
         <div id="sheet-sync-status" style="font-size:11px;color:var(--color-text-tertiary);">시트 링크를 입력해주세요.</div>
@@ -17970,7 +17970,7 @@ if(document.readyState==='loading'){
 (function(){
   'use strict';
 
-  var DEFAULT_PRODUCT_STATS_URL = 'https://docs.google.com/spreadsheets/d/1Ls9qpau2TCHuErOK-TQ0PXCuNrjS4ffSL_AbyvPomdQ/edit?gid=941858684#gid=941858684';
+  var DEFAULT_PRODUCT_STATS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQD0YdS7n4fzE58BOLyLibhXGQUmJqpTc_KZsAr_YMBDZxQg05COrUcNsf0yhzsV_mR126TBEPGzrA9/pub?gid=586741712&single=true&output=csv';
   window.productStatsSheetUrl = window.productStatsSheetUrl || localStorage.getItem('product_stats_sheet_url') || DEFAULT_PRODUCT_STATS_URL;
   window.productStatsRows = window.productStatsRows || [];
 
@@ -18011,12 +18011,50 @@ if(document.readyState==='loading'){
   function csvUrl(url){
     url = clean(url);
     if(!url) return '';
+    var pub = url.match(/\/spreadsheets\/d\/e\/([^\/?#]+)\/pub/i);
+    if(pub){
+      var pgid = (url.match(/[?#&]gid=(\d+)/) || [,'941858684'])[1] || '941858684';
+      return 'https://docs.google.com/spreadsheets/d/e/' + pub[1] + '/pub?gid=' + pgid + '&single=true&output=csv';
+    }
     var id = url.match(/\/spreadsheets\/d\/([^\/?#]+)/);
     if(id && !/[?&](format|output)=csv/i.test(url)){
       var gid = (url.match(/[?#&]gid=(\d+)/) || [,'941858684'])[1] || '941858684';
       return 'https://docs.google.com/spreadsheets/d/' + id[1] + '/export?format=csv&gid=' + gid;
     }
     return url;
+  }
+  function csvCandidates(url){
+    var first = csvUrl(url);
+    var list = [first];
+    var raw = clean(url);
+    var pub = raw.match(/\/spreadsheets\/d\/e\/([^\/?#]+)\/pub/i);
+    if(pub){
+      var gid = (raw.match(/[?#&]gid=(\d+)/) || [,'941858684'])[1] || '941858684';
+      list.push('https://docs.google.com/spreadsheets/d/e/' + pub[1] + '/pub?output=csv&gid=' + gid + '&single=true');
+    }
+    return list.filter(function(v,i,a){ return v && a.indexOf(v) === i; });
+  }
+  async function fetchCsvWithTimeout(url, timeoutMs){
+    var candidates = csvCandidates(url);
+    var lastErr = null;
+    for(var i=0;i<candidates.length;i++){
+      var target = candidates[i];
+      var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      var timer = ctrl ? setTimeout(function(){ try{ ctrl.abort(); }catch(e){} }, timeoutMs || 15000) : null;
+      try{
+        var res = await fetch(target, { cache:'no-store', redirect:'follow', signal: ctrl ? ctrl.signal : undefined });
+        if(timer) clearTimeout(timer);
+        if(!res.ok) throw new Error('HTTP ' + res.status);
+        var text = await res.text();
+        if(/^\s*</.test(text) || /<html[\s>]/i.test(text.slice(0,500))) throw new Error('CSV가 아니라 웹페이지 응답입니다.');
+        return text;
+      }catch(e){
+        if(timer) clearTimeout(timer);
+        lastErr = e;
+      }
+    }
+    var msg = lastErr && lastErr.name === 'AbortError' ? '응답 시간이 너무 오래 걸려 중단했어요.' : (lastErr && lastErr.message ? lastErr.message : 'CSV를 불러오지 못했어요.');
+    throw new Error(msg);
   }
   function parseCSVLine(line){
     var vals=[], cur='', inQ=false;
@@ -18205,10 +18243,7 @@ if(document.readyState==='loading'){
     window.productStatsSheetUrl = url;
     localStorage.setItem('product_stats_sheet_url', url);
     if(window.setSheetSyncStatus) window.setSheetSyncStatus('상품 좋아요/후기 통합 시트 불러오는 중...','loading');
-    var res = await fetch(csvUrl(url));
-    if(!res.ok) throw new Error('상품 좋아요/후기 통합 시트 URL에 접근할 수 없어요. 공유 권한 또는 통합 탭 gid를 확인해주세요.');
-    var text = await res.text();
-    if(/^\s*</.test(text) || /<html[\s>]/i.test(text.slice(0,500))) throw new Error('상품 좋아요/후기 URL이 CSV가 아니라 웹페이지로 열립니다. 공유 권한을 확인해주세요.');
+    var text = await fetchCsvWithTimeout(url, 15000);
     window.productStatsRows = parseCSVObjects(text);
     if(!window.productStatsRows.length) throw new Error('상품 좋아요/후기 통합 시트에서 데이터를 찾지 못했어요.');
     saveSheetUrl();
