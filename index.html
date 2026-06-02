@@ -4879,6 +4879,7 @@ function renderFeedbackRows(list){
         const isFC=firstRow&&ii===0,isFD=ii===0,isDot=di>0&&ii===0;firstRow=false;
         const itemKey=(typeof window.fbFeedbackAutoItemKey==='function')?window.fbFeedbackAutoItemKey(item,r.platform):fbFeedbackItemKey(item,r.platform);
         const itemData=(data._itemData&&data._itemData[itemKey])?data._itemData[itemKey]:{};
+        const productLikeVal=(itemData.productLike!==undefined&&itemData.productLike!==null&&String(itemData.productLike)!=='')?itemData.productLike:data.productLike;
         const salesVal=Number(itemData.sales)||0;
         const revenueVal=Number(itemData.revenue)||0;
         const prevItemData=(prevData&&prevData._itemData&&prevData._itemData[itemKey])?prevData._itemData[itemKey]:null;
@@ -4938,10 +4939,8 @@ function renderFeedbackRows(list){
           totTd=`<td rowspan="${dayRs}" style="text-align:right;">${fbdDcWon(ci,key,'total',data.total)}</td>`;
         }
         const ctrTd=isUploadDay?'<td style="text-align:center;color:var(--color-text-tertiary);">-</td>':`<td style="text-align:center;color:var(--color-text-secondary);">${isNaN(ctr)?'-':ctr.toFixed(1)+'%'}</td>`;
-        // 상품 좋아요 셀 (UID + 플랫폼 기반 링크 + 더블클릭 입력)
-        const productLikeTd=isUploadDay
-          ?`<td style="text-align:center;color:var(--color-text-tertiary);">-</td>`
-          :`<td style="text-align:right;">${fbdDcNum(ci,key,'productLike',data.productLike||0)}</td>`;
+        // 상품 좋아요 셀 (플랫폼 + 기준일 + UID 기준 자동 연동 / D-1도 표시)
+        const productLikeTd=`<td style="text-align:right;">${(typeof fbdDcItemNum==='function')?fbdDcItemNum(ci,key,itemKey,'productLike',productLikeVal):fbdDcNum(ci,key,'productLike',productLikeVal)}</td>`;
         const revChangeTd=isUploadDay?'<td style="text-align:center;color:var(--color-text-tertiary);">-</td>':`<td style="text-align:center;color:${isNaN(revenueChange)?'var(--color-text-tertiary)':revenueChange>=0?'#2d8c5a':'#c0392b'};">${isNaN(revenueChange)?'-':revenueChange.toFixed(1)+'%'}</td>`;
         const cvrTd=isUploadDay?'<td style="text-align:center;color:var(--color-text-tertiary);">-</td>':`<td style="text-align:center;color:var(--color-text-secondary);">${isNaN(cvr)?'-':cvr.toFixed(1)+'%'}</td>`;
         const revShareTd=isUploadDay?'<td style="text-align:center;color:var(--color-text-tertiary);">-</td>':`<td style="text-align:center;color:var(--color-text-secondary);">${isNaN(revShare)?'-':revShare.toFixed(1)+'%'}</td>`;
@@ -18202,6 +18201,16 @@ if(document.readyState==='loading'){
     });
     return updated;
   }
+  function feedbackItemKey(item, platform){
+    if(typeof window.fbFeedbackAutoItemKey === 'function') return window.fbFeedbackAutoItemKey(item, platform);
+    item = item || {};
+    var u = normUid(item.uid || item.UID || item['UID']);
+    var p = normPlatform(platform || item.platform);
+    if(u) return 'uid:' + p + '|' + u;
+    var c = norm(item.code || item.productCode || item['상품코드'] || item['상품 코드']);
+    if(c) return 'code:' + p + '|' + c;
+    return 'name:' + p + '|' + norm(item.name || item.productName || item['상품명'] || item['제품명']);
+  }
   function applyProductStatsToFeedback(){
     var updated = 0;
     (window.creators || []).forEach(function(cr, ci){
@@ -18215,13 +18224,23 @@ if(document.readyState==='loading'){
         var d = new Date(uploadD.getTime() + off * 86400000);
         var ds = d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate());
         var key = ci + '_d' + off;
-        if(!cr._fbData[key]) cr._fbData[key] = {view:0,comment:0,like:0,click:0,productLike:0,sales:0,revenue:0,total:0,rankAll:0,rankCat:0};
+        if(!cr._fbData[key]) cr._fbData[key] = {view:0,comment:0,like:0,click:0,productLike:'',sales:0,revenue:0,total:0,rankAll:0,rankCat:0};
+        if(!cr._fbData[key]._itemData) cr._fbData[key]._itemData = {};
         var totalLike = 0, hasLike = false;
         items.forEach(function(item){
+          var itemKey = feedbackItemKey(item, item.platform || cr.platform);
+          if(!cr._fbData[key]._itemData[itemKey]) cr._fbData[key]._itemData[itemKey] = {};
           var stat = itemStat(item, item.platform || cr.platform, ds, {exactOnly:true});
-          if(stat){ totalLike += toNum(stat.likes); hasLike = true; }
+          if(stat){
+            var likeValue = toNum(stat.likes);
+            cr._fbData[key]._itemData[itemKey].productLike = likeValue;
+            totalLike += likeValue;
+            hasLike = true;
+          }else{
+            cr._fbData[key]._itemData[itemKey].productLike = '';
+          }
         });
-        cr._fbData[key].productLike = hasLike ? totalLike : 0;
+        cr._fbData[key].productLike = hasLike ? totalLike : '';
         if(hasLike) updated++;
       }
     });
