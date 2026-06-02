@@ -332,6 +332,7 @@
         monthlyBudgetSheetUrl: window.monthlyBudgetSheetUrl || '',
         dailySpendSheetUrl:    window.dailySpendSheetUrl || '',
         salesGoalSheetUrl:     window.salesGoalSheetUrl || '',
+        productStatsSheetUrl:  window.productStatsSheetUrl || '',
       };
       await db.collection('settings').doc('sheetUrls').set(urls);
       return true;
@@ -493,6 +494,7 @@
             if (data.monthlyBudgetSheetUrl) window.monthlyBudgetSheetUrl = data.monthlyBudgetSheetUrl;
             if (data.dailySpendSheetUrl) window.dailySpendSheetUrl = data.dailySpendSheetUrl;
             if (data.salesGoalSheetUrl) window.salesGoalSheetUrl = data.salesGoalSheetUrl;
+            if (data.productStatsSheetUrl) window.productStatsSheetUrl = data.productStatsSheetUrl;
           }
           if (d.id === 'budgetMemos') {
             window.budgetMemos = data.values || {};
@@ -1873,6 +1875,10 @@ html[data-user-role="viewer"] [data-delete]{opacity:.35!important;cursor:not-all
       <div style="display:grid;grid-template-columns:180px minmax(0,1fr);gap:10px;align-items:center;">
         <label for="sales-goal-sheet-url" style="font-size:12px;color:var(--color-text-secondary);font-weight:500;">목표 매출 연동<br><span style="font-size:10px;color:var(--color-text-tertiary);">2026 TCM Sales goal</span></label>
         <input id="sales-goal-sheet-url" type="text" placeholder="CSV 링크 입력" style="font-size:12px;padding:7px 9px;border:0.5px solid var(--color-border-secondary);border-radius:8px;background:var(--color-background-primary);color:var(--color-text-primary);width:100%;">
+      </div>
+      <div style="display:grid;grid-template-columns:180px minmax(0,1fr);gap:10px;align-items:center;">
+        <label for="product-stats-sheet-url" style="font-size:12px;color:var(--color-text-secondary);font-weight:500;">상품 좋아요/후기 연동<br><span style="font-size:10px;color:var(--color-text-tertiary);">통합 탭</span></label>
+        <input id="product-stats-sheet-url" type="text" placeholder="통합 탭 Google Sheets 링크 입력" value="https://docs.google.com/spreadsheets/d/1Ls9qpau2TCHuErOK-TQ0PXCuNrjS4ffSL_AbyvPomdQ/edit?gid=941858684#gid=941858684" style="font-size:12px;padding:7px 9px;border:0.5px solid var(--color-border-secondary);border-radius:8px;background:var(--color-background-primary);color:var(--color-text-primary);width:100%;">
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px;">
         <div id="sheet-sync-status" style="font-size:11px;color:var(--color-text-tertiary);">시트 링크를 입력해주세요.</div>
@@ -5933,7 +5939,8 @@ function openSheetSyncPanel(){
     'item-sheet-url': window.itemSheetUrl || localStorage.getItem('item_sheet_url') || '',
     'monthly-budget-sheet-url': window.monthlyBudgetSheetUrl || localStorage.getItem('monthly_budget_sheet_url') || window.budgetSheetUrl || localStorage.getItem('budget_sheet_url') || '',
     'daily-spend-sheet-url': window.dailySpendSheetUrl || localStorage.getItem('daily_spend_sheet_url') || '',
-    'sales-goal-sheet-url': window.salesGoalSheetUrl || localStorage.getItem('sales_goal_sheet_url') || ''
+    'sales-goal-sheet-url': window.salesGoalSheetUrl || localStorage.getItem('sales_goal_sheet_url') || '',
+    'product-stats-sheet-url': window.productStatsSheetUrl || localStorage.getItem('product_stats_sheet_url') || 'https://docs.google.com/spreadsheets/d/1Ls9qpau2TCHuErOK-TQ0PXCuNrjS4ffSL_AbyvPomdQ/edit?gid=941858684#gid=941858684'
   };
   Object.entries(map).forEach(([id,val])=>{const el=document.getElementById(id);if(el&&!el.value)el.value=val;});
 }
@@ -6075,13 +6082,15 @@ async function loadUnifiedSheets(){
   const hasItem=!!document.getElementById('item-sheet-url')?.value?.trim();
   const hasBudget=!!(document.getElementById('monthly-budget-sheet-url')?.value?.trim() || document.getElementById('daily-spend-sheet-url')?.value?.trim());
   const hasSalesGoal=!!document.getElementById('sales-goal-sheet-url')?.value?.trim();
-  if(!hasMeta&&!hasItem&&!hasBudget&&!hasSalesGoal){setSheetSyncStatus('URL을 입력해주세요.','error');return;}
+  const hasProductStats=!!document.getElementById('product-stats-sheet-url')?.value?.trim();
+  if(!hasMeta&&!hasItem&&!hasBudget&&!hasSalesGoal&&!hasProductStats){setSheetSyncStatus('URL을 입력해주세요.','error');return;}
   setSheetSyncStatus('시트 연동 중...','loading');
   try{
     if(hasMeta) await loadMetaFromSheets();
     if(hasItem) await loadItemFromSheet();
     if(hasBudget) await loadBudgetFromSheet();
     if(hasSalesGoal) await loadSalesGoalFromSheet();
+    if(hasProductStats && typeof window.loadProductStatsFromSheet === 'function') await window.loadProductStatsFromSheet();
     const btn=document.getElementById('sheet-sync-refresh'); if(btn)btn.style.display='inline-block';
     setSheetSyncStatus('✅ 시트 연동 완료!','ok');
   }catch(e){setSheetSyncStatus('❌ '+(e.message||e),'error');}
@@ -6091,12 +6100,14 @@ async function refreshUnifiedSheets(){
   const hasItem=!!(window.itemSheetUrl||localStorage.getItem('item_sheet_url'));
   const hasBudget=!!(window.monthlyBudgetSheetUrl||window.dailySpendSheetUrl||localStorage.getItem('monthly_budget_sheet_url')||localStorage.getItem('daily_spend_sheet_url')||window.budgetSheetUrl||localStorage.getItem('budget_sheet_url'));
   const hasSalesGoal=!!(window.salesGoalSheetUrl||localStorage.getItem('sales_goal_sheet_url'));
+  const hasProductStats=!!(window.productStatsSheetUrl||localStorage.getItem('product_stats_sheet_url'));
   setSheetSyncStatus('새로고침 중...','loading');
   try{
     if(hasMeta) await refreshMetaFromSheets();
     if(hasItem) await refreshItemFromSheet();
     if(hasBudget) await loadBudgetFromSheet();
     if(hasSalesGoal) await loadSalesGoalFromSheet();
+    if(hasProductStats && typeof window.refreshProductStatsFromSheet === 'function') await window.refreshProductStatsFromSheet();
     setSheetSyncStatus('✅ 새로고침 완료!','ok');
   }catch(e){setSheetSyncStatus('❌ '+(e.message||e),'error');}
 }
@@ -17950,6 +17961,291 @@ if(document.readyState==='loading'){
 
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(ensureOrganicSalesButton, 500); });
   else setTimeout(ensureOrganicSalesButton, 500);
+})();
+</script>
+
+
+<!-- CHOI PATCH: Product likes/reviews unified sheet integration (requested only) -->
+<script id="product-stats-unified-sheet-integration">
+(function(){
+  'use strict';
+
+  var DEFAULT_PRODUCT_STATS_URL = 'https://docs.google.com/spreadsheets/d/1Ls9qpau2TCHuErOK-TQ0PXCuNrjS4ffSL_AbyvPomdQ/edit?gid=941858684#gid=941858684';
+  window.productStatsSheetUrl = window.productStatsSheetUrl || localStorage.getItem('product_stats_sheet_url') || DEFAULT_PRODUCT_STATS_URL;
+  window.productStatsRows = window.productStatsRows || [];
+
+  function clean(v){ return String(v == null ? '' : v).trim(); }
+  function norm(v){ return clean(v).toLowerCase().replace(/\s+/g,'').replace(/[\-_]/g,''); }
+  function normUid(v){
+    var x = norm(v).replace(/,/g,'');
+    if(/^\d+\.0+$/.test(x)) x = x.replace(/\.0+$/,'');
+    return x;
+  }
+  function toNum(v){ return Number(String(v == null ? '' : v).replace(/[^0-9.\-]/g,'')) || 0; }
+  function pad2(v){ return String(v).padStart(2,'0'); }
+  function normalizeDate(value){
+    var raw = clean(value);
+    if(!raw) return '';
+    if(/^\d{5}(\.\d+)?$/.test(raw)){
+      var serial = Math.floor(Number(raw));
+      if(serial > 20000 && serial < 80000){
+        var d0 = new Date(Date.UTC(1899,11,30) + serial * 86400000);
+        return d0.getUTCFullYear() + '-' + pad2(d0.getUTCMonth()+1) + '-' + pad2(d0.getUTCDate());
+      }
+    }
+    var m = raw.match(/(20\d{2})[-\/.년\s]+(\d{1,2})[-\/.월\s]+(\d{1,2})/);
+    if(m) return m[1] + '-' + pad2(m[2]) + '-' + pad2(m[3]);
+    m = raw.match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일?/);
+    if(m) return (new Date()).getFullYear() + '-' + pad2(m[1]) + '-' + pad2(m[2]);
+    return raw.slice(0,10);
+  }
+  function normPlatform(v){
+    if(typeof window.mNormMetaPlatform === 'function') return window.mNormMetaPlatform(v);
+    var x = norm(v);
+    if(x === '무신사' || x === 'musinsa') return 'musinsa';
+    if(x === '29cm' || x === '29') return '29cm';
+    if(x === '자사몰' || x === 'store' || x === '스토어' || x === '자사몰자체' || x === '자사') return 'store';
+    if(x === 'offline' || x === '오프라인' || x.indexOf('오프') > -1 || x.indexOf('플래그십') > -1) return 'offline';
+    return x;
+  }
+  function csvUrl(url){
+    url = clean(url);
+    if(!url) return '';
+    var id = url.match(/\/spreadsheets\/d\/([^\/?#]+)/);
+    if(id && !/[?&](format|output)=csv/i.test(url)){
+      var gid = (url.match(/[?#&]gid=(\d+)/) || [,'941858684'])[1] || '941858684';
+      return 'https://docs.google.com/spreadsheets/d/' + id[1] + '/export?format=csv&gid=' + gid;
+    }
+    return url;
+  }
+  function parseCSVLine(line){
+    var vals=[], cur='', inQ=false;
+    for(var i=0;i<line.length;i++){
+      var c=line[i];
+      if(c === '"'){
+        if(inQ && line[i+1] === '"'){ cur += '"'; i++; }
+        else inQ = !inQ;
+      }else if(c === ',' && !inQ){ vals.push(cur.trim().replace(/^"|"$/g,'')); cur=''; }
+      else cur += c;
+    }
+    vals.push(cur.trim().replace(/^"|"$/g,''));
+    return vals;
+  }
+  function parseCSVObjects(text){
+    var lines = String(text || '').replace(/^\uFEFF/,'').trim().split(/\r?\n/).filter(Boolean);
+    if(lines.length < 2) return [];
+    var headers = parseCSVLine(lines[0]).map(function(h){ return clean(h); });
+    return lines.slice(1).map(function(line){
+      var vals = parseCSVLine(line), obj = {};
+      headers.forEach(function(h,i){ obj[h] = vals[i] || ''; });
+      return obj;
+    }).filter(function(row){ return Object.values(row).some(Boolean); });
+  }
+  function rowVal(row, keys){
+    row = row || {};
+    keys = Array.isArray(keys) ? keys : [keys];
+    if(typeof window.mRawVal === 'function'){
+      var mv = window.mRawVal(row, keys);
+      if(mv !== undefined && mv !== null && clean(mv) !== '') return mv;
+    }
+    for(var i=0;i<keys.length;i++){
+      var key = keys[i];
+      if(row[key] !== undefined && row[key] !== null && clean(row[key]) !== '') return row[key];
+    }
+    var normKeys = keys.map(norm);
+    var realKeys = Object.keys(row || {});
+    for(var j=0;j<realKeys.length;j++){
+      if(normKeys.indexOf(norm(realKeys[j])) !== -1 && clean(row[realKeys[j]]) !== '') return row[realKeys[j]];
+    }
+    return '';
+  }
+  function productCode(p){ return clean((p||{}).code || (p||{}).productCode || (p||{}).itemCode || (p||{})['상품코드'] || (p||{})['상품 코드']); }
+  function productName(p){ return clean((p||{}).name || (p||{}).product || (p||{}).productName || (p||{}).itemName || (p||{})['상품명'] || (p||{})['제품명']); }
+  function productUidByPlatform(p, platform){
+    p = p || {};
+    var pk = normPlatform(platform || p.platform);
+    if(pk === 'musinsa') return clean(p.musinsaUid || p.musinsaUID || p.musinsa_uid || p['무신사 UID'] || p['무신사UID'] || ((normPlatform(p.platform) === 'musinsa') ? (p.uid || p.UID) : ''));
+    if(pk === '29cm') return clean(p.cmUid || p.cmUID || p.cm_uid || p['29CM UID'] || p['29CMUID'] || p['29cmUid'] || ((normPlatform(p.platform) === '29cm') ? (p.uid || p.UID) : ''));
+    if(pk === 'store') return clean(p.storeUid || p.storeUID || p.store_uid || p['자사몰 UID'] || p['자사몰UID'] || ((normPlatform(p.platform) === 'store') ? (p.uid || p.UID) : ''));
+    return clean(p.uid || p.UID || p.musinsaUid || p.cmUid || p.storeUid);
+  }
+  function rowToStat(row){
+    return {
+      date: normalizeDate(rowVal(row, ['날짜','일자','기준일','date','Date','수집일','collectDate'])),
+      platform: normPlatform(rowVal(row, ['플랫폼','플랫폼명','판매 채널','판매채널','채널','channel','Channel'])),
+      uid: normUid(rowVal(row, ['UID','uid','Uid','상품 UID','상품UID','상품 uid','Product UID','goodsNo','itemNo'])),
+      code: norm(rowVal(row, ['상품코드','상품 코드','productCode','code','itemCode'])),
+      name: clean(rowVal(row, ['상품명','제품명','제품명','상품 이름','product','productName','goodsName','itemName','name'])),
+      likes: toNum(rowVal(row, ['좋아요','상품 좋아요','상품좋아요','좋아요 수','좋아요수','likes','heartCount','likeCount'])),
+      reviews: toNum(rowVal(row, ['후기','리뷰','후기 수','후기수','리뷰 수','리뷰수','reviews','reviewCount']))
+    };
+  }
+  function productStats(){
+    return (window.productStatsRows || []).map(rowToStat).filter(function(r){ return r.platform || r.uid || r.code || r.name; });
+  }
+  function findStat(platform, uid, code, name, date){
+    var pk = normPlatform(platform), u = normUid(uid), c = norm(code), n = norm(name), ds = normalizeDate(date);
+    var rows = productStats().filter(function(r){
+      if(pk && r.platform && r.platform !== pk) return false;
+      return (u && r.uid === u) || (c && r.code === c) || (n && norm(r.name) === n);
+    });
+    if(!rows.length) return null;
+    rows.sort(function(a,b){ return String(b.date || '').localeCompare(String(a.date || '')); });
+    if(ds){
+      var exact = rows.find(function(r){ return r.date === ds; });
+      if(exact) return exact;
+      var before = rows.find(function(r){ return r.date && r.date <= ds; });
+      if(before) return before;
+    }
+    return rows[0];
+  }
+  function itemStat(item, platform, date){
+    item = item || {};
+    var product = null;
+    var directUid = clean(item.uid || item.UID || item['UID']);
+    if(!directUid && Array.isArray(window.products)){
+      var qCode = norm(item.code || item.productCode || item['상품코드'] || item['상품 코드']);
+      var qName = norm(item.product || item.name || item.productName || item['상품명'] || item['제품명']);
+      product = window.products.find(function(p){
+        return (qCode && norm(productCode(p)) === qCode) || (qName && norm(productName(p)) === qName);
+      }) || null;
+    }
+    var uid = directUid || productUidByPlatform(product, platform);
+    var code = item.code || item.productCode || productCode(product);
+    var name = item.product || item.name || item.productName || productName(product);
+    return findStat(platform, uid, code, name, date);
+  }
+  function saveSheetUrl(){
+    try{
+      if(window.fbSaveSheetUrls) window.fbSaveSheetUrls();
+    }catch(e){ console.warn('상품 좋아요/후기 시트 URL 저장 실패:', e); }
+  }
+  function refreshViews(){
+    if(typeof window.applyFeedbackFilter === 'function') window.applyFeedbackFilter();
+    if(typeof window.orgRender === 'function') window.orgRender();
+    if(typeof window.ovBuildItemTable === 'function') window.ovBuildItemTable();
+    if(typeof window.ovBuildItemRankChart === 'function') window.ovBuildItemRankChart();
+    if(typeof window.ovRender === 'function' && (window._ovCurrentSub || '') === 'item') window.ovRender(window._ovCurrentView || 'total');
+  }
+  function applyProductStatsToProducts(){
+    var updated = 0;
+    (window.products || []).forEach(function(p){
+      ['musinsa','29cm','store'].forEach(function(platform){
+        var stat = findStat(platform, productUidByPlatform(p, platform), productCode(p), productName(p));
+        if(!stat) return;
+        if(platform === 'musinsa'){ p.musinsaLikes = stat.likes; p.musinsaReviews = stat.reviews; }
+        if(platform === '29cm'){ p.cmLikes = stat.likes; p.cmReviews = stat.reviews; }
+        if(platform === 'store'){ p.storeLikes = stat.likes; p.storeReviews = stat.reviews; }
+        p.likes = Math.max(toNum(p.likes), toNum(stat.likes));
+        p.reviews = Math.max(toNum(p.reviews), toNum(stat.reviews));
+        updated++;
+      });
+    });
+    return updated;
+  }
+  function applyProductStatsToFeedback(){
+    var updated = 0;
+    (window.creators || []).forEach(function(cr, ci){
+      if(!cr) return;
+      var uploadD = cr.uploadDate ? new Date(cr.uploadDate) : null;
+      if(!uploadD || isNaN(uploadD.getTime())) return;
+      var items = cr.items || [];
+      if(!items.length) return;
+      if(!cr._fbData) cr._fbData = {};
+      for(var off=-1; off<=6; off++){
+        var d = new Date(uploadD.getTime() + off * 86400000);
+        var ds = d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate());
+        var key = ci + '_d' + off;
+        if(!cr._fbData[key]) cr._fbData[key] = {view:0,comment:0,like:0,click:0,productLike:0,sales:0,revenue:0,total:0,rankAll:0,rankCat:0};
+        var totalLike = 0;
+        items.forEach(function(item){
+          var stat = itemStat(item, item.platform || cr.platform, ds);
+          if(stat) totalLike += toNum(stat.likes);
+        });
+        if(totalLike){ cr._fbData[key].productLike = totalLike; updated++; }
+      }
+    });
+    return updated;
+  }
+  function applyProductStatsToOrganic(){
+    var updated = 0;
+    (window.organicData || []).forEach(function(r){
+      if(!r || !r.date) return;
+      var products = r.products || [];
+      [-1,0,1,2].forEach(function(off, di){
+        var d = new Date(r.date);
+        if(isNaN(d.getTime())) return;
+        d.setDate(d.getDate() + off);
+        var ds = d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate());
+        var key = 'd' + di;
+        products.forEach(function(p){
+          if(!p.metrics) p.metrics = {};
+          if(!p.metrics[key]) p.metrics[key] = {productLike:'', sales:'', revenue:'', total:''};
+          var stat = itemStat(p, p.platform || r.platform, ds);
+          if(stat){ p.metrics[key].productLike = stat.likes; updated++; }
+        });
+      });
+    });
+    return updated;
+  }
+  window.applyProductStatsToDashboard = function(){
+    var productCount = applyProductStatsToProducts();
+    var feedbackCount = applyProductStatsToFeedback();
+    var organicCount = applyProductStatsToOrganic();
+    if(productCount && typeof window.fbSaveProducts === 'function') window.fbSaveProducts();
+    if(feedbackCount && typeof window.fbSaveCreators === 'function') window.fbSaveCreators();
+    if(organicCount && typeof window.fbSaveBatch === 'function') window.fbSaveBatch('organic', window.organicData || []);
+    refreshViews();
+    return {products:productCount, feedback:feedbackCount, organic:organicCount};
+  };
+  window.loadProductStatsFromSheet = async function(){
+    var el = document.getElementById('product-stats-sheet-url');
+    var url = (el && el.value.trim()) || window.productStatsSheetUrl || DEFAULT_PRODUCT_STATS_URL;
+    if(!url) return false;
+    window.productStatsSheetUrl = url;
+    localStorage.setItem('product_stats_sheet_url', url);
+    if(window.setSheetSyncStatus) window.setSheetSyncStatus('상품 좋아요/후기 통합 시트 불러오는 중...','loading');
+    var res = await fetch(csvUrl(url));
+    if(!res.ok) throw new Error('상품 좋아요/후기 통합 시트 URL에 접근할 수 없어요. 공유 권한 또는 통합 탭 gid를 확인해주세요.');
+    var text = await res.text();
+    if(/^\s*</.test(text) || /<html[\s>]/i.test(text.slice(0,500))) throw new Error('상품 좋아요/후기 URL이 CSV가 아니라 웹페이지로 열립니다. 공유 권한을 확인해주세요.');
+    window.productStatsRows = parseCSVObjects(text);
+    if(!window.productStatsRows.length) throw new Error('상품 좋아요/후기 통합 시트에서 데이터를 찾지 못했어요.');
+    saveSheetUrl();
+    var result = window.applyProductStatsToDashboard();
+    if(window.setSheetSyncStatus) window.setSheetSyncStatus('✅ 상품 좋아요/후기 연동 완료! 통합 '+window.productStatsRows.length+'행 · Overview '+result.products+'건 · Feedback '+result.feedback+'건 · Organic '+result.organic+'건','ok');
+    return true;
+  };
+  window.refreshProductStatsFromSheet = async function(){
+    var el = document.getElementById('product-stats-sheet-url');
+    if(el && !el.value) el.value = window.productStatsSheetUrl || localStorage.getItem('product_stats_sheet_url') || DEFAULT_PRODUCT_STATS_URL;
+    return window.loadProductStatsFromSheet();
+  };
+
+  function wrapLoader(name){
+    var original = window[name];
+    if(typeof original !== 'function' || original.__productStatsWrapped) return;
+    var wrapped = async function(){
+      var ret = await original.apply(this, arguments);
+      var hasUrl = window.productStatsSheetUrl || localStorage.getItem('product_stats_sheet_url') || (document.getElementById('product-stats-sheet-url') || {}).value;
+      if(hasUrl && typeof window.loadProductStatsFromSheet === 'function'){
+        try{ await window.loadProductStatsFromSheet(); }catch(e){ console.warn('상품 좋아요/후기 자동 연동 실패:', e); }
+      }
+      return ret;
+    };
+    wrapped.__productStatsWrapped = true;
+    window[name] = wrapped;
+  }
+  function boot(){
+    var el = document.getElementById('product-stats-sheet-url');
+    if(el && !el.value) el.value = window.productStatsSheetUrl || DEFAULT_PRODUCT_STATS_URL;
+    wrapLoader('loadUnifiedSheets');
+    wrapLoader('refreshUnifiedSheets');
+    if((window.productStatsRows || []).length) window.applyProductStatsToDashboard();
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(boot,0); });
+  else setTimeout(boot,0);
+  window.addEventListener('load', function(){ setTimeout(boot,300); });
 })();
 </script>
 
