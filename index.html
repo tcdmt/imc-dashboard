@@ -6090,7 +6090,18 @@ async function loadUnifiedSheets(){
     if(hasItem) await loadItemFromSheet();
     if(hasBudget) await loadBudgetFromSheet();
     if(hasSalesGoal) await loadSalesGoalFromSheet();
-    if(hasProductStats && typeof window.loadProductStatsFromSheet === 'function') await window.loadProductStatsFromSheet();
+    if(hasProductStats && typeof window.loadProductStatsFromSheet === 'function') {
+      try{
+        await Promise.race([
+          window.loadProductStatsFromSheet(),
+          new Promise(function(_, reject){ setTimeout(function(){ reject(new Error('상품 좋아요/후기 시트 응답 지연')); }, 18000); })
+        ]);
+      }catch(psErr){
+        console.warn('상품 좋아요/후기 연동 실패:', psErr);
+        setSheetSyncStatus('❌ 상품 좋아요/후기 연동 실패: ' + (psErr.message || psErr), 'error');
+        return;
+      }
+    }
     const btn=document.getElementById('sheet-sync-refresh'); if(btn)btn.style.display='inline-block';
     setSheetSyncStatus('✅ 시트 연동 완료!','ok');
   }catch(e){setSheetSyncStatus('❌ '+(e.message||e),'error');}
@@ -6107,7 +6118,18 @@ async function refreshUnifiedSheets(){
     if(hasItem) await refreshItemFromSheet();
     if(hasBudget) await loadBudgetFromSheet();
     if(hasSalesGoal) await loadSalesGoalFromSheet();
-    if(hasProductStats && typeof window.refreshProductStatsFromSheet === 'function') await window.refreshProductStatsFromSheet();
+    if(hasProductStats && typeof window.refreshProductStatsFromSheet === 'function') {
+      try{
+        await Promise.race([
+          window.refreshProductStatsFromSheet(),
+          new Promise(function(_, reject){ setTimeout(function(){ reject(new Error('상품 좋아요/후기 시트 응답 지연')); }, 18000); })
+        ]);
+      }catch(psErr){
+        console.warn('상품 좋아요/후기 새로고침 실패:', psErr);
+        setSheetSyncStatus('❌ 상품 좋아요/후기 연동 실패: ' + (psErr.message || psErr), 'error');
+        return;
+      }
+    }
     setSheetSyncStatus('✅ 새로고침 완료!','ok');
   }catch(e){setSheetSyncStatus('❌ '+(e.message||e),'error');}
 }
@@ -18060,15 +18082,25 @@ if(document.readyState==='loading'){
   async function fetchCsvWithTimeout(url, timeoutMs){
     var candidates = csvCandidates(url);
     var lastErr = null;
+    var limit = timeoutMs || 15000;
     for(var i=0;i<candidates.length;i++){
       var target = candidates[i];
       var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-      var timer = ctrl ? setTimeout(function(){ try{ ctrl.abort(); }catch(e){} }, timeoutMs || 15000) : null;
+      var timer = null;
       try{
-        var res = await fetch(target, { cache:'no-store', redirect:'follow', signal: ctrl ? ctrl.signal : undefined });
+        var fetchJob = (async function(){
+          var res = await fetch(target, { cache:'no-store', redirect:'follow', signal: ctrl ? ctrl.signal : undefined });
+          if(!res.ok) throw new Error('HTTP ' + res.status);
+          return await res.text();
+        })();
+        var timeoutJob = new Promise(function(_, reject){
+          timer = setTimeout(function(){
+            try{ if(ctrl) ctrl.abort(); }catch(e){}
+            reject(new Error('응답 시간이 너무 오래 걸려 중단했어요.'));
+          }, limit);
+        });
+        var text = await Promise.race([fetchJob, timeoutJob]);
         if(timer) clearTimeout(timer);
-        if(!res.ok) throw new Error('HTTP ' + res.status);
-        var text = await res.text();
         if(/^\s*</.test(text) || /<html[\s>]/i.test(text.slice(0,500))) throw new Error('CSV가 아니라 웹페이지 응답입니다.');
         return text;
       }catch(e){
@@ -18076,7 +18108,7 @@ if(document.readyState==='loading'){
         lastErr = e;
       }
     }
-    var msg = lastErr && lastErr.name === 'AbortError' ? '응답 시간이 너무 오래 걸려 중단했어요.' : (lastErr && lastErr.message ? lastErr.message : 'CSV를 불러오지 못했어요.');
+    var msg = lastErr && lastErr.message ? lastErr.message : 'CSV를 불러오지 못했어요.';
     throw new Error(msg);
   }
   function parseCSVLine(line){
