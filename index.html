@@ -17418,6 +17418,7 @@ if(document.readyState==='loading'){
   function norm(v){return String(v||'').trim().toLowerCase();}
   function lookup(date,platform,p){
     const pools=[window.orgSalesData,window.orgSheetData,window.productDailyData,window.metaSalesRows,window.metaSalesData,window.itemDailyData].filter(Array.isArray);
+    const productLikePools=[window.productStatsRows,window.orgSalesData,window.orgSheetData,window.productDailyData,window.metaSalesRows,window.metaSalesData,window.itemDailyData].filter(Array.isArray);
     const prod=String((p&&p.product)||'');
     const uid=String((p&&p.uid)||'');
     const code=String((p&&p.code)||'');
