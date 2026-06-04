@@ -18235,10 +18235,16 @@ if(document.readyState==='loading'){
     catch(e){ console.warn('상품 좋아요/후기 시트 URL 저장 실패:', e); }
   }
   function refreshViews(){
-    if(typeof window.applyFeedbackFilter === 'function') window.applyFeedbackFilter();
-    if(typeof window.ovBuildItemTable === 'function') window.ovBuildItemTable();
-    if(typeof window.ovBuildItemRankChart === 'function') window.ovBuildItemRankChart();
-    if(typeof window.ovRender === 'function' && (window._ovCurrentSub || '') === 'item') window.ovRender(window._ovCurrentView || 'total');
+    var jobs = [
+      ['Feedback 갱신', function(){ if(typeof window.applyFeedbackFilter === 'function') window.applyFeedbackFilter(); }],
+      ['Overview 상품 테이블 갱신', function(){ if(typeof window.ovBuildItemTable === 'function') window.ovBuildItemTable(); }],
+      ['Overview 상품 랭킹 갱신', function(){ if(typeof window.ovBuildItemRankChart === 'function') window.ovBuildItemRankChart(); }],
+      ['Overview 렌더 갱신', function(){ if(typeof window.ovRender === 'function' && (window._ovCurrentSub || '') === 'item') window.ovRender(window._ovCurrentView || 'total'); }]
+    ];
+    jobs.forEach(function(job){
+      try{ job[1](); }
+      catch(e){ console.warn('상품 좋아요/후기 연동 후 ' + job[0] + ' 중 오류:', e); }
+    });
   }
   function applyProductStatsToProducts(){
     var date = (window._ovDateTo || (document.getElementById('ov-date-to') || {}).value || '');
@@ -18343,6 +18349,62 @@ if(document.readyState==='loading'){
   }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(boot,0); });
   else setTimeout(boot,0);
+})();
+</script>
+
+<!-- CHOI PATCH: Sheet sync pending safety guard only -->
+<script id="sheet-sync-pending-safety-guard">
+(function(){
+  'use strict';
+
+  function status(msg, type){
+    try{
+      if(typeof window.setSheetSyncStatus === 'function') window.setSheetSyncStatus(msg, type || 'error');
+    }catch(e){}
+  }
+
+  function wrapAsyncWithTimeout(fnName, label, timeoutMs){
+    var original = window[fnName];
+    if(typeof original !== 'function' || original.__sheetPendingGuard) return;
+
+    var wrapped = async function(){
+      var args = arguments;
+      var finished = false;
+      var timer = null;
+      try{
+        var timeoutPromise = new Promise(function(_, reject){
+          timer = setTimeout(function(){
+            if(!finished) reject(new Error(label + ' 응답이 지연되어 중단했어요. 시트 공개/CSV 링크와 네트워크 상태를 확인해주세요.'));
+          }, timeoutMs || 20000);
+        });
+        var result = await Promise.race([
+          Promise.resolve().then(function(){ return original.apply(this, args); }.bind(this)),
+          timeoutPromise
+        ]);
+        finished = true;
+        return result;
+      }catch(e){
+        finished = true;
+        status('❌ ' + (e && e.message ? e.message : e), 'error');
+        throw e;
+      }finally{
+        finished = true;
+        if(timer) clearTimeout(timer);
+      }
+    };
+    wrapped.__sheetPendingGuard = true;
+    window[fnName] = wrapped;
+  }
+
+  function install(){
+    wrapAsyncWithTimeout('loadProductStatsFromSheet', '상품 좋아요/후기 시트 연동', 20000);
+    wrapAsyncWithTimeout('refreshProductStatsFromSheet', '상품 좋아요/후기 시트 새로고침', 20000);
+    wrapAsyncWithTimeout('loadUnifiedSheets', '전체 시트 연동', 30000);
+    wrapAsyncWithTimeout('refreshUnifiedSheets', '전체 시트 새로고침', 30000);
+  }
+
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(install, 0); });
+  else setTimeout(install, 0);
 })();
 </script>
 
