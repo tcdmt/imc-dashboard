@@ -19060,5 +19060,150 @@ if(document.readyState==='loading'){
 })();
 </script>
 
+
+<!-- PATCH v82: List Item manual campaign name save fix (requested only) -->
+<script id="list-v82-manual-item-save-fix">
+(function(){
+  'use strict';
+
+  function clean(v){ return String(v == null ? '' : v).trim(); }
+  function norm(v){ return clean(v).toLowerCase().replace(/\s+/g,''); }
+  function onlyNum(v){ return parseInt(String(v == null ? '' : v).replace(/[^0-9]/g,''), 10) || 0; }
+  function firstVal(obj, keys){
+    obj = obj || {};
+    for(var i=0;i<keys.length;i++){
+      var k = keys[i];
+      if(obj[k] !== undefined && obj[k] !== null && clean(obj[k]) !== '') return obj[k];
+    }
+    return '';
+  }
+  function colorFromName(name){
+    var m = String(name || '').match(/\(([^()]*)\)\s*$/);
+    return m ? m[1].trim() : '';
+  }
+  function productCode(product){ return clean(firstVal(product, ['code','productCode','itemCode','sku','상품 코드','상품코드'])); }
+  function productName(product){ return clean(firstVal(product, ['name','productName','itemName','상품명','제품명'])); }
+  function productCost(product){ return onlyNum(firstVal(product, ['cost','원가','costPrice','productCost'])); }
+  function platformKey(v){
+    var x = norm(v);
+    if(x === '무신사' || x === 'musinsa') return 'musinsa';
+    if(x === '29cm') return 'cm';
+    if(x === '자사몰' || x === 'store' || x === '스토어' || x === '자사') return 'store';
+    return x;
+  }
+  function uidByPlatform(product, platform){
+    var p = product || {};
+    var key = platformKey(platform);
+    if(key === 'musinsa') return clean(firstVal(p, ['musinsaUid','musinsaUID','musinsa_uid','무신사 UID','무신사UID','uid','UID']));
+    if(key === 'cm') return clean(firstVal(p, ['cmUid','cmUID','cm_uid','29cmUid','29CMUid','29CM UID','29CMUID','uid','UID']));
+    if(key === 'store') return clean(firstVal(p, ['storeUid','storeUID','store_uid','자사몰 UID','자사몰UID','uid','UID']));
+    return clean(firstVal(p, ['uid','UID','musinsaUid','cmUid','storeUid']));
+  }
+  function findByCode(code){
+    var q = norm(code);
+    if(!q) return null;
+    return (window.products || []).find(function(product){ return norm(productCode(product)) === q; }) || null;
+  }
+  function findByUid(uid, platform){
+    var q = norm(uid);
+    if(!q) return null;
+    return (window.products || []).find(function(product){ return norm(uidByPlatform(product, platform)) === q; }) || null;
+  }
+  function findByName(name){
+    var q = norm(name);
+    if(!q) return null;
+    return (window.products || []).find(function(product){ return norm(productName(product)) === q; }) || null;
+  }
+  function findProduct(item, platform){
+    item = item || {};
+    return findByCode(item.code) || findByUid(item.uid, platform) || findByName(item.name);
+  }
+  function applyProduct(row, item, product){
+    var platform = row.platform || item.platform || '';
+    var name = productName(product);
+    item.platform = platform;
+    item.uid = uidByPlatform(product, platform) || item.uid || '';
+    item.code = productCode(product) || item.code || '';
+    item.name = name || item.name || '';
+    item.color = colorFromName(name) || item.color || '';
+    item.cost = productCost(product) || onlyNum(item.cost);
+    item.manual = false;
+  }
+  function keepManual(row, item){
+    var platform = row.platform || item.platform || '';
+    item.platform = platform;
+    item.uid = clean(item.uid);
+    item.code = clean(item.code);
+    item.name = clean(item.name);
+    item.color = clean(item.color) || colorFromName(item.name);
+    item.cost = onlyNum(item.cost);
+    item.manual = !!(item.uid || item.code || item.name || item.color || item.cost);
+  }
+  function getModalIndex(){
+    if(typeof window.__listModalIdx === 'number' && window.__listModalIdx > -1) return window.__listModalIdx;
+    try{ if(typeof modalIdx === 'number' && modalIdx > -1) return modalIdx; }catch(e){}
+    return -1;
+  }
+  function syncOpenModalInputs(row){
+    var body = document.getElementById('modal-item-body');
+    if(!body || !row || !Array.isArray(row.items)) return;
+    var trs = body.querySelectorAll('tr');
+    Array.prototype.forEach.call(trs, function(tr, ii){
+      var inputs = tr.querySelectorAll('input');
+      if(!row.items[ii]) row.items[ii] = {};
+      if(inputs[0]) row.items[ii].uid = inputs[0].value;
+      if(inputs[1]) row.items[ii].code = inputs[1].value;
+      if(inputs[2]) row.items[ii].name = inputs[2].value;
+      if(inputs[3]) row.items[ii].color = inputs[3].value;
+    });
+  }
+  function normalizeItems(row){
+    if(!row) return [];
+    if(!Array.isArray(row.items)) row.items = [];
+    row.items = row.items.filter(function(item){
+      if(!item) return false;
+      return clean(item.uid || item.code || item.name || item.color || item.cost) !== '';
+    });
+    row.items.forEach(function(item, order){
+      item._order = order;
+      var platform = row.platform || item.platform || '';
+      var product = findProduct(item, platform);
+      if(product) applyProduct(row, item, product);
+      else keepManual(row, item);
+    });
+    return row.items.map(function(item){ return Object.assign({}, item); });
+  }
+  function restoreItems(row, snapshot){
+    if(!row || !Array.isArray(snapshot)) return;
+    row.items = snapshot.map(function(item){ return Object.assign({}, item); });
+  }
+
+  var prevSaveModal = window.saveModal;
+  window.saveModal = function(){
+    var idx = getModalIndex();
+    var row = (window.creators || [])[idx];
+    var snapshot = null;
+    if(row){
+      syncOpenModalInputs(row);
+      snapshot = normalizeItems(row);
+    }
+
+    var result;
+    if(typeof prevSaveModal === 'function') result = prevSaveModal.apply(this, arguments);
+    else {
+      if(window.fbSaveCreators) window.fbSaveCreators();
+      if(window.closeModal) window.closeModal();
+    }
+
+    if(row && snapshot){
+      restoreItems(row, snapshot);
+      if(window.fbSaveCreators) window.fbSaveCreators();
+      if(window.applyListFilter) window.applyListFilter();
+    }
+    return result;
+  };
+})();
+</script>
+
 </body>
 </html>
