@@ -18858,5 +18858,207 @@ if(document.readyState==='loading'){
   }
 </style>
 
+
+<!-- CHOI PATCH: Organic detail popup delete button only -->
+<style id="organic-detail-popup-delete-v82-style">
+  #orgv14-popup .orgv14-popup-delete-btn{
+    border:0.5px solid var(--color-border-secondary)!important;
+    background:var(--color-background-primary)!important;
+    color:var(--color-text-secondary)!important;
+    border-radius:8px!important;
+    padding:3px 8px!important;
+    font-size:10px!important;
+    font-weight:400!important;
+    line-height:1.2!important;
+    cursor:pointer!important;
+    font-family:inherit!important;
+    white-space:nowrap!important;
+    margin-left:auto!important;
+    margin-right:8px!important;
+    transition:background .15s ease,color .15s ease,border-color .15s ease!important;
+  }
+  #orgv14-popup .orgv14-popup-delete-btn:hover{
+    background:#FEE2E2!important;
+    color:#991B1B!important;
+    border-color:#FCA5A5!important;
+  }
+  #orgV14DeleteConfirmModal{
+    position:fixed;
+    inset:0;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:22px;
+    background:rgba(0,0,0,.32);
+    z-index:80000;
+  }
+  #orgV14DeleteConfirmModal.active{display:flex;}
+  #orgV14DeleteConfirmModal .list-delete-box{
+    width:min(420px,100%);
+    background:var(--color-background-primary,#fff);
+    border:0.5px solid var(--color-border-secondary,rgba(0,0,0,.18));
+    border-radius:18px;
+    box-shadow:0 24px 80px rgba(0,0,0,.22);
+    padding:20px;
+  }
+  #orgV14DeleteConfirmModal .list-delete-title{
+    margin:0 0 8px;
+    font-size:16px;
+    font-weight:700;
+    color:var(--color-text-primary,#1a1a19);
+  }
+  #orgV14DeleteConfirmModal .list-delete-text{
+    margin:0 0 16px;
+    color:var(--color-text-secondary,#73726c);
+    font-size:12px;
+    line-height:1.6;
+  }
+  #orgV14DeleteConfirmModal .list-delete-actions{
+    display:flex;
+    justify-content:flex-end;
+    gap:8px;
+  }
+  #orgV14DeleteConfirmModal .list-delete-cancel,
+  #orgV14DeleteConfirmModal .list-delete-confirm{
+    font-size:12px;
+    padding:7px 13px;
+    border-radius:8px;
+    cursor:pointer;
+    font-weight:600;
+    font-family:inherit;
+  }
+  #orgV14DeleteConfirmModal .list-delete-cancel{
+    border:0.5px solid var(--color-border-secondary,rgba(0,0,0,.18));
+    background:var(--color-background-primary,#fff);
+    color:var(--color-text-secondary,#73726c);
+  }
+  #orgV14DeleteConfirmModal .list-delete-confirm{
+    border:0.5px solid #fca5a5;
+    background:#fff;
+    color:#991b1b;
+  }
+  #orgV14DeleteConfirmModal .list-delete-confirm.final{
+    background:#991b1b;
+    border-color:#991b1b;
+    color:#fff;
+  }
+</style>
+<script id="organic-detail-popup-delete-v82-script">
+(function(){
+  'use strict';
+  function $(id){return document.getElementById(id);}
+  function rowId(r){return r&&String(r._id||r.id||r.uid||r.account+'_'+(r.uploadDate||r.date||''));}
+  var pendingDeleteId=null;
+  var pendingDeleteStep=1;
+
+  function ensureDeleteModal(){
+    if($('orgV14DeleteConfirmModal')) return $('orgV14DeleteConfirmModal');
+    var modal=document.createElement('div');
+    modal.id='orgV14DeleteConfirmModal';
+    modal.setAttribute('aria-hidden','true');
+    modal.innerHTML='<div class="list-delete-box" role="dialog" aria-modal="true" aria-labelledby="orgV14DeleteConfirmTitle">'
+      +'<h3 class="list-delete-title" id="orgV14DeleteConfirmTitle">진짜 삭제하시겠습니까?</h3>'
+      +'<p class="list-delete-text" id="orgV14DeleteConfirmText">이 오가닉 노출을 삭제할까요? 확인을 누르면 한 번 더 체크합니다.</p>'
+      +'<div class="list-delete-actions"><button type="button" class="list-delete-cancel" id="orgV14DeleteCancel">취소</button><button type="button" class="list-delete-confirm" id="orgV14DeleteConfirm">확인</button></div>'
+      +'</div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click',function(e){if(e.target===modal) closeDeleteModal();});
+    $('orgV14DeleteCancel').addEventListener('click',closeDeleteModal);
+    $('orgV14DeleteConfirm').addEventListener('click',confirmDeleteModal);
+    return modal;
+  }
+  function openDeleteModal(){
+    var currentId=(window.orgV14DeleteCurrentId||function(){return null;})();
+    if(!currentId) return;
+    pendingDeleteId=currentId;
+    pendingDeleteStep=1;
+    ensureDeleteModal();
+    var title=$('orgV14DeleteConfirmTitle'), text=$('orgV14DeleteConfirmText'), btn=$('orgV14DeleteConfirm'), modal=$('orgV14DeleteConfirmModal');
+    if(title) title.textContent='진짜 삭제하시겠습니까?';
+    if(text) text.textContent='이 오가닉 노출을 삭제할까요? 확인을 누르면 한 번 더 체크합니다.';
+    if(btn){btn.textContent='확인';btn.classList.remove('final');}
+    modal.classList.add('active');
+    modal.setAttribute('aria-hidden','false');
+  }
+  function closeDeleteModal(){
+    var modal=$('orgV14DeleteConfirmModal');
+    if(modal){modal.classList.remove('active');modal.setAttribute('aria-hidden','true');}
+    pendingDeleteId=null;
+    pendingDeleteStep=1;
+  }
+  function confirmDeleteModal(){
+    if(!pendingDeleteId) return closeDeleteModal();
+    if(pendingDeleteStep===1){
+      pendingDeleteStep=2;
+      var title=$('orgV14DeleteConfirmTitle'), text=$('orgV14DeleteConfirmText'), btn=$('orgV14DeleteConfirm');
+      if(title) title.textContent='한 번 더 확인해주세요';
+      if(text) text.textContent='정말로 삭제할까요? 이 작업은 되돌릴 수 없어요.';
+      if(btn){btn.textContent='최종 삭제';btn.classList.add('final');}
+      return;
+    }
+    var id=pendingDeleteId;
+    window.organicData=window.organicData||[];
+    var idx=window.organicData.findIndex(function(r){return rowId(r)===id;});
+    if(idx>-1){
+      window.organicData.splice(idx,1);
+      if(window.fbSaveBatch) window.fbSaveBatch('organic',window.organicData);
+    }
+    closeDeleteModal();
+    if(window.orgV14CloseDetail) window.orgV14CloseDetail();
+    if(window.orgRender) window.orgRender();
+  }
+  function ensurePopupDeleteButton(){
+    var pop=$('orgv14-popup');
+    if(!pop) return;
+    var head=pop.querySelector('.orgv14-pop-head');
+    if(!head) return;
+    var close=head.querySelector('.orgv14-close');
+    if(!close) return;
+    var btn=head.querySelector('.orgv14-popup-delete-btn');
+    if(!btn){
+      btn=document.createElement('button');
+      btn.type='button';
+      btn.className='v13-del-btn orgv14-popup-delete-btn';
+      btn.textContent='삭제';
+      btn.onclick=function(e){e.preventDefault();e.stopPropagation();openDeleteModal();};
+      head.insertBefore(btn,close);
+    }
+  }
+  window.orgV14DeleteCurrentId=function(){
+    var stateId=null;
+    try{
+      var title=$('orgv14-pop-title');
+      var data=window.organicData||[];
+      var open=$('orgv14-popup');
+      if(!open||!open.classList.contains('open')) return null;
+      var titleText=title?String(title.textContent||'').trim():'';
+      var matched=data.find(function(r){return String(r.account||r.handle||'').trim()===titleText;});
+      if(matched) stateId=rowId(matched);
+    }catch(e){}
+    return stateId;
+  };
+  window.orgV14OpenDeleteConfirm=openDeleteModal;
+  var oldOpen=window.orgV14OpenDetail;
+  if(typeof oldOpen==='function'){
+    window.orgV14OpenDetail=function(id){
+      var ret=oldOpen.apply(this,arguments);
+      setTimeout(function(){ensurePopupDeleteButton();},0);
+      window.orgV14DeleteCurrentId=function(){return id;};
+      return ret;
+    };
+  }
+  var oldClose=window.orgV14CloseDetail;
+  if(typeof oldClose==='function'){
+    window.orgV14CloseDetail=function(){
+      var ret=oldClose.apply(this,arguments);
+      closeDeleteModal();
+      return ret;
+    };
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){setTimeout(ensurePopupDeleteButton,500);});
+  else setTimeout(ensurePopupDeleteButton,500);
+})();
+</script>
+
 </body>
 </html>
