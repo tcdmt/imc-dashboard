@@ -2434,7 +2434,10 @@ html[data-user-role="viewer"] [data-delete]{opacity:.35!important;cursor:not-all
   <div style="background:var(--color-background-primary);border-radius:12px;border:0.5px solid var(--color-border-tertiary);padding:16px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
       <div style="font-size:12px;font-weight:600;">시딩 크리에이터 목록</div>
-      <button class="add-btn" onclick="seedAddRow()">+ 추가</button>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <button class="add-btn" onclick="seedAddRow()" style="margin-bottom:0;">+ 추가</button>
+        <button class="add-btn" onclick="sortSeedingByUploadDate()" style="margin-bottom:0;">순서 정리</button>
+      </div>
     </div>
     <div id="seed-scroll-top" style="overflow-x:auto;overflow-y:hidden;height:12px;margin-bottom:2px;">
       <div id="seed-scroll-inner" style="height:1px;"></div>
@@ -2486,7 +2489,10 @@ html[data-user-role="viewer"] [data-delete]{opacity:.35!important;cursor:not-all
   <div style="background:var(--color-background-primary);border-radius:12px;border:0.5px solid var(--color-border-tertiary);padding:16px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
       <div style="font-size:12px;font-weight:600;color:var(--color-text-primary);">셀럽 노출 목록</div>
-      <button class="add-btn" onclick="celebAddRow()">+ 추가</button>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <button class="add-btn" onclick="celebAddRow()" style="margin-bottom:0;">+ 추가</button>
+        <button class="add-btn" onclick="sortCelebByDate()" style="margin-bottom:0;">순서 정리</button>
+      </div>
     </div>
     <div style="overflow-x:auto;">
       <table style="width:100%;border-collapse:collapse;font-size:11px;white-space:nowrap;">
@@ -2510,7 +2516,8 @@ html[data-user-role="viewer"] [data-delete]{opacity:.35!important;cursor:not-all
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span style="font-size:10px;color:var(--color-text-tertiary);">다음 수집까지 <strong id="org-countdown" style="color:var(--color-text-primary);">-</strong></span>
-      <button class="add-btn" onclick="orgManualCollect()">지금 수집</button>
+      <button class="add-btn" onclick="orgManualCollect()" style="margin-bottom:0;">지금 수집</button>
+      <button class="add-btn" onclick="sortOrganicByUploadDate()" style="margin-bottom:0;">순서 정리</button>
     </div>
   </div>
   <!-- KPI 카드 -->
@@ -3843,9 +3850,8 @@ document.addEventListener(&#x27;DOMContentLoaded&#x27;,()=&gt;{
 });
 &lt;/script&gt;
 &lt;/body&gt;
-&lt;/html&gt;
-&quot;
-    style=&quot;width:100%;height:calc(100vh - 140px);min-height:820px;border:0;border-radius:16px;background:var(--color-background-tertiary);display:block;"
+&lt;/html&gt;"
+    style="width:100%;height:calc(100vh - 140px);min-height:820px;border:0;border-radius:16px;background:var(--color-background-tertiary);display:block;"
   ></iframe>
 </div>
 
@@ -4662,6 +4668,54 @@ function sortPromosByStart(){
   applyPromoFilter();
   if(window.buildCal)window.buildCal();
 }
+
+function imcSortDateValue(s){
+  if(!s||!String(s).trim())return Number.POSITIVE_INFINITY;
+  const d=new Date(String(s).trim()+'T00:00:00');
+  const time=d.getTime();
+  return isNaN(time)?Number.POSITIVE_INFINITY:time;
+}
+function imcSortRowsByDateField(rows, field){
+  if(!Array.isArray(rows))return [];
+  return rows.map(function(row,idx){return {row:row,idx:idx};}).sort(function(a,b){
+    const ad=imcSortDateValue(a.row&&a.row[field]);
+    const bd=imcSortDateValue(b.row&&b.row[field]);
+    if(ad!==bd)return ad-bd;
+    return a.idx-b.idx;
+  }).map(function(item,i){
+    if(item.row)item.row._order=i;
+    return item.row;
+  });
+}
+function imcBlockSortForViewer(){
+  if(window.currentUserRole==='viewer'){
+    alert('현재 계정은 보기 전용 권한입니다. 수정/저장은 수정 권한이 있는 담당자만 가능합니다.');
+    return true;
+  }
+  return false;
+}
+function sortSeedingByUploadDate(){
+  if(imcBlockSortForViewer())return;
+  window.seedData=imcSortRowsByDateField(window.seedData||[],'uploadDate');
+  if(window.fbSaveBatch)window.fbSaveBatch('seeding',window.seedData);
+  if(window.seedRender)window.seedRender();
+}
+function sortCelebByDate(){
+  if(imcBlockSortForViewer())return;
+  window.celebData=imcSortRowsByDateField(window.celebData||[],'date');
+  if(window.fbSaveBatch)window.fbSaveBatch('celebs',window.celebData);
+  if(window.celebRender)window.celebRender();
+  if(window.buildCal)window.buildCal();
+}
+function sortOrganicByUploadDate(){
+  if(imcBlockSortForViewer())return;
+  window.organicData=imcSortRowsByDateField(window.organicData||[],'date');
+  if(window.fbSaveBatch)window.fbSaveBatch('organic',window.organicData);
+  if(window.orgRender)window.orgRender();
+}
+window.sortSeedingByUploadDate=sortSeedingByUploadDate;
+window.sortCelebByDate=sortCelebByDate;
+window.sortOrganicByUploadDate=sortOrganicByUploadDate;
 
 /* ══ LIST ══ */
 
@@ -16079,26 +16133,17 @@ if(document.readyState==='loading'){
     return wrap;
   }
   function buildGroupBox(group, title, accentColor, bgColor){
-    var opts = platformOptions(group);
     var groupTotal = sumYtd(group);
     var marketing = mktYtd(group);
-    var detail = opts.map(function(o){
-      var val = sumYtd(o.key);
-      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;border-top:0.5px solid var(--color-border-tertiary);">'
-        + '<span style="font-size:11px;color:var(--color-text-secondary);">' + escHtml(o.label || channelLabel(o.key)) + '</span>'
-        + '<span style="font-size:12px;font-weight:700;color:var(--color-text-primary);">' + fmtShort(val) + '원</span>'
-        + '</div>';
-    }).join('');
     return '<div style="background:var(--color-background-secondary);border-radius:10px;padding:12px 14px;border:0.5px solid var(--color-border-tertiary);">'
       + '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;">'
       + '<span style="font-size:11px;font-weight:700;color:' + accentColor + ';background:' + bgColor + ';padding:2px 8px;border-radius:4px;">' + title + '</span>'
       + '<span style="font-size:10px;color:var(--color-text-tertiary);">누적 합계</span>'
       + '</div>'
-      + '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:8px;">'
+      + '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">'
       + '<div style="background:var(--color-background-primary);border-radius:8px;padding:9px 10px;border:0.5px solid var(--color-border-tertiary);"><div style="font-size:9px;color:var(--color-text-tertiary);margin-bottom:3px;">거래액 합계</div><div style="font-size:16px;font-weight:800;color:var(--color-text-primary);">' + fmtShort(groupTotal) + '원</div></div>'
       + '<div style="background:var(--color-background-primary);border-radius:8px;padding:9px 10px;border:0.5px solid var(--color-border-tertiary);"><div style="font-size:9px;color:var(--color-text-tertiary);margin-bottom:3px;">마케팅 비용</div><div style="font-size:16px;font-weight:800;color:var(--color-text-primary);">' + (marketing ? fmtShort(marketing) + '원' : '-') + '</div></div>'
       + '</div>'
-      + detail
       + '</div>';
   }
   function renderChannelSummary(cat){
