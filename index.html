@@ -18811,5 +18811,24 @@ if(document.readyState==='loading'){
 })();
 </script>
 
+
+<!-- PATCH v55: Organic 상세 보기 창 크기 Feedback 상세 보기 창과 통일 -->
+<style id="organic-detail-modal-size-match-feedback-v55">
+  /* Organic 리스트 행 클릭 시 열리는 상세 보기 창만 Feedback 상세 보기 창 크기와 동일하게 맞춤 */
+  #orgv14-popup{
+    padding:18px!important;
+  }
+  #orgv14-popup .orgv14-modal-box{
+    width:96vw!important;
+    height:92vh!important;
+    max-width:none!important;
+    max-height:92vh!important;
+  }
+  #orgv14-popup .orgv14-content{
+    flex:1 1 auto!important;
+    overflow:auto!important;
+  }
+</style>
+
 </body>
 </html>
