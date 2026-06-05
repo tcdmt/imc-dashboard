@@ -19205,5 +19205,171 @@ if(document.readyState==='loading'){
 })();
 </script>
 
+
+<!-- PATCH v83: List ITEM popup drag reorder column placement (requested only) -->
+<style id="list-v83-item-drag-reorder-style">
+  #item-modal .list-v75-move-cell,
+  #item-modal .list-v83-drag-cell{
+    width:38px!important;
+    min-width:38px!important;
+    text-align:center!important;
+    white-space:nowrap!important;
+  }
+  #item-modal .list-v83-drag-handle{
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    width:24px!important;
+    height:24px!important;
+    border:0.5px solid var(--color-border-secondary)!important;
+    border-radius:7px!important;
+    background:var(--color-background-primary)!important;
+    color:var(--color-text-tertiary)!important;
+    cursor:grab!important;
+    user-select:none!important;
+    font-size:14px!important;
+    line-height:1!important;
+  }
+  #item-modal .list-v83-drag-handle:hover{
+    background:var(--color-background-secondary)!important;
+    color:var(--color-text-primary)!important;
+  }
+  #item-modal tr.list-v83-dragging td{
+    opacity:.55!important;
+    background:var(--color-background-secondary)!important;
+  }
+  #item-modal tr.list-v83-drop-target td{
+    box-shadow:inset 0 2px 0 #185FA5!important;
+  }
+</style>
+<script id="list-v83-item-drag-reorder-script">
+(function(){
+  'use strict';
+
+  function getModalIndex(){
+    if(typeof window.__listModalIdx === 'number' && window.__listModalIdx > -1) return window.__listModalIdx;
+    try{ if(typeof modalIdx === 'number' && modalIdx > -1) return modalIdx; }catch(e){}
+    return -1;
+  }
+  function getRow(){
+    var idx = getModalIndex();
+    return (window.creators || [])[idx] || null;
+  }
+  function syncInputs(row){
+    var body = document.getElementById('modal-item-body');
+    if(!body || !row || !Array.isArray(row.items)) return;
+    Array.prototype.forEach.call(body.querySelectorAll('tr'), function(tr, ii){
+      var inputs = tr.querySelectorAll('input');
+      if(!row.items[ii]) row.items[ii] = {};
+      if(inputs[0]) row.items[ii].uid = inputs[0].value;
+      if(inputs[1]) row.items[ii].code = inputs[1].value;
+      if(inputs[2]) row.items[ii].name = inputs[2].value;
+      if(inputs[3]) row.items[ii].color = inputs[3].value;
+    });
+  }
+  function moveArrayItem(arr, from, to){
+    if(!Array.isArray(arr)) return;
+    from = Number(from); to = Number(to);
+    if(isNaN(from) || isNaN(to) || from === to) return;
+    if(from < 0 || from >= arr.length || to < 0 || to >= arr.length) return;
+    var item = arr.splice(from, 1)[0];
+    arr.splice(to, 0, item);
+    arr.forEach(function(it, idx){ if(it) it._order = idx; });
+  }
+  function placeMoveHeader(){
+    var tr = document.querySelector('#item-modal table thead tr');
+    if(!tr) return;
+    var ths = Array.prototype.slice.call(tr.children);
+    var moveTh = ths.find(function(th){ return (th.textContent || '').trim() === '이동'; });
+    if(!moveTh){
+      moveTh = document.createElement('th');
+      moveTh.textContent = '이동';
+    }
+    moveTh.style.width = '38px';
+    moveTh.className = (moveTh.className || '') + ' list-v83-drag-cell';
+    var first = tr.children[0];
+    if(first && first.nextSibling !== moveTh) tr.insertBefore(moveTh, first.nextSibling);
+  }
+  function decorateDragRows(){
+    var body = document.getElementById('modal-item-body');
+    if(!body) return;
+    var rows = Array.prototype.slice.call(body.querySelectorAll('tr'));
+    rows.forEach(function(tr, idx){
+      tr.dataset.itemIndex = String(idx);
+      var moveTd = tr.querySelector('.list-v75-move-cell, .list-v83-drag-cell');
+      if(!moveTd){
+        moveTd = document.createElement('td');
+        tr.insertBefore(moveTd, tr.children[1] || null);
+      }
+      moveTd.className = 'list-v83-drag-cell list-v75-move-cell';
+      moveTd.innerHTML = '<span class="list-v83-drag-handle" draggable="true" title="드래그해서 순서 이동">⋮⋮</span>';
+      if(tr.children[1] !== moveTd) tr.insertBefore(moveTd, tr.children[1] || null);
+
+      var handle = moveTd.querySelector('.list-v83-drag-handle');
+      handle.addEventListener('dragstart', function(e){
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(idx));
+        window.__listV83DragFrom = idx;
+        tr.classList.add('list-v83-dragging');
+      });
+      handle.addEventListener('dragend', function(){
+        window.__listV83DragFrom = null;
+        rows.forEach(function(r){ r.classList.remove('list-v83-dragging','list-v83-drop-target'); });
+      });
+      tr.addEventListener('dragover', function(e){
+        e.preventDefault();
+        tr.classList.add('list-v83-drop-target');
+      });
+      tr.addEventListener('dragleave', function(){
+        tr.classList.remove('list-v83-drop-target');
+      });
+      tr.addEventListener('drop', function(e){
+        e.preventDefault();
+        rows.forEach(function(r){ r.classList.remove('list-v83-dragging','list-v83-drop-target'); });
+        var from = e.dataTransfer.getData('text/plain');
+        if(from === '') from = window.__listV83DragFrom;
+        var to = Number(tr.dataset.itemIndex);
+        var row = getRow();
+        if(!row || !Array.isArray(row.items)) return;
+        syncInputs(row);
+        moveArrayItem(row.items, Number(from), to);
+        if(typeof window.renderModalItems === 'function') window.renderModalItems();
+      });
+    });
+  }
+  function applyDragUi(){
+    placeMoveHeader();
+    decorateDragRows();
+  }
+
+  var prevRender = window.renderModalItems;
+  window.renderModalItems = function(){
+    var result;
+    if(typeof prevRender === 'function') result = prevRender.apply(this, arguments);
+    applyDragUi();
+    return result;
+  };
+
+  var prevOpen = window.openModal;
+  window.openModal = function(){
+    var result;
+    if(typeof prevOpen === 'function') result = prevOpen.apply(this, arguments);
+    setTimeout(applyDragUi, 0);
+    return result;
+  };
+
+  window.moveModalItemByDrag = function(from, to){
+    var row = getRow();
+    if(!row || !Array.isArray(row.items)) return;
+    syncInputs(row);
+    moveArrayItem(row.items, from, to);
+    if(typeof window.renderModalItems === 'function') window.renderModalItems();
+  };
+
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', applyDragUi);
+  else setTimeout(applyDragUi, 0);
+})();
+</script>
+
 </body>
 </html>
