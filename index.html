@@ -5038,20 +5038,18 @@ function renderFeedbackRows(list){
     }
     // TTL 합계 (업로드 전일 D-1 및 업로드 당일 D+0 제외하고 D+1~D+6만 계산)
     const activeDays=dayData.filter(d=>d.dayOffset>0);
-    const totalView=activeDays.reduce((s,d)=>Math.max(s,d.data.view||0),0);
-    const totalComment=activeDays.reduce((s,d)=>Math.max(s,d.data.comment||0),0);
-    const totalLike=activeDays.reduce((s,d)=>Math.max(s,d.data.like||0),0);
+    // 누적 조회수/댓글/좋아요 TTL은 SUM/최댓값이 아니라 마지막으로 입력된 기준일의 누적값을 사용
+    const lastCumulativeValue=(field)=>{
+      const entered=activeDays.filter(d=>d.data&&d.data[field]!=null&&String(d.data[field]).trim()!==''&&Number(d.data[field])!==0);
+      const target=entered.length?entered[entered.length-1]:activeDays[activeDays.length-1];
+      return target&&target.data?Number(target.data[field])||0:0;
+    };
+    const totalView=lastCumulativeValue('view');
+    const totalComment=lastCumulativeValue('comment');
+    const totalLike=lastCumulativeValue('like');
     const totalClick=activeDays.reduce((s,d)=>s+(d.data.click||0),0);
-    // 상품 좋아요 TTL은 누적값이므로, 기준일별 SUM 값 중 최댓값으로 계산
-    const totalProductLike=(function(){
-      const byDate={};
-      activeDays.forEach(d=>{
-        const k=d.ds||String(d.dayOffset||'');
-        byDate[k]=(byDate[k]||0)+(Number(d.data.productLike)||0);
-      });
-      const vals=Object.values(byDate);
-      return vals.length?Math.max(...vals):0;
-    })();
+    // 상품 좋아요 TTL도 누적값이므로 SUM이 아니라 마지막으로 입력된 기준일의 누적값을 사용
+    const totalProductLike=lastCumulativeValue('productLike');
     const totalSales=activeDays.reduce((s,d)=>s+(d.data.sales||0),0);
     const totalRevenue=activeDays.reduce((s,d)=>s+(d.data.revenue||0),0);
     const totalTotal=activeDays.reduce((s,d)=>Math.max(s,d.data.total||0),0);
@@ -13538,7 +13536,7 @@ if(document.readyState==='loading'){
       const platformLabels=[...new Set(products.map(p=>(p&&p.platform)||'').filter(Boolean))];
       const platformText=platformLabels.length?platformLabels.join(' / '):'-';
       let commonPrinted=false;
-      const ttl={views:0,likes:0,comments:0,sales:0,revenue:0,total:0};
+      const ttl={views:0,likes:0,comments:0,productLike:0,sales:0,revenue:0,total:0};
       days.forEach((date,di)=>{
         const dkey='d'+di;
         const daily=ensureDaily(r,dkey);
@@ -13558,6 +13556,8 @@ if(document.readyState==='loading'){
         const totalValues=dayCache.map(row=>toNum(row.total)).filter(v=>v>0);
         const dayTotal=totalValues.length?Math.max.apply(null,totalValues):dayRevenue;
         const dayShare=dayTotal>0?(dayRevenue/dayTotal)*100:null;
+        const dayProductLike=dayCache.reduce((sum,row)=>sum+toNum(row.productLike),0);
+        if(dayProductLike>0) ttl.productLike=dayProductLike;
         ttl.sales+=daySales; ttl.revenue+=dayRevenue; ttl.total+=dayTotal;
         products.forEach((p,pi)=>{
           const cached=dayCache[pi]||{};
@@ -13609,7 +13609,7 @@ if(document.readyState==='loading'){
         +'<td class="r">-</td>'
         +'<td class="r">-</td>'
         +'<td class="r">-</td>'
-        +'<td class="r">-</td>'
+        +'<td class="r">'+fmtNum(ttl.productLike)+'</td>'
         +'<td class="r">'+fmtNum(ttl.sales)+'</td>'
         +'<td class="r">'+fmtWon(ttl.revenue)+'</td>'
         +'<td class="r">-</td>'
@@ -17542,7 +17542,7 @@ if(document.readyState==='loading'){
       const platformLabels=[...new Set(products.map(p=>(p&&p.platform)||'').filter(Boolean))];
       const platformText=platformLabels.length?platformLabels.join(' / '):'-';
       let commonPrinted=false;
-      const ttl={views:0,likes:0,comments:0,sales:0,revenue:0,total:0};
+      const ttl={views:0,likes:0,comments:0,productLike:0,sales:0,revenue:0,total:0};
       days.forEach((date,di)=>{
         const dkey='d'+di;
         const daily=ensureDaily(r,dkey);
@@ -17562,6 +17562,8 @@ if(document.readyState==='loading'){
         const totalValues=dayCache.map(row=>toNum(row.total)).filter(v=>v>0);
         const dayTotal=totalValues.length?Math.max.apply(null,totalValues):dayRevenue;
         const dayShare=dayTotal>0?(dayRevenue/dayTotal)*100:null;
+        const dayProductLike=dayCache.reduce((sum,row)=>sum+toNum(row.productLike),0);
+        if(dayProductLike>0) ttl.productLike=dayProductLike;
         ttl.sales+=daySales; ttl.revenue+=dayRevenue; ttl.total+=dayTotal;
         products.forEach((p,pi)=>{
           const cached=dayCache[pi]||{};
@@ -17612,7 +17614,7 @@ if(document.readyState==='loading'){
       });
       const ttlShare=ttl.total>0?(ttl.revenue/ttl.total)*100:null;
       html+='<tr class="org-ttl-row"><td colspan="15" class="org-ttl-label">TTL</td>'
-        +'<td class="r">-</td>'
+        +'<td class="r">'+fmtNum(ttl.productLike)+'</td>'
         +'<td class="r">'+fmtNum(ttl.sales)+'</td>'
         +'<td class="r">'+fmtWon(ttl.revenue)+'</td>'
         +'<td class="r">-</td>'
@@ -18616,7 +18618,7 @@ if(document.readyState==='loading'){
       '</div>'+
       '<div id="ff-row" style="display:none;"><select id="ff-month"><option value="0">전체</option></select><select id="ff-plt"><option value="0">전체</option></select><select id="ff-ch"><option value="0">전체</option></select><input id="ff-code" value=""></div>'+
       '<div id="fb-scroll-top" style="overflow-x:auto;overflow-y:hidden;height:12px;margin-bottom:2px;"><div id="fb-scroll-inner" style="height:1px;"></div></div>'+
-      '<div id="fb-v15-tbl-wrap" class="tbl-wrap"><table class="fb-v15-main" id="fb-v15-main"><thead style="position:sticky;top:0;z-index:5;"><tr><th>크리에이터</th><th>팔로워</th><th>채널</th><th>콘텐츠 유형</th><th>진행 방식</th><th>광고 비용</th><th>2차활용</th><th>활용 비용</th><th>플랫폼</th><th>누적 조회수</th><th>누적 좋아요</th><th>누적 댓글 수</th><th>링크 클릭</th><th>CTR</th><th>상품 좋아요</th><th>판매 수량</th><th>매출</th><th>ROAS</th></tr></thead><tbody id="feedback-body"></tbody></table></div>';
+      '<div id="fb-v15-tbl-wrap" class="tbl-wrap"><table class="fb-v15-main" id="fb-v15-main"><thead style="position:sticky;top:0;z-index:5;"><tr><th>크리에이터</th><th>팔로워</th><th>채널</th><th>콘텐츠 유형</th><th>진행 방식</th><th>광고 비용</th><th>2차활용</th><th>활용 비용</th><th>플랫폼</th><th>업로드 일자</th><th>누적 조회수</th><th>누적 좋아요</th><th>누적 댓글 수</th><th>링크 클릭</th><th>CTR</th><th>상품 좋아요</th><th>판매 수량</th><th>매출</th><th>ROAS</th></tr></thead><tbody id="feedback-body"></tbody></table></div>';
     if(!$('fb-v15-modal')){
       var modal=document.createElement('div'); modal.id='fb-v15-modal'; modal.onclick=function(e){ if(e.target && e.target.id==='fb-v15-modal') window.fbV15CloseModal(); };
       modal.innerHTML='<div class="fb-v15-shell"><div class="fb-v15-header"><div class="fb-v15-title-row"><div class="fb-v15-title" id="fb-v15-title">-</div><div class="fb-v15-meta" id="fb-v15-meta"></div></div><div class="fb-v15-actions"><button class="fb-v15-small-btn" onclick="fbV15SaveModal()">입력값 저장</button><button class="fb-v15-close" onclick="fbV15CloseModal()">×</button></div></div><div class="fb-v15-tabs" id="fb-v15-tabs"></div><div class="fb-v15-body" id="fb-v15-body"></div></div>';
@@ -18630,9 +18632,9 @@ if(document.readyState==='loading'){
 
   window.renderFeedbackRows=function(list){
     var body=$('feedback-body'); if(!body) return;
-    if(!list || !list.length){ body.innerHTML='<tr><td colspan="18" class="fb-v15-empty">표시할 Feedback 데이터가 없습니다.</td></tr>'; syncScroll(); return; }
+    if(!list || !list.length){ body.innerHTML='<tr><td colspan="19" class="fb-v15-empty">표시할 Feedback 데이터가 없습니다.</td></tr>'; syncScroll(); return; }
     body.innerHTML=list.map(function(r){ var ci=creatorIndex(r); var t=creatorTotals(r,ci); return '<tr class="fb-v15-row" onclick="fbV15OpenModal('+ci+')">'+
-      '<td><div class="fb-v15-name">'+esc(r.name||'-')+'</div></td>'+ '<td>'+esc(r.followers||'-')+'</td>'+ '<td>'+chBadge(r.ch)+'</td>'+ '<td>'+esc(r.contentType||'-')+'</td>'+ '<td>'+esc(r.collab||r.progress||'-')+'</td>'+ '<td>'+fmtW(r.cost1)+'</td>'+ '<td>'+esc(r.sec||'-')+'</td>'+ '<td>'+fmtW(r.cost2)+'</td>'+ '<td>'+platformBadge(r.platform)+'</td>'+ '<td>'+fmtN0(t.view)+'</td>'+ '<td>'+fmtN0(t.like)+'</td>'+ '<td>'+fmtN0(t.comment)+'</td>'+ '<td>'+fmtN0(t.click)+'</td>'+ '<td>'+fmtP(t.ctr,1)+'</td>'+ '<td>'+fmtN0(t.productLike)+'</td>'+ '<td>'+fmtN0(t.sales)+'</td>'+ '<td>'+fmtW(t.revenue)+'</td>'+ '<td>'+fmtP(t.roas,0)+'</td></tr>'; }).join('');
+      '<td><div class="fb-v15-name">'+esc(r.name||'-')+'</div></td>'+ '<td>'+esc(r.followers||'-')+'</td>'+ '<td>'+chBadge(r.ch)+'</td>'+ '<td>'+esc(r.contentType||'-')+'</td>'+ '<td>'+esc(r.collab||r.progress||'-')+'</td>'+ '<td>'+fmtW(r.cost1)+'</td>'+ '<td>'+esc(r.sec||'-')+'</td>'+ '<td>'+fmtW(r.cost2)+'</td>'+ '<td>'+platformBadge(r.platform)+'</td>'+ '<td>'+koDate(r.uploadDate)+'</td>'+ '<td>'+fmtN0(t.view)+'</td>'+ '<td>'+fmtN0(t.like)+'</td>'+ '<td>'+fmtN0(t.comment)+'</td>'+ '<td>'+fmtN0(t.click)+'</td>'+ '<td>'+fmtP(t.ctr,1)+'</td>'+ '<td>'+fmtN0(t.productLike)+'</td>'+ '<td>'+fmtN0(t.sales)+'</td>'+ '<td>'+fmtW(t.revenue)+'</td>'+ '<td>'+fmtP(t.roas,0)+'</td></tr>'; }).join('');
     syncScroll();
   };
 
@@ -18780,7 +18782,7 @@ if(document.readyState==='loading'){
   function itemStat(p, platform, date){var stat={productLike:0,sales:0,revenue:0,total:0};var targetDate=normalizeDate(date), pk=normPlatform(platform||p.platform), uid=normUid(productUid(p,platform)), code=norm(p.code), name=norm(p.name||p.product);var salesRows=(window.metaRawSales|| (typeof metaRawSales!=='undefined'?metaRawSales:[]) || []);if(salesRows.length&&targetDate&&pk&&uid){var matched=salesRows.filter(function(row){var rd=normalizeDate(rowVal(row,['날짜','일자','date','Date']));var rp=normPlatform(rowVal(row,['플랫폼','판매 채널','판매채널','채널','channel','Channel']));var ru=normUid(rowVal(row,['UID','uid','Uid','상품 UID','상품UID','상품 uid','Product UID']));return rd===targetDate&&rp===pk&&ru===uid;});stat.sales=matched.reduce(function(s,row){return s+rowNum(row,['실구매수량','실 구매 수량','실 구매수량','판매수량','판매 수량','수량','qty','Qty']);},0);stat.revenue=matched.reduce(function(s,row){return s+rowNum(row,['실구매금액','실 구매 금액','실 구매금액','실 수매 금액','실수매금액','판매금액','판매 금액','매출','실매출','revenue','Revenue','amount','Amount']);},0);stat.total=salesRows.filter(function(row){return normalizeDate(rowVal(row,['날짜','일자','date','Date']))===targetDate&&normPlatform(rowVal(row,['플랫폼','판매 채널','판매채널','채널','channel','Channel']))===pk;}).reduce(function(s,row){return s+rowNum(row,['실구매금액','실 구매 금액','실 구매금액','실 수매 금액','실수매금액','판매금액','판매 금액','매출','실매출','revenue','Revenue','amount','Amount']);},0);}var stats=(window.productStatsRows||[]);if(stats.length){var candidates=stats.filter(function(row){var rp=normPlatform(rowVal(row,['플랫폼','플랫폼명','판매 채널','판매채널','채널','channel','Channel']));var ru=normUid(rowVal(row,['UID','uid','Uid','상품 UID','상품UID','상품 uid','Product UID','goodsNo','itemNo']));var rc=norm(rowVal(row,['상품코드','상품 코드','productCode','code','itemCode']));var rn=norm(rowVal(row,['상품명','제품명','상품 이름','product','productName','goodsName','itemName','name']));return (!pk||!rp||rp===pk)&&((uid&&ru===uid)||(!uid&&code&&rc===code)||(!uid&&!code&&name&&rn===name));});candidates.sort(function(a,b){return String(normalizeDate(rowVal(b,['날짜','일자','기준일','date','Date','수집일','collectDate']))).localeCompare(String(normalizeDate(rowVal(a,['날짜','일자','기준일','date','Date','수집일','collectDate']))));});var exact=candidates.find(function(row){return normalizeDate(rowVal(row,['날짜','일자','기준일','date','Date','수집일','collectDate']))===targetDate;})||candidates[0];if(exact)stat.productLike=rowNum(exact,['좋아요','상품 좋아요','상품좋아요','좋아요 수','좋아요수','likes','heartCount','likeCount']);}return stat;}
   function ensureDay(r,off){var k=dayKey(off);if(!r.orgDaily)r.orgDaily={};if(!r.orgDaily[k]){var legacy=(off===0)?{views:r.views||0,likes:r.likes||0,comments:r.comments||0}:{views:0,likes:0,comments:0};r.orgDaily[k]=legacy;}return r.orgDaily[k];}
   function getDayMetrics(r,off){var d=ensureDay(r,off), date=addDays(r.uploadDate,off);var sales=0,revenue=0,total=0,productLike=0; r.products.forEach(function(p){var key=metricKey(off);var saved=(p.metrics&&p.metrics[key])||{};var st=itemStat(p,p.platform||r.platform,date);var pl=num(saved.productLike)||num(st.productLike);var qs=num(saved.sales)||num(st.sales);var rev=num(saved.revenue)||num(st.revenue);var tt=num(saved.total)||num(st.total);productLike+=pl;sales+=qs;revenue+=rev;if(tt)total=tt;});return {date:date,views:num(d.views),likes:num(d.likes),comments:num(d.comments),productLike:productLike,sales:sales,revenue:revenue,total:total,share:total?revenue/total*100:0};}
-  function ttl(r){return OFFSETS.reduce(function(a,o){var m=getDayMetrics(r,o);a.views+=m.views;a.likes+=m.likes;a.comments+=m.comments;a.productLike+=m.productLike;a.sales+=m.sales;a.revenue+=m.revenue;return a;},{views:0,likes:0,comments:0,productLike:0,sales:0,revenue:0});}
+  function ttl(r){var a={views:0,likes:0,comments:0,productLike:0,sales:0,revenue:0};function entered(v){return v!=null&&String(v).trim()!==''&&num(v)!==0;}OFFSETS.forEach(function(o){var d=ensureDay(r,o),m=getDayMetrics(r,o);if(entered(d.views))a.views=m.views;if(entered(d.likes))a.likes=m.likes;if(entered(d.comments))a.comments=m.comments;if(entered(m.productLike))a.productLike=m.productLike;a.sales+=m.sales;a.revenue+=m.revenue;});return a;}
   function renderSummaryCards(list){var t=list.reduce(function(a,r){var x=ttl(r);Object.keys(a).forEach(function(k){a[k]+=x[k]||0;});return a;},{views:0,likes:0,comments:0,productLike:0,sales:0,revenue:0});$('orgv14-summary').innerHTML='<div class="orgv14-card"><div class="orgv14-card-label">노출 리스트</div><div class="orgv14-card-val">'+fmtNum(list.length)+'</div><div class="orgv14-card-sub">필터 적용 기준</div></div><div class="orgv14-card"><div class="orgv14-card-label">누적 조회수</div><div class="orgv14-card-val">'+fmtNum(t.views)+'</div><div class="orgv14-card-sub">입력된 기준일까지 합산</div></div><div class="orgv14-card"><div class="orgv14-card-label">상품 좋아요</div><div class="orgv14-card-val">'+fmtNum(t.productLike)+'</div><div class="orgv14-card-sub">선택 상품 좋아요 합계</div></div><div class="orgv14-card"><div class="orgv14-card-label">매출</div><div class="orgv14-card-val">'+fmtWon(t.revenue)+'</div><div class="orgv14-card-sub">플랫폼·일자·UID 기준</div></div>';}
   function renderList(){var list=filtered();renderSummaryCards(list);var head=$('orgv14-head'), body=$('orgv14-body');if(!head||!body)return;if(state.mode==='auto'){head.innerHTML='<tr><th>업로드일</th><th>출처</th><th>계정명</th><th>팔로워</th><th>채널</th><th>콘텐츠 유형</th><th>키워드</th><th>링크</th></tr>';body.innerHTML=list.map(function(r){return '<tr><td>'+fmtDate(r.uploadDate)+'</td><td>'+badge('자동수집','orgv14-auto')+'</td><td class="orgv14-main">'+esc(r.account||'-')+'</td><td>'+fmtNum(r.followers)+'</td><td>'+badge(r.channel,chClass(r.channel))+'</td><td>'+badge(r.type||'선택',typeClass(r.type))+'</td><td>'+esc(r.keyword||'-')+'</td><td>'+(r.link?'<a class="orgv14-link" href="'+esc(r.link)+'" target="_blank">링크</a>':'-')+'</td></tr>';}).join('')||'<tr><td colspan="8" class="orgv14-empty">자동 수집 데이터가 없어요</td></tr>';}else{head.innerHTML='<tr><th>업로드일</th><th>출처</th><th>계정명</th><th>팔로워</th><th>채널</th><th>콘텐츠 유형</th><th>플랫폼</th><th>누적 조회수</th><th>누적 좋아요</th><th>누적 댓글</th><th>상품 좋아요</th><th>판매 수량</th><th>매출</th></tr>';body.innerHTML=list.map(function(r){var t=ttl(r);return '<tr class="orgv14-row" onclick="orgV14OpenDetail(\''+esc(rowId(r))+'\')"><td>'+fmtDate(r.uploadDate)+'</td><td>'+badge('직접 추가','orgv14-manual')+'</td><td class="orgv14-main">'+esc(r.account||'-')+'</td><td>'+fmtNum(r.followers)+'</td><td>'+badge(r.channel,chClass(r.channel))+'</td><td>'+badge(r.type,typeClass(r.type))+'</td><td>'+badge(platformLabel(r.platform),platformClass(r.platform))+'</td><td>'+fmtNum(t.views)+'</td><td>'+fmtNum(t.likes)+'</td><td>'+fmtNum(t.comments)+'</td><td>'+fmtNum(t.productLike)+'</td><td>'+fmtNum(t.sales)+'</td><td>'+fmtWon(t.revenue)+'</td></tr>';}).join('')||'<tr><td colspan="13" class="orgv14-empty">직접 추가 데이터가 없어요</td></tr>';}}
   function buildShell(){var pg=$('pg-organic');if(!pg)return;pg.innerHTML='<div class="orgv14-summary" id="orgv14-summary"></div><div class="orgv14-slicer"><div class="slicer-group"><div class="slicer-label">월 선택</div><div class="slicer-chips" id="orgv14-months">'+['전체','1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'].map(function(x,i){return '<button class="ff-mbtn '+(i===0?'active':'')+'" onclick="orgV14SetMonth(\''+(i?i:'all')+'\',this)">'+x+'</button>';}).join('')+'</div></div><div class="orgv14-divider"></div><div class="slicer-group"><div class="slicer-label">채널</div><div class="slicer-chips" id="orgv14-channels">'+['전체','Instagram','Youtube','Tiktok','X','Blog'].map(function(x,i){return '<button class="ov-pbtn '+(i===0?'active':'')+'" onclick="orgV14SetChannel(\''+(i?x:'all')+'\',this)">'+x+'</button>';}).join('')+'</div></div><div class="orgv14-divider"></div><div class="slicer-group"><div class="slicer-label">콘텐츠 유형</div><select class="orgv14-select" id="orgv14-type" onchange="orgV14SetType(this.value)"><option value="전체">전체</option>'+TYPES.map(function(t){return '<option>'+t+'</option>';}).join('')+'</select></div></div><div class="orgv14-actions"><button class="orgv14-action" id="orgv14-mode-auto" onclick="orgV14SwitchMode(\'auto\')">수집</button><button class="orgv14-action active" id="orgv14-mode-manual" onclick="orgV14SwitchMode(\'manual\')">리스트</button><button class="orgv14-action dark" onclick="orgV14OpenAdd()">추가</button><button class="orgv14-action" onclick="orgAutoFillSales()">판매 자동 기입</button></div><div class="orgv14-table-card"><div class="orgv14-tbl-wrap"><table class="orgv14-table"><thead id="orgv14-head"></thead><tbody id="orgv14-body"></tbody></table></div></div>';ensureModals();renderList();}
