@@ -18563,7 +18563,23 @@ if(document.readyState==='loading'){
   function creatorTotals(r, ci){ var t={view:0,like:0,comment:0,click:0,productLike:0,sales:0,revenue:0,total:0}; activeDays(r).forEach(function(d){ var m=dayMetrics(r,ci,d); t.view+=m.view; t.like+=m.like; t.comment+=m.comment; t.click+=m.click; t.productLike+=m.productLike; t.sales+=m.sales; t.revenue+=m.revenue; t.total+=m.total; }); var cost=costOf(r); t.ctr=t.view?t.click/t.view*100:0; t.roas=cost?t.revenue/cost*100:0; return t; }
   function deltaHtml(r,ci,d){ var idx=DAYS.indexOf(d); if(idx<=0) return '<span class="fb-v15-delta-neutral">-</span>'; var prev=dayMetrics(r,ci,DAYS[idx-1]).revenue; var now=dayMetrics(r,ci,d).revenue; if(!prev) return '<span class="fb-v15-delta-neutral">-</span>'; var v=(now-prev)/prev*100; if(v>0) return '<span class="fb-v15-delta-up">+'+v.toFixed(1)+'%</span>'; if(v<0) return '<span class="fb-v15-delta-down">'+v.toFixed(1)+'%</span>'; return '<span class="fb-v15-delta-neutral">0.0%</span>'; }
   function chBadge(ch){ var c=String(ch||''); var cls=c==='Instagram'?'fb-v15-badge-ig':c==='Youtube'?'fb-v15-badge-yt':c==='Tiktok'?'fb-v15-badge-tt':'fb-v15-badge-x'; var short={Instagram:'IG',Youtube:'YT',Tiktok:'TT',X:'X'}[c]||c||'-'; return '<span class="fb-v15-badge '+cls+'">'+esc(short)+'</span>'; }
-  function platformBadge(p){ return '<span class="fb-v15-badge fb-v15-badge-platform">'+esc(p||'-')+'</span>'; }
+  function feedbackPlatformColor(p){
+    var key=normPlatform(p||'선택')||'선택';
+    var map=(window.LIST_PLATFORM_COLOR)||{
+      '선택':{bg:'#F3F4F6',color:'#6B7280'},
+      '무신사':{bg:'#DBEAFE',color:'#1E40AF'},
+      '29CM':{bg:'#EDE9FE',color:'#5B21B6'},
+      '자사몰':{bg:'#DCFCE7',color:'#166534'},
+      'Offline':{bg:'#FEF3C7',color:'#92400E'},
+      '발매':{bg:'#FFE4E6',color:'#BE123C'}
+    };
+    return map[key] || map['선택'];
+  }
+  function platformBadge(p){
+    var key=normPlatform(p||'선택')||'선택';
+    var c=feedbackPlatformColor(key);
+    return '<span class="fb-v15-badge fb-v15-badge-platform" style="background:'+c.bg+';color:'+c.color+';">'+esc(key||'-')+'</span>';
+  }
   function setActiveBtns(selector, value){ document.querySelectorAll(selector).forEach(function(b){ b.classList.toggle('active', String(b.getAttribute('data-v'))===String(value)); }); }
 
   function buildFeedbackShell(){
