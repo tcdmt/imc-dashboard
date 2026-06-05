@@ -18508,6 +18508,16 @@ if(document.readyState==='loading'){
 #fb-v15-modal .fb-v15-date-chip{font-weight:700;color:var(--color-text-primary);}
 #fb-v15-modal .fb-v15-detail-row td{background:rgba(245,245,244,.72)!important;padding:0!important;border-bottom:0.5px solid var(--color-border-secondary)!important;}
 #fb-v15-modal .fb-v15-detail-box{padding:14px;max-height:390px;overflow:auto;}
+/* PATCH: Feedback 요약 탭 기준일 펼침 상품별 셀 높이만 확대 */
+#fb-v15-modal .fb-v15-detail-box .fb-v15-mini th,
+#fb-v15-modal .fb-v15-detail-box .fb-v15-mini td{
+  padding:11px 10px!important;
+  height:38px!important;
+  line-height:1.45!important;
+}
+#fb-v15-modal .fb-v15-detail-box .fb-v15-product-name{
+  line-height:1.45!important;
+}
 #fb-v15-modal .fb-v15-product-name{text-align:center!important;min-width:170px;}
 #fb-v15-modal .fb-v15-delta-up{color:#2d8c5a;font-weight:700;}.fb-v15-delta-down{color:#c0392b;font-weight:700;}.fb-v15-delta-neutral{color:var(--color-text-tertiary);font-weight:600;}
 #fb-v15-modal .fb-v15-direct td{height:34px;background:var(--color-background-primary);}
