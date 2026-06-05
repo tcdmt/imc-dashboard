@@ -19206,8 +19206,8 @@ if(document.readyState==='loading'){
 </script>
 
 
-<!-- PATCH v83: List ITEM popup drag reorder column placement (requested only) -->
-<style id="list-v83-item-drag-reorder-style">
+<!-- PATCH v84: List ITEM popup drag reorder column moved left of platform (requested only) -->
+<style id="list-v84-item-drag-reorder-style">
   #item-modal .list-v75-move-cell,
   #item-modal .list-v83-drag-cell{
     width:38px!important;
@@ -19242,7 +19242,7 @@ if(document.readyState==='loading'){
     box-shadow:inset 0 2px 0 #185FA5!important;
   }
 </style>
-<script id="list-v83-item-drag-reorder-script">
+<script id="list-v84-item-drag-reorder-script">
 (function(){
   'use strict';
 
@@ -19288,7 +19288,7 @@ if(document.readyState==='loading'){
     moveTh.style.width = '38px';
     moveTh.className = (moveTh.className || '') + ' list-v83-drag-cell';
     var first = tr.children[0];
-    if(first && first.nextSibling !== moveTh) tr.insertBefore(moveTh, first.nextSibling);
+    if(first && tr.children[0] !== moveTh) tr.insertBefore(moveTh, first);
   }
   function decorateDragRows(){
     var body = document.getElementById('modal-item-body');
@@ -19299,11 +19299,11 @@ if(document.readyState==='loading'){
       var moveTd = tr.querySelector('.list-v75-move-cell, .list-v83-drag-cell');
       if(!moveTd){
         moveTd = document.createElement('td');
-        tr.insertBefore(moveTd, tr.children[1] || null);
+        tr.insertBefore(moveTd, tr.children[0] || null);
       }
       moveTd.className = 'list-v83-drag-cell list-v75-move-cell';
       moveTd.innerHTML = '<span class="list-v83-drag-handle" draggable="true" title="드래그해서 순서 이동">⋮⋮</span>';
-      if(tr.children[1] !== moveTd) tr.insertBefore(moveTd, tr.children[1] || null);
+      if(tr.children[0] !== moveTd) tr.insertBefore(moveTd, tr.children[0] || null);
 
       var handle = moveTd.querySelector('.list-v83-drag-handle');
       handle.addEventListener('dragstart', function(e){
@@ -19370,6 +19370,18 @@ if(document.readyState==='loading'){
   else setTimeout(applyDragUi, 0);
 })();
 </script>
+
+
+
+<!-- CHOI PATCH: Organic 상세보기 TTL 행 컬러 Feedback TTL과 동일 적용 -->
+<style id="organic-detail-ttl-feedback-match-patch">
+  #orgv14-detail .orgv14-ttl-row td,
+  #pg-organic .org-table-v9 .org-ttl-row td{
+    background:#EAF3DE!important;
+    color:#3B6D11!important;
+    font-weight:600!important;
+  }
+</style>
 
 </body>
 </html>
