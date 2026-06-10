@@ -17673,8 +17673,8 @@ if(document.readyState==='loading'){
     var s=norm(v);
     if(s==='무신사'||s.indexOf('musinsa')>-1)return 'musinsa';
     if(s==='29cm'||s.indexOf('29')>-1||s.indexOf('cm')>-1)return 'cm';
-    if(s==='자사몰'||s.indexOf('store')>-1||s.indexOf('shop')>-1)return 'store';
-    if(s.indexOf('offline')>-1||s.indexOf('오프라인')>-1)return 'offline';
+    if(s==='자사몰'||s.indexOf('store')>-1||s.indexOf('shop')>-1||s.indexOf('스토어')>-1)return 'store';
+    if(s.indexOf('offline')>-1||s.indexOf('오프라인')>-1||s.indexOf('플래그십')>-1)return 'offline';
     return s;
   }
   function firstVal(obj, keys){
@@ -17683,37 +17683,56 @@ if(document.readyState==='loading'){
       var v=obj[keys[i]];
       if(v!==undefined&&v!==null&&String(v).trim()!=='')return v;
     }
+    var want=keys.map(function(k){return norm(k);});
+    var real=Object.keys(obj||{});
+    for(var j=0;j<real.length;j++){
+      if(want.indexOf(norm(real[j]))>-1 && clean(obj[real[j]])!=='') return obj[real[j]];
+    }
     return '';
   }
   function productCode(product){return clean(firstVal(product,['code','productCode','itemCode','상품코드','상품 코드','상품 Code','상품CODE']));}
-  function productName(product){return clean(firstVal(product,['name','product','productName','itemName','상품명','제품명']));}
+  function productName(product){return clean(firstVal(product,['name','product','productName','itemName','상품명','제품명','상품 이름']));}
   function uidByPlatform(product, platform){
     var p=product||{};
     var key=platformKey(platform);
-    if(key==='musinsa')return clean(firstVal(p,['musinsaUid','musinsaUID','musinsa_uid','무신사 UID','무신사UID']) || (platformKey(p.platform)==='musinsa'?firstVal(p,['uid','UID']):''));
-    if(key==='cm')return clean(firstVal(p,['cmUid','cmUID','cm_uid','29cmUid','29CMUid','29CM UID','29CMUID']) || (platformKey(p.platform)==='cm'?firstVal(p,['uid','UID']):''));
-    if(key==='store')return clean(firstVal(p,['storeUid','storeUID','store_uid','자사몰 UID','자사몰UID']) || (platformKey(p.platform)==='store'?firstVal(p,['uid','UID']):''));
-    return clean(firstVal(p,['uid','UID','musinsaUid','cmUid','storeUid','무신사 UID','29CM UID','자사몰 UID']));
+    if(key==='musinsa')return clean(firstVal(p,['musinsaUid','musinsaUID','musinsa_uid','무신사 UID','무신사UID']) || (platformKey(firstVal(p,['platform','플랫폼','판매채널','판매 채널','채널']))==='musinsa'?firstVal(p,['uid','UID','상품 UID','상품UID']):''));
+    if(key==='cm')return clean(firstVal(p,['cmUid','cmUID','cm_uid','29cmUid','29CMUid','29CM UID','29CMUID']) || (platformKey(firstVal(p,['platform','플랫폼','판매채널','판매 채널','채널']))==='cm'?firstVal(p,['uid','UID','상품 UID','상품UID']):''));
+    if(key==='store')return clean(firstVal(p,['storeUid','storeUID','store_uid','자사몰 UID','자사몰UID']) || (platformKey(firstVal(p,['platform','플랫폼','판매채널','판매 채널','채널']))==='store'?firstVal(p,['uid','UID','상품 UID','상품UID']):''));
+    if(key==='offline')return clean(firstVal(p,['offlineUid','offlineUID','offline_uid','오프라인 UID','오프라인UID']) || (platformKey(firstVal(p,['platform','플랫폼','판매채널','판매 채널','채널']))==='offline'?firstVal(p,['uid','UID','상품 UID','상품UID']):''));
+    return clean(firstVal(p,['uid','UID','상품 UID','상품UID','musinsaUid','cmUid','storeUid','offlineUid','무신사 UID','29CM UID','자사몰 UID','오프라인 UID']));
+  }
+  function itemPlatform(product){
+    return platformKey(firstVal(product,['platform','플랫폼','판매채널','판매 채널','채널','channel','Channel']));
+  }
+  function hasPlatform(product, platform){
+    var key=platformKey(platform);
+    if(!key)return true;
+    var explicit=itemPlatform(product);
+    if(explicit)return explicit===key;
+    return !!uidByPlatform(product, platform);
   }
   function colorFromName(name){
     var m=String(name||'').match(/\(([^()]*)\)\s*$/);
     return m?m[1].trim():'';
   }
-  function ensureOrganicNameDatalist(){
+  function productsForPlatform(platform){
+    return (window.products||[]).filter(function(product){ return hasPlatform(product||{}, platform); });
+  }
+  function ensureOrganicNameDatalist(platform){
     var id='organic-v81-product-name-options';
     var old=document.getElementById(id);
     if(old)old.remove();
     var dl=document.createElement('datalist');
     dl.id=id;
     var seen={};
-    (window.products||[]).forEach(function(product){
+    productsForPlatform(platform).forEach(function(product){
       var name=productName(product);
       if(!name||seen[name])return;
       seen[name]=true;
       var opt=document.createElement('option');
       opt.value=name;
       var code=productCode(product);
-      var uid=uidByPlatform(product,'무신사')||uidByPlatform(product,'29CM')||uidByPlatform(product,'자사몰');
+      var uid=uidByPlatform(product,platform);
       opt.label=[code,uid].filter(Boolean).join(' · ');
       dl.appendChild(opt);
     });
@@ -17721,28 +17740,28 @@ if(document.readyState==='loading'){
     return id;
   }
   function scoreProduct(product, keyword, platform, field){
+    if(!hasPlatform(product, platform))return 0;
     var q=norm(keyword);
     if(!q)return 0;
     var code=norm(productCode(product));
     var name=norm(productName(product));
     var uid=norm(uidByPlatform(product,platform));
     var score=0;
-    if(field==='uid'&&uid===q)score+=220;
-    if(field==='code'&&code===q)score+=220;
+    if(field==='uid'&&uid===q)score+=260;
+    if(field==='code'&&code===q)score+=230;
     if(field==='name'&&name===q)score+=220;
-    if(uid===q)score+=130;
-    if(code===q)score+=125;
-    if(name===q)score+=120;
-    if(field==='uid'&&uid&&uid.indexOf(q)>-1)score+=40;
-    if(field==='code'&&code&&code.indexOf(q)>-1)score+=40;
-    if(field==='name'&&name&&name.indexOf(q)>-1)score+=40;
+    if(uid===q)score+=160;
+    if(code===q)score+=150;
+    if(name===q)score+=140;
+    if(field==='uid'&&uid&&uid.indexOf(q)>-1)score+=45;
+    if(field==='code'&&code&&code.indexOf(q)>-1)score+=45;
+    if(field==='name'&&name&&name.indexOf(q)>-1)score+=45;
     if(name&&name.indexOf(q)>-1)score+=20;
-    if(uidByPlatform(product,platform))score+=5;
     return score;
   }
   function findProduct(keyword, platform, field){
     var best=null,bestScore=0;
-    (window.products||[]).forEach(function(product){
+    productsForPlatform(platform).forEach(function(product){
       var score=scoreProduct(product,keyword,platform,field||'name');
       if(score>bestScore){best=product;bestScore=score;}
     });
@@ -17768,7 +17787,7 @@ if(document.readyState==='loading'){
       var nameInput=row.querySelector('.orgm-product-v8');
       var colorInput=row.querySelector('.orgm-color-v8');
       var color=colorFromName(nameInput&&nameInput.value);
-      if(colorInput&&color)colorInput.value=color;
+      if(colorInput)colorInput.value=color||colorInput.value||'';
       return;
     }
     var name=productName(product);
@@ -17786,6 +17805,7 @@ if(document.readyState==='loading'){
     var item={platform:platform,uid:uid,code:code,product:product,name:product,productName:product,color:color,metrics:{}};
     var matched=findProduct(uid,platform,'uid')||findProduct(code,platform,'code')||findProduct(product,platform,'name');
     if(matched)applyProductToItem(item,matched,platform);
+    else item.color=colorFromName(product)||item.color||'';
     return item;
   }
 
@@ -17793,8 +17813,9 @@ if(document.readyState==='loading'){
     if(typeof window.orgCloseModal!=='function'&&typeof window.orgAddRow==='function'){};
     var wrap=document.getElementById('orgm-products-v8');
     if(!wrap)return;
-    var dataListId=ensureOrganicNameDatalist();
     p=p||{};
+    var platform=p.platform||'무신사';
+    var dataListId=ensureOrganicNameDatalist(platform);
     var row=document.createElement('div');
     row.className='org-modal-product-row-v8';
     row.innerHTML=''
@@ -17805,14 +17826,15 @@ if(document.readyState==='loading'){
       +'<input class="orgm-color-v8" placeholder="컬러 자동" readonly>'
       +'<button type="button" class="del-btn" onclick="this.parentNode.remove()">×</button>';
     wrap.appendChild(row);
-    var platform=p.platform||'무신사';
-    var productName=clean(p.product||p.name||p.productName||p['상품명']||'');
+    var productValue=clean(p.product||p.name||p.productName||p['상품명']||'');
     row.querySelector('.orgm-platform-v8').value=platform;
     row.querySelector('.orgm-uid-v81').value=clean(p.uid||p.UID||'');
     row.querySelector('.orgm-code-v81').value=clean(p.code||p.productCode||p['상품코드']||p['상품 코드']||'');
-    row.querySelector('.orgm-product-v8').value=productName;
-    row.querySelector('.orgm-color-v8').value=clean(p.color||colorFromName(productName));
-    row.querySelector('.orgm-platform-v8').addEventListener('change',function(){
+    row.querySelector('.orgm-product-v8').value=productValue;
+    row.querySelector('.orgm-color-v8').value=clean(p.color||colorFromName(productValue));
+    row.querySelector('.orgm-platform-v8').addEventListener('change',function(e){
+      var newListId=ensureOrganicNameDatalist(e.target.value);
+      row.querySelector('.orgm-product-v8').setAttribute('list',newListId);
       var name=row.querySelector('.orgm-product-v8').value;
       var code=row.querySelector('.orgm-code-v81').value;
       var uid=row.querySelector('.orgm-uid-v81').value;
@@ -19382,6 +19404,202 @@ if(document.readyState==='loading'){
     font-weight:600!important;
   }
 </style>
+
+
+
+<!-- PATCH v85: Organic product name picker synced with Item sheet by platform only (requested only) -->
+<style id="organic-v85-item-name-picker-style">
+  #orgv14-add-products .p-name[list]{
+    min-width:180px!important;
+  }
+</style>
+<script id="organic-v85-item-name-picker-script">
+(function(){
+  'use strict';
+
+  function clean(v){ return String(v == null ? '' : v).trim(); }
+  function norm(v){ return clean(v).toLowerCase().replace(/\s+/g,''); }
+  function onlyNum(v){ return parseInt(String(v == null ? '' : v).replace(/[^0-9]/g,''), 10) || 0; }
+  function firstVal(obj, keys){
+    obj = obj || {};
+    for(var i=0;i<keys.length;i++){
+      var k = keys[i];
+      if(obj[k] !== undefined && obj[k] !== null && clean(obj[k]) !== '') return obj[k];
+    }
+    return '';
+  }
+  function colorFromName(name){
+    var m = String(name || '').match(/\(([^()]*)\)\s*$/);
+    return m ? m[1].trim() : '';
+  }
+  function productCode(product){ return clean(firstVal(product, ['code','productCode','itemCode','sku','상품 코드','상품코드'])); }
+  function productName(product){ return clean(firstVal(product, ['name','product','productName','itemName','상품명','제품명'])); }
+  function productCost(product){ return onlyNum(firstVal(product, ['cost','원가','costPrice','productCost'])); }
+  function platformKey(v){
+    var x = norm(v);
+    if(x === '무신사' || x === 'musinsa') return 'musinsa';
+    if(x === '29cm') return '29cm';
+    if(x === '자사몰' || x === 'store' || x === '스토어' || x === '자사') return 'store';
+    if(x === 'offline' || x === '오프라인') return 'offline';
+    if(x === '발매' || x === 'release') return 'release';
+    return x;
+  }
+  function platformLabel(v){
+    var p = platformKey(v);
+    return p === 'musinsa' ? '무신사' : p === '29cm' ? '29CM' : p === 'store' ? '자사몰' : p === 'offline' ? 'Offline' : p === 'release' ? '발매' : (v || '무신사');
+  }
+  function uidByPlatform(product, platform){
+    var p = product || {};
+    var key = platformKey(platform);
+    if(key === 'musinsa') return clean(firstVal(p, ['musinsaUid','musinsaUID','musinsa_uid','무신사 UID','무신사UID','uid','UID']));
+    if(key === '29cm') return clean(firstVal(p, ['cmUid','cmUID','cm_uid','29cmUid','29CMUid','29CM UID','29CMUID','uid','UID']));
+    if(key === 'store') return clean(firstVal(p, ['storeUid','storeUID','store_uid','자사몰 UID','자사몰UID','uid','UID']));
+    return clean(firstVal(p, ['uid','UID']));
+  }
+  function productPlatform(product){
+    return platformKey(firstVal(product, ['platform','플랫폼','channel','채널']));
+  }
+  function isProductOnPlatform(product, platform){
+    var key = platformKey(platform);
+    if(!key) return false;
+    var pp = productPlatform(product);
+    if(pp && pp === key) return true;
+    if(key === 'musinsa' || key === '29cm' || key === 'store') return !!uidByPlatform(product, key);
+    return false;
+  }
+  function productsByPlatform(platform){
+    return (window.products || []).filter(function(product){ return isProductOnPlatform(product, platform); });
+  }
+  function findByCode(code, platform){
+    var q = norm(code);
+    if(!q) return null;
+    return productsByPlatform(platform).find(function(product){ return norm(productCode(product)) === q; }) || null;
+  }
+  function findByUid(uid, platform){
+    var q = norm(uid);
+    if(!q) return null;
+    return productsByPlatform(platform).find(function(product){ return norm(uidByPlatform(product, platform)) === q; }) || null;
+  }
+  function findByName(name, platform){
+    var q = norm(name);
+    if(!q) return null;
+    return productsByPlatform(platform).find(function(product){ return norm(productName(product)) === q; }) || null;
+  }
+  function findProductForRow(rowEl){
+    if(!rowEl) return null;
+    var platform = rowEl.querySelector('.p-platform') ? rowEl.querySelector('.p-platform').value : '';
+    var uid = rowEl.querySelector('.p-uid') ? rowEl.querySelector('.p-uid').value : '';
+    var code = rowEl.querySelector('.p-code') ? rowEl.querySelector('.p-code').value : '';
+    var name = rowEl.querySelector('.p-name') ? rowEl.querySelector('.p-name').value : '';
+    return findByUid(uid, platform) || findByCode(code, platform) || findByName(name, platform);
+  }
+  function fillDatalist(rowEl){
+    var nameInput = rowEl && rowEl.querySelector('.p-name');
+    if(!nameInput) return;
+    var platform = rowEl.querySelector('.p-platform') ? rowEl.querySelector('.p-platform').value : '';
+    var listId = nameInput.getAttribute('list');
+    if(!listId){
+      listId = 'orgv85-product-names-' + Date.now() + '-' + Math.floor(Math.random() * 100000);
+      nameInput.setAttribute('list', listId);
+      nameInput.setAttribute('autocomplete', 'off');
+    }
+    var dl = document.getElementById(listId);
+    if(!dl){
+      dl = document.createElement('datalist');
+      dl.id = listId;
+      document.body.appendChild(dl);
+    }
+    var seen = {};
+    dl.innerHTML = productsByPlatform(platform).map(function(product){
+      var name = productName(product);
+      if(!name || seen[norm(name)]) return '';
+      seen[norm(name)] = true;
+      return '<option value="' + name.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '"></option>';
+    }).join('');
+  }
+  function applyProductToRow(rowEl, exactOnly){
+    var product = findProductForRow(rowEl);
+    if(!product) return false;
+    var platform = rowEl.querySelector('.p-platform') ? rowEl.querySelector('.p-platform').value : '';
+    var uidInput = rowEl.querySelector('.p-uid');
+    var codeInput = rowEl.querySelector('.p-code');
+    var nameInput = rowEl.querySelector('.p-name');
+    var colorInput = rowEl.querySelector('.p-color');
+    var name = productName(product);
+    if(exactOnly && nameInput && nameInput.value && norm(nameInput.value) !== norm(name)) return false;
+    if(uidInput) uidInput.value = uidByPlatform(product, platform) || uidInput.value || '';
+    if(codeInput) codeInput.value = productCode(product) || codeInput.value || '';
+    if(nameInput) nameInput.value = name || nameInput.value || '';
+    if(colorInput) colorInput.value = colorFromName(name) || colorInput.value || '';
+    return true;
+  }
+  function bindRow(rowEl){
+    if(!rowEl || rowEl.dataset.orgV85Bound === '1') return;
+    rowEl.dataset.orgV85Bound = '1';
+    var platform = rowEl.querySelector('.p-platform');
+    var uid = rowEl.querySelector('.p-uid');
+    var code = rowEl.querySelector('.p-code');
+    var name = rowEl.querySelector('.p-name');
+    [platform, uid, code, name].forEach(function(el){
+      if(!el) return;
+      el.addEventListener('change', function(){
+        fillDatalist(rowEl);
+        applyProductToRow(rowEl, el === name);
+      });
+    });
+    if(name){
+      name.addEventListener('focus', function(){ fillDatalist(rowEl); });
+      name.addEventListener('input', function(){ applyProductToRow(rowEl, true); });
+    }
+    fillDatalist(rowEl);
+    applyProductToRow(rowEl, false);
+  }
+  function bindAll(){
+    var wrap = document.getElementById('orgv14-add-products');
+    if(!wrap) return;
+    Array.prototype.forEach.call(wrap.querySelectorAll('.orgv14-product-row'), bindRow);
+  }
+
+  var prevAddProductInput = window.orgV14AddProductInput;
+  window.orgV14AddProductInput = function(p){
+    var result;
+    if(typeof prevAddProductInput === 'function') result = prevAddProductInput.apply(this, arguments);
+    var wrap = document.getElementById('orgv14-add-products');
+    var row = wrap ? wrap.lastElementChild : null;
+    if(row) bindRow(row);
+    return result;
+  };
+
+  var prevSaveAdd = window.orgV14SaveAdd;
+  window.orgV14SaveAdd = function(){
+    bindAll();
+    Array.prototype.forEach.call(document.querySelectorAll('#orgv14-add-products .orgv14-product-row'), function(row){
+      applyProductToRow(row, false);
+    });
+    if(typeof prevSaveAdd === 'function') return prevSaveAdd.apply(this, arguments);
+  };
+
+  var prevOpenAdd = window.orgV14OpenAdd;
+  window.orgV14OpenAdd = function(){
+    var result;
+    if(typeof prevOpenAdd === 'function') result = prevOpenAdd.apply(this, arguments);
+    setTimeout(bindAll, 0);
+    return result;
+  };
+
+  var prevOpenEdit = window.orgV14OpenEdit;
+  window.orgV14OpenEdit = function(){
+    var result;
+    if(typeof prevOpenEdit === 'function') result = prevOpenEdit.apply(this, arguments);
+    setTimeout(bindAll, 0);
+    return result;
+  };
+
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindAll);
+  else setTimeout(bindAll, 0);
+})();
+</script>
+
 
 </body>
 </html>
