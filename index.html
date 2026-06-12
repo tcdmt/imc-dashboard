@@ -20592,5 +20592,241 @@ window.seedRender();
 
 </script>
 
+
+<!-- SEEDING V11 TARGETED FIX: add button + status/channel filters only -->
+<style id="seeding-v11-targeted-fix-style">
+#pg-seeding #seed-status-btns,
+#pg-seeding #seed-ch-btns{
+  display:flex!important;
+  flex-wrap:wrap!important;
+  gap:4px!important;
+  min-height:24px!important;
+}
+#pg-seeding .slicer-box{
+  display:flex!important;
+  flex-wrap:wrap!important;
+  align-items:center!important;
+  gap:12px!important;
+}
+#pg-seeding #seed-ch-btns .ov-pbtn{
+  font-size:11px!important;
+  padding:5px 12px!important;
+  border-radius:20px!important;
+  border:0.5px solid var(--color-border-secondary)!important;
+  background:var(--color-background-primary)!important;
+  color:var(--color-text-secondary)!important;
+  cursor:pointer!important;
+  font-family:inherit!important;
+}
+#pg-seeding #seed-ch-btns .ov-pbtn.active{
+  background:var(--color-text-primary)!important;
+  color:var(--color-background-primary)!important;
+  border-color:var(--color-text-primary)!important;
+}
+#pg-seeding #seed-status-btns .chip{
+  font-size:11px!important;
+  padding:4px 11px!important;
+  border-radius:6px!important;
+  border:0.5px solid var(--color-border-tertiary)!important;
+  background:var(--color-background-secondary)!important;
+  color:var(--color-text-secondary)!important;
+  cursor:pointer!important;
+  font-family:inherit!important;
+}
+#pg-seeding #seed-status-btns .chip.active{
+  background:var(--color-text-primary)!important;
+  color:var(--color-background-primary)!important;
+  border-color:var(--color-text-primary)!important;
+  font-weight:500!important;
+}
+</style>
+<script id="seeding-v11-targeted-fix-script">
+(function(){
+  if(window.__seedingV11TargetedFixApplied) return;
+  window.__seedingV11TargetedFixApplied = true;
+
+  var STATUS_OPTS = ['리스트업','컨택','회신','거절','취합','발송','업로드','스냅'];
+  var CHANNEL_OPTS = ['Instagram','YouTube','TikTok','X','Blog'];
+  window.__seedV11ActiveStatus = window.__seedV11ActiveStatus || 'all';
+  window.__seedV11ActiveChannel = window.__seedV11ActiveChannel || 'all';
+
+  function escapeAttr(v){
+    return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function callRender(){
+    try {
+      if(typeof window.seedRender === 'function') {
+        window.seedRender();
+      } else if(typeof window.renderList === 'function') {
+        window.renderList();
+      }
+    } catch(e) {
+      console.warn('Seeding v11 render failed:', e);
+    }
+  }
+
+  function paintFilters(force){
+    var stRow = document.getElementById('seed-status-btns');
+    var chRow = document.getElementById('seed-ch-btns');
+    if(stRow && (force || stRow.children.length === 0)){
+      var active = window.__seedV11ActiveStatus || 'all';
+      stRow.innerHTML =
+        '<div class="chip '+(active==='all'?'active':'')+'" data-seed-v11-status="all">전체</div>' +
+        STATUS_OPTS.map(function(s){
+          return '<div class="chip '+(active===s?'active':'')+'" data-seed-v11-status="'+escapeAttr(s)+'">'+escapeAttr(s)+'</div>';
+        }).join('');
+    }
+    if(chRow && (force || chRow.children.length === 0)){
+      var activeCh = window.__seedV11ActiveChannel || 'all';
+      chRow.innerHTML =
+        '<button type="button" class="ov-pbtn '+(activeCh==='all'?'active':'')+'" data-seed-v11-channel="all">전체</button>' +
+        CHANNEL_OPTS.map(function(c){
+          return '<button type="button" class="ov-pbtn '+(activeCh===c?'active':'')+'" data-seed-v11-channel="'+escapeAttr(c)+'">'+escapeAttr(c)+'</button>';
+        }).join('');
+    }
+  }
+
+  function setStatus(status, el){
+    window.__seedV11ActiveStatus = status || 'all';
+    try {
+      if(typeof window.setStatus === 'function') {
+        window.setStatus(window.__seedV11ActiveStatus, el);
+      } else {
+        callRender();
+      }
+    } catch(e) {
+      console.warn('Seeding v11 status filter failed:', e);
+      callRender();
+    }
+    paintFilters(false);
+  }
+
+  function setChannel(channel, el){
+    window.__seedV11ActiveChannel = channel || 'all';
+    try {
+      if(typeof window.setCh === 'function') {
+        window.setCh(window.__seedV11ActiveChannel, el);
+      } else {
+        callRender();
+      }
+    } catch(e) {
+      console.warn('Seeding v11 channel filter failed:', e);
+      callRender();
+    }
+    paintFilters(false);
+  }
+
+  function newSeedRow(){
+    var id = 's' + Date.now();
+    return {
+      _id:id, id:id, _order:(window.seedData || []).length,
+      name:'', handle:'', channel:'', followers:'',
+      fit:0, style:0, mood:0, relation:0,
+      status:'리스트업', second:'선택', uploadDate:'',
+      standard:'선택', recoop:'선택', longcoop:'선택', note:'',
+      basic:{}, items:[], links:[],
+      daily:[0,1,2,3].map(function(){ return {views:0,likes:0,comments:0,productLikes:0,sales:0,revenue:0,totalSales:0}; })
+    };
+  }
+
+  function robustAddRow(e){
+    if(e){ e.preventDefault(); e.stopPropagation(); }
+    var arr = Array.isArray(window.seedData) ? window.seedData.slice() : [];
+    arr.push(newSeedRow());
+    window.seedData = arr;
+    window.__seedV11ActiveStatus = 'all';
+    window.__seedV11ActiveChannel = 'all';
+    paintFilters(true);
+    callRender();
+    try {
+      if(typeof window.fbSaveBatch === 'function') {
+        window.fbSaveBatch('seeding', window.seedData).catch(function(err){ console.warn('Seeding 저장 실패:', err); });
+      }
+    } catch(err) {
+      console.warn('Seeding 저장 실패:', err);
+    }
+    setTimeout(function(){
+      var body = document.getElementById('seed-body');
+      if(body && body.lastElementChild) body.lastElementChild.scrollIntoView({behavior:'smooth', block:'nearest'});
+    }, 80);
+    return false;
+  }
+
+  function bindButtons(){
+    var root = document.getElementById('pg-seeding');
+    if(!root) return;
+    var buttons = root.querySelectorAll('button');
+    buttons.forEach(function(btn){
+      var label = (btn.textContent || '').trim();
+      if(label === '+ 추가' || label === '추가'){
+        btn.onclick = robustAddRow;
+        if(!btn.__seedV11AddBound){
+          btn.__seedV11AddBound = true;
+          btn.addEventListener('click', robustAddRow, true);
+        }
+      }
+      if(label === '순서 정리' && typeof window.sortRows === 'function'){
+        btn.onclick = function(e){
+          if(e){ e.preventDefault(); e.stopPropagation(); }
+          try { window.sortRows(); } catch(err){ console.warn('Seeding 정렬 실패:', err); }
+          return false;
+        };
+      }
+    });
+  }
+
+  window.seedV11AddRow = robustAddRow;
+  window.seedV11SetStatus = setStatus;
+  window.seedV11SetChannel = setChannel;
+  window.seedV11PaintFilters = function(){ paintFilters(true); bindButtons(); };
+
+  document.addEventListener('click', function(e){
+    var st = e.target && e.target.closest ? e.target.closest('[data-seed-v11-status]') : null;
+    if(st){
+      e.preventDefault();
+      e.stopPropagation();
+      setStatus(st.getAttribute('data-seed-v11-status') || 'all', st);
+      return;
+    }
+    var ch = e.target && e.target.closest ? e.target.closest('[data-seed-v11-channel]') : null;
+    if(ch){
+      e.preventDefault();
+      e.stopPropagation();
+      setChannel(ch.getAttribute('data-seed-v11-channel') || 'all', ch);
+      return;
+    }
+  }, true);
+
+  function boot(){
+    paintFilters(false);
+    bindButtons();
+  }
+
+  var prevSwitchMain = window.switchMain;
+  if(typeof prevSwitchMain === 'function' && !prevSwitchMain.__seedV11TargetedFixWrapped){
+    window.switchMain = function(t){
+      var ret = prevSwitchMain.apply(this, arguments);
+      if(t === 'seeding') setTimeout(boot, 0);
+      return ret;
+    };
+    window.switchMain.__seedV11TargetedFixWrapped = true;
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    setTimeout(boot, 0);
+    setTimeout(boot, 300);
+  });
+  document.addEventListener('click', function(e){
+    var tab = e.target && e.target.closest ? e.target.closest('.top-tab') : null;
+    if(tab && (tab.textContent || '').trim() === 'Seeding') setTimeout(boot, 0);
+  }, true);
+
+  setTimeout(boot, 0);
+  setTimeout(boot, 500);
+  setTimeout(boot, 1200);
+})();
+</script>
+
 </body>
 </html>
