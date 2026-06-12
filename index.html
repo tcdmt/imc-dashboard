@@ -2801,8 +2801,8 @@ tbody tr:hover td{background:var(--color-background-secondary)}
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
       <div style="font-size:12px;font-weight:600;">시딩 크리에이터 목록</div>
       <div style="display:flex;align-items:center;gap:6px;">
-        <button class="add-btn" onclick="addRow()" style="margin-bottom:0;">+ 추가</button>
-        <button class="add-btn" onclick="sortRows()" style="margin-bottom:0;">순서 정리</button>
+        <button class="add-btn" onclick="window.seedV11AddRow(event)" style="margin-bottom:0;">+ 추가</button>
+        <button class="add-btn" onclick="window.seedV11SortRows(event)" style="margin-bottom:0;">순서 정리</button>
       </div>
     </div>
     <div class="tbl-wrap">
@@ -20009,13 +20009,14 @@ function channelBadge(text){
 
 function initFilters(){
   const monthRow=document.getElementById('seed-month-btns');
+  const stRow=document.getElementById('seed-status-btns');
+  const chRow=document.getElementById('seed-ch-btns');
+  if(!monthRow || !stRow || !chRow) return;
   const y = new Date().getFullYear();
   monthRow.innerHTML = `<div class="chip ${_seedMonth==='all'?'active':''}" onclick="setMonth('all',this)">전체</div>` +
-    Array.from({length:12},(_,i)=>`<div class="chip" onclick="setMonth('${y}-${String(i+1).padStart(2,'0')}',this)">${i+1}월</div>`).join('');
-  const stRow=document.getElementById('seed-status-btns');
-  stRow.innerHTML = `<div class="chip active" onclick="setStatus('all',this)">전체</div>` + STATUS_OPTS.map(s=>`<div class="chip" onclick="setStatus('${s}',this)">${s}</div>`).join('');
-  const chRow=document.getElementById('seed-ch-btns');
-  chRow.innerHTML = `<button class="ov-pbtn active" onclick="setCh('all',this)">전체</button>` + CH_OPTS.map(c=>`<button class="ov-pbtn" onclick="setCh('${c}',this)">${c}</button>`).join('');
+    Array.from({length:12},(_,i)=>`<div class="chip ${_seedMonth===(y+'-'+String(i+1).padStart(2,'0'))?'active':''}" onclick="setMonth('${y}-${String(i+1).padStart(2,'0')}',this)">${i+1}월</div>`).join('');
+  stRow.innerHTML = `<div class="chip ${_seedStatus==='all'?'active':''}" onclick="setStatus('all',this)">전체</div>` + STATUS_OPTS.map(s=>`<div class="chip ${_seedStatus===s?'active':''}" onclick="setStatus('${s}',this)">${s}</div>`).join('');
+  chRow.innerHTML = `<button class="ov-pbtn ${_seedCh==='all'?'active':''}" onclick="setCh('all',this)">전체</button>` + CH_OPTS.map(c=>`<button class="ov-pbtn ${_seedCh===c?'active':''}" onclick="setCh('${c}',this)">${c}</button>`).join('');
 }
 function setMonth(m,el){ _seedMonth=m; document.querySelectorAll('#seed-month-btns .chip').forEach(x=>x.classList.remove('active')); el.classList.add('active'); renderList(); }
 function setStatus(s,el){ _seedStatus=s; document.querySelectorAll('#seed-status-btns .chip').forEach(x=>x.classList.remove('active')); el.classList.add('active'); renderList(); }
@@ -20468,6 +20469,37 @@ function updateDaily(dayIdx,key,val){ const r=getCurrent(); r.daily=r.daily||[];
 var _dm=document.getElementById('detail-modal'); if(_dm) _dm.addEventListener('click', e=>{ if(e.target.id==='detail-modal') closeDetail(); });
 var _sm=document.getElementById('sub-modal'); if(_sm) _sm.addEventListener('click', e=>{ if(e.target.id==='sub-modal') closeSubModal(); });
 var _pm=document.getElementById('pick-modal'); if(_pm) _pm.addEventListener('click', e=>{ if(e.target.id==='pick-modal') closePick(); });
+window.seedV11AddRow=function(e){
+  if(e){ e.preventDefault(); e.stopPropagation(); }
+  addRow();
+};
+window.seedV11SortRows=function(e){
+  if(e){ e.preventDefault(); e.stopPropagation(); }
+  sortRows();
+};
+window.seedV11EnsureControls=function(){
+  const hasShell=document.getElementById('seed-body') && document.getElementById('seed-status-btns') && document.getElementById('seed-ch-btns');
+  if(!hasShell) return;
+  if(!document.getElementById('seed-status-btns').children.length || !document.getElementById('seed-ch-btns').children.length || !document.getElementById('seed-month-btns').children.length){
+    initFilters();
+  }
+};
+window.addRow=addRow;
+window.sortRows=sortRows;
+window.setMonth=setMonth;
+window.setStatus=setStatus;
+window.setCh=setCh;
+window.renderList=renderList;
+document.addEventListener('click',function(e){
+  const t=e.target && (e.target.closest ? e.target.closest('.top-tab,button,[data-tab]') : null);
+  const label=(t && t.textContent || '').trim();
+  if(label==='Seeding' || label==='시딩'){
+    setTimeout(function(){ window.seedV11EnsureControls(); renderList(); },0);
+    setTimeout(function(){ window.seedV11EnsureControls(); },150);
+  }
+},true);
+setTimeout(function(){ window.seedV11EnsureControls(); },0);
+setTimeout(function(){ window.seedV11EnsureControls(); },500);
 initFilters();
 window.seedRender=function(){ data=(window.seedData||[]).map(normalizeSeedRow); window.seedData=data; initFilters(); renderList(); };
 window.seedRender();
