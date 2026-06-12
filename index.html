@@ -19886,23 +19886,23 @@ function getSeedProducts(){
   });
   return rows;
 }
-const STATUS_OPTS = ['리스트업','컨택','회신','거절','취합','발송','업로드','스냅'];
-const STATUS_ORDER = {리스트업:0,컨택:1,회신:2,거절:3,취합:4,발송:5,업로드:6,스냅:7};
-const STATUS_COLOR = {
+const SEEDV11_STATUS_OPTS = ['리스트업','컨택','회신','거절','취합','발송','업로드','스냅'];
+const SEEDV11_STATUS_ORDER = {리스트업:0,컨택:1,회신:2,거절:3,취합:4,발송:5,업로드:6,스냅:7};
+const SEEDV11_STATUS_COLOR = {
   리스트업:{bg:'#F3F4F6',color:'#6B7280',border:'#E5E7EB'}, 컨택:{bg:'#EFF6FF',color:'#1E3A8A',border:'#BFDBFE'}, 회신:{bg:'#FEF3C7',color:'#92400E',border:'#FDE68A'},
   거절:{bg:'#FEF2F2',color:'#991B1B',border:'#FECACA'}, 취합:{bg:'#F0FDF4',color:'#166534',border:'#BBF7D0'},
   발송:{bg:'#EDE9FE',color:'#5B21B6',border:'#DDD6FE'}, 업로드:{bg:'#ECFDF5',color:'#065F46',border:'#A7F3D0'}, 스냅:{bg:'#FFF7ED',color:'#9A3412',border:'#FED7AA'}
 };
 const SECOND_OPTS = ['선택','진행','미진행','사용 권한 없음'];
 const SECOND_COLOR = {'선택':{bg:'#F3F4F6',color:'#6B7280',border:'#E5E7EB'},'진행':{bg:'#DCFCE7',color:'#166534'},'미진행':{bg:'#FEE2E2',color:'#991B1B'},'사용 권한 없음':{bg:'#E5E7EB',color:'#374151'}};
-const LAYER_OPTS = ['선택','비주얼','확산','핵심'];
-const LAYER_COLOR = {'선택':{bg:'#F3F4F6',color:'#6B7280'},'비주얼':{bg:'#EDE9FE',color:'#5B21B6'},'확산':{bg:'#DBEAFE',color:'#1E40AF'},'핵심':{bg:'#DCFCE7',color:'#166534'}};
-const RECOOP_OPTS = ['선택','진행','미진행','논의 필요'];
-const RECOOP_COLOR = {'선택':{bg:'#F3F4F6',color:'#6B7280'},'진행':{bg:'#DCFCE7',color:'#166534'},'미진행':{bg:'#E5E7EB',color:'#374151'},'논의 필요':{bg:'#FEF3C7',color:'#92400E'}};
-const LONG_OPTS = ['선택','상','중','하'];
-const LONG_COLOR = {'선택':{bg:'#F3F4F6',color:'#6B7280'},'상':{bg:'#DCFCE7',color:'#166534'},'중':{bg:'#FEF3C7',color:'#92400E'},'하':{bg:'#FEE2E2',color:'#991B1B'}};
-const CH_OPTS = ['Instagram','YouTube','TikTok','X','Blog'];
-const CH_COLOR = {
+const SEEDV11_LAYER_OPTS = ['선택','비주얼','확산','핵심'];
+const SEEDV11_LAYER_COLOR = {'선택':{bg:'#F3F4F6',color:'#6B7280'},'비주얼':{bg:'#EDE9FE',color:'#5B21B6'},'확산':{bg:'#DBEAFE',color:'#1E40AF'},'핵심':{bg:'#DCFCE7',color:'#166534'}};
+const SEEDV11_RECOOP_OPTS = ['선택','진행','미진행','논의 필요'];
+const SEEDV11_RECOOP_COLOR = {'선택':{bg:'#F3F4F6',color:'#6B7280'},'진행':{bg:'#DCFCE7',color:'#166534'},'미진행':{bg:'#E5E7EB',color:'#374151'},'논의 필요':{bg:'#FEF3C7',color:'#92400E'}};
+const SEEDV11_LONG_OPTS = ['선택','상','중','하'];
+const SEEDV11_LONG_COLOR = {'선택':{bg:'#F3F4F6',color:'#6B7280'},'상':{bg:'#DCFCE7',color:'#166534'},'중':{bg:'#FEF3C7',color:'#92400E'},'하':{bg:'#FEE2E2',color:'#991B1B'}};
+const SEEDV11_CH_OPTS = ['Instagram','YouTube','TikTok','X','Blog'];
+const SEEDV11_CH_COLOR = {
   'Instagram': {bg:'#FBEAF0', color:'#993556', border:'#F3C2D3'},
   'YouTube':   {bg:'#FCEBEB', color:'#A32D2D', border:'#F5C2C2'},
   'TikTok':    {bg:'#E6F1FB', color:'#185FA5', border:'#B9D8F2'},
@@ -19914,7 +19914,7 @@ let currentId = null;
 let currentSummaryTab = 'summary';
 let expandedSummaryDay = null;
 let currentSub = null;
-let _seedMonth = 'all', _seedStatus = 'all', _seedCh = 'all';
+let _seedV11Month = 'all', _seedV11Status = 'all', _seedV11Ch = 'all';
 
 
 function seedEnsureDaily(r){
@@ -20003,7 +20003,7 @@ function badge(text, colorMap){
 }
 
 function channelBadge(text){
-  const c=CH_COLOR[text]||{bg:'#F3F4F6',color:'#6B7280',border:'#E5E7EB'};
+  const c=SEEDV11_CH_COLOR[text]||{bg:'#F3F4F6',color:'#6B7280',border:'#E5E7EB'};
   return `<span class="channel-pill ${text?'':'empty'}" style="background:${c.bg};color:${c.color};border-color:${c.border||'#E5E7EB'}">${esc(text||'선택')}</span>`;
 }
 
@@ -20013,19 +20013,19 @@ function initFilters(){
   const chRow=document.getElementById('seed-ch-btns');
   if(!monthRow || !stRow || !chRow) return;
   const y = new Date().getFullYear();
-  monthRow.innerHTML = `<div class="chip ${_seedMonth==='all'?'active':''}" onclick="setMonth('all',this)">전체</div>` +
-    Array.from({length:12},(_,i)=>`<div class="chip ${_seedMonth===(y+'-'+String(i+1).padStart(2,'0'))?'active':''}" onclick="setMonth('${y}-${String(i+1).padStart(2,'0')}',this)">${i+1}월</div>`).join('');
-  stRow.innerHTML = `<div class="chip ${_seedStatus==='all'?'active':''}" onclick="setStatus('all',this)">전체</div>` + STATUS_OPTS.map(s=>`<div class="chip ${_seedStatus===s?'active':''}" onclick="setStatus('${s}',this)">${s}</div>`).join('');
-  chRow.innerHTML = `<button class="ov-pbtn ${_seedCh==='all'?'active':''}" onclick="setCh('all',this)">전체</button>` + CH_OPTS.map(c=>`<button class="ov-pbtn ${_seedCh===c?'active':''}" onclick="setCh('${c}',this)">${c}</button>`).join('');
+  monthRow.innerHTML = `<div class="chip ${_seedV11Month==='all'?'active':''}" onclick="setMonth('all',this)">전체</div>` +
+    Array.from({length:12},(_,i)=>`<div class="chip ${_seedV11Month===(y+'-'+String(i+1).padStart(2,'0'))?'active':''}" onclick="setMonth('${y}-${String(i+1).padStart(2,'0')}',this)">${i+1}월</div>`).join('');
+  stRow.innerHTML = `<div class="chip ${_seedV11Status==='all'?'active':''}" onclick="setStatus('all',this)">전체</div>` + SEEDV11_STATUS_OPTS.map(s=>`<div class="chip ${_seedV11Status===s?'active':''}" onclick="setStatus('${s}',this)">${s}</div>`).join('');
+  chRow.innerHTML = `<button class="ov-pbtn ${_seedV11Ch==='all'?'active':''}" onclick="setCh('all',this)">전체</button>` + SEEDV11_CH_OPTS.map(c=>`<button class="ov-pbtn ${_seedV11Ch===c?'active':''}" onclick="setCh('${c}',this)">${c}</button>`).join('');
 }
-function setMonth(m,el){ _seedMonth=m; document.querySelectorAll('#seed-month-btns .chip').forEach(x=>x.classList.remove('active')); el.classList.add('active'); renderList(); }
-function setStatus(s,el){ _seedStatus=s; document.querySelectorAll('#seed-status-btns .chip').forEach(x=>x.classList.remove('active')); el.classList.add('active'); renderList(); }
-function setCh(c,el){ _seedCh=c; document.querySelectorAll('#seed-ch-btns .ov-pbtn').forEach(x=>x.classList.remove('active')); el.classList.add('active'); renderList(); }
+function setMonth(m,el){ _seedV11Month=m; document.querySelectorAll('#seed-month-btns .chip').forEach(x=>x.classList.remove('active')); el.classList.add('active'); renderList(); }
+function setStatus(s,el){ _seedV11Status=s; document.querySelectorAll('#seed-status-btns .chip').forEach(x=>x.classList.remove('active')); el.classList.add('active'); renderList(); }
+function setCh(c,el){ _seedV11Ch=c; document.querySelectorAll('#seed-ch-btns .ov-pbtn').forEach(x=>x.classList.remove('active')); el.classList.add('active'); renderList(); }
 function filteredRows(){
   return data.map((r,i)=>({r,i})).filter(({r})=>{
-    if(_seedStatus!=='all' && r.status!==_seedStatus) return false;
-    if(_seedCh!=='all' && r.channel!==_seedCh) return false;
-    if(_seedMonth!=='all' && r.uploadDate && !r.uploadDate.startsWith(_seedMonth)) return false;
+    if(_seedV11Status!=='all' && r.status!==_seedV11Status) return false;
+    if(_seedV11Ch!=='all' && r.channel!==_seedV11Ch) return false;
+    if(_seedV11Month!=='all' && r.uploadDate && !r.uploadDate.startsWith(_seedV11Month)) return false;
     return true;
   });
 }
@@ -20045,11 +20045,11 @@ function updateFlow(){
   const wrap=document.getElementById('seed-flow');
   const counts={리스트업:0,컨택:0,회신:0,거절:0,취합:0,발송:0,업로드:0,스냅:0};
   data.forEach(r=>{ if(counts[r.status]!==undefined) counts[r.status]++; });
-  const maxStatus=data.reduce((m,r)=>(STATUS_ORDER[r.status]||0)>(STATUS_ORDER[m]||0)?r.status:m,'리스트업');
-  const currentIdx=STATUS_ORDER[maxStatus]||0;
+  const maxStatus=data.reduce((m,r)=>(SEEDV11_STATUS_ORDER[r.status]||0)>(SEEDV11_STATUS_ORDER[m]||0)?r.status:m,'리스트업');
+  const currentIdx=SEEDV11_STATUS_ORDER[maxStatus]||0;
   wrap.innerHTML='';
   ['리스트업','컨택','회신','취합','발송','업로드','스냅'].forEach((s,i,arr)=>{
-    const sIdx=STATUS_ORDER[s]!==undefined?STATUS_ORDER[s]:-1;
+    const sIdx=SEEDV11_STATUS_ORDER[s]!==undefined?SEEDV11_STATUS_ORDER[s]:-1;
     const dotCls=sIdx<currentIdx?'done':(sIdx===currentIdx?'current':'pending');
     wrap.insertAdjacentHTML('beforeend',`<div class="seed-flow-step"><div class="seed-flow-dot ${dotCls}">${counts[s]||0}</div><div class="seed-flow-label">${s}</div></div>`);
     if(i<arr.length-1) wrap.insertAdjacentHTML('beforeend','<div class="seed-flow-arrow">→</div>');
@@ -20064,18 +20064,18 @@ function renderList(){
     return `<tr>
       <td class="seed-editable" ondblclick="event.stopPropagation();startEdit(this,${i},'name')" onclick="openDetail('${r.id}')"><span class="seed-name">${esc(r.name)||'-'}</span></td>
       <td class="seed-editable" ondblclick="event.stopPropagation();startEdit(this,${i},'handle')" onclick="openDetail('${r.id}')"><span class="seed-id">${esc(r.handle)||'-'}</span></td>
-      <td style="text-align:center" ondblclick="event.stopPropagation();seedDropdown(this,${i},'channel',CH_OPTS,CH_COLOR)" title="더블클릭하여 채널 선택">
+      <td style="text-align:center" ondblclick="event.stopPropagation();seedDropdown(this,${i},'channel',SEEDV11_CH_OPTS,SEEDV11_CH_COLOR)" title="더블클릭하여 채널 선택">
         ${channelBadge(r.channel)}
       </td>
       <td class="seed-editable" style="text-align:right" ondblclick="event.stopPropagation();startEdit(this,${i},'followers')" title="숫자 입력 시 K/M으로 표시">${fmtFollower(r.followers)}</td>
       <td>${stars(r.fit,i,'fit')}</td><td>${stars(r.style,i,'style')}</td><td>${stars(r.mood,i,'mood')}</td><td>${stars(r.relation,i,'relation')}</td>
       <td style="text-align:center"><span class="seed-pill ${recoClass(txt)}">${txt}</span></td>
-      <td style="text-align:center" ondblclick="seedDropdown(this,${i},'status',STATUS_OPTS,STATUS_COLOR)">${badge(r.status,STATUS_COLOR)}</td>
+      <td style="text-align:center" ondblclick="seedDropdown(this,${i},'status',SEEDV11_STATUS_OPTS,SEEDV11_STATUS_COLOR)">${badge(r.status,SEEDV11_STATUS_COLOR)}</td>
       <td style="text-align:center" ondblclick="seedDropdown(this,${i},'second',SECOND_OPTS,SECOND_COLOR)">${badge(r.second,SECOND_COLOR)}</td>
       <td class="date-cell ${r.uploadDate?'':'empty'}" ondblclick="event.stopPropagation();startDateEdit(this,${i})" title="더블클릭하여 날짜 선택">${fmtUploadCell(r.uploadDate)}</td>
-      <td style="text-align:center" ondblclick="seedDropdown(this,${i},'standard',LAYER_OPTS,LAYER_COLOR)">${badge(r.standard||'선택',LAYER_COLOR)}</td>
-      <td style="text-align:center" ondblclick="seedDropdown(this,${i},'recoop',RECOOP_OPTS,RECOOP_COLOR)">${badge(r.recoop||'선택',RECOOP_COLOR)}</td>
-      <td style="text-align:center" ondblclick="seedDropdown(this,${i},'longcoop',LONG_OPTS,LONG_COLOR)">${badge(r.longcoop||'선택',LONG_COLOR)}</td>
+      <td style="text-align:center" ondblclick="seedDropdown(this,${i},'standard',SEEDV11_LAYER_OPTS,SEEDV11_LAYER_COLOR)">${badge(r.standard||'선택',SEEDV11_LAYER_COLOR)}</td>
+      <td style="text-align:center" ondblclick="seedDropdown(this,${i},'recoop',SEEDV11_RECOOP_OPTS,SEEDV11_RECOOP_COLOR)">${badge(r.recoop||'선택',SEEDV11_RECOOP_COLOR)}</td>
+      <td style="text-align:center" ondblclick="seedDropdown(this,${i},'longcoop',SEEDV11_LONG_OPTS,SEEDV11_LONG_COLOR)">${badge(r.longcoop||'선택',SEEDV11_LONG_COLOR)}</td>
       <td><input class="note-in" value="${esc(r.note||'')}" onchange="updateField(${i},'note',this.value)" onclick="event.stopPropagation()"></td>
       <td><button class="del-btn" onclick="requestDelete(event,${i})">삭제</button></td>
     </tr>`;
@@ -20469,6 +20469,30 @@ function updateDaily(dayIdx,key,val){ const r=getCurrent(); r.daily=r.daily||[];
 var _dm=document.getElementById('detail-modal'); if(_dm) _dm.addEventListener('click', e=>{ if(e.target.id==='detail-modal') closeDetail(); });
 var _sm=document.getElementById('sub-modal'); if(_sm) _sm.addEventListener('click', e=>{ if(e.target.id==='sub-modal') closeSubModal(); });
 var _pm=document.getElementById('pick-modal'); if(_pm) _pm.addEventListener('click', e=>{ if(e.target.id==='pick-modal') closePick(); });
+
+/* SEEDING V11 FIX: expose inline handlers after avoiding global-name collisions */
+window.startEdit = startEdit;
+window.seedDropdown = seedDropdown;
+window.closeSeedDropdown = closeSeedDropdown;
+window.setScore = setScore;
+window.openDetail = openDetail;
+window.closeDetail = closeDetail;
+window.openSubModal = openSubModal;
+window.closeSubModal = closeSubModal;
+window.saveSubModal = saveSubModal;
+window.addItem = addItem;
+window.updateItem = updateItem;
+window.removeItem = removeItem;
+window.addLink = addLink;
+window.removeLink = removeLink;
+window.handleContentButton = handleContentButton;
+window.openPick = openPick;
+window.closePick = closePick;
+window.requestDelete = requestDelete;
+window.cancelDelete = cancelDelete;
+window.confirmDelete = confirmDelete;
+window.updateDaily = updateDaily;
+
 window.seedV11AddRow=function(e){
   if(e){ e.preventDefault(); e.stopPropagation(); }
   addRow();
@@ -20500,6 +20524,68 @@ document.addEventListener('click',function(e){
 },true);
 setTimeout(function(){ window.seedV11EnsureControls(); },0);
 setTimeout(function(){ window.seedV11EnsureControls(); },500);
+
+/* SEEDING V11 FIX: button/filter bootstrap for index tab integration */
+(function(){
+  function findSeedButton(label){
+    var root=document.getElementById('pg-seeding');
+    if(!root) return null;
+    var btns=root.querySelectorAll('button');
+    for(var i=0;i<btns.length;i++){
+      if((btns[i].textContent||'').trim()===label) return btns[i];
+    }
+    return null;
+  }
+  function bootSeedingV11(){
+    var root=document.getElementById('pg-seeding');
+    if(!root) return;
+    var body=document.getElementById('seed-body');
+    if(!body){
+      var legacy=document.getElementById('seed-tbody');
+      if(legacy){ legacy.id='seed-body'; body=legacy; }
+    }
+    if(typeof initFilters==='function') initFilters();
+    if(typeof renderList==='function') renderList();
+
+    var addBtn=findSeedButton('+ 추가');
+    if(addBtn && !addBtn.__seedV11Bound){
+      addBtn.__seedV11Bound=true;
+      addBtn.onclick=null;
+      addBtn.addEventListener('click',function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        if(typeof addRow==='function') addRow();
+      });
+    }
+    var sortBtn=findSeedButton('순서 정리');
+    if(sortBtn && !sortBtn.__seedV11Bound){
+      sortBtn.__seedV11Bound=true;
+      sortBtn.onclick=null;
+      sortBtn.addEventListener('click',function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        if(typeof sortRows==='function') sortRows();
+      });
+    }
+  }
+  var prevSwitch=window.switchMain;
+  if(typeof prevSwitch==='function' && !prevSwitch.__seedV11Wrapped){
+    window.switchMain=function(t){
+      var ret=prevSwitch.apply(this,arguments);
+      if(t==='seeding') setTimeout(bootSeedingV11,0);
+      return ret;
+    };
+    window.switchMain.__seedV11Wrapped=true;
+  }
+  document.addEventListener('click',function(e){
+    var t=e.target && e.target.closest ? e.target.closest('.top-tab') : null;
+    if(t && (t.textContent||'').trim()==='Seeding') setTimeout(bootSeedingV11,0);
+  },true);
+  document.addEventListener('DOMContentLoaded',function(){ setTimeout(bootSeedingV11,0); });
+  setTimeout(bootSeedingV11,0);
+  setTimeout(bootSeedingV11,500);
+})();
+
 initFilters();
 window.seedRender=function(){ data=(window.seedData||[]).map(normalizeSeedRow); window.seedData=data; initFilters(); renderList(); };
 window.seedRender();
