@@ -20729,12 +20729,17 @@ tbody tr:hover td{background:var(--color-background-secondary)}
 }
 
 
-/* v8: index의 Organic/Feedback 팝업 폭과 전체 페이지 폭 기준에 맞춤 */
-.modal{padding:22px!important;}
+/* Seeding 상세 팝업 크기: Feedback / Organic 상세 팝업과 동일 */
+.modal{padding:18px!important;}
 .detail-box{
-  width:min(96vw,1180px)!important;
-  max-width:1180px!important;
-  max-height:90vh!important;
+  width:96vw!important;
+  height:92vh!important;
+  max-width:none!important;
+  max-height:92vh!important;
+}
+.detail-body{
+  flex:1 1 auto!important;
+  overflow:auto!important;
 }
 .page{max-width:100%!important;}
 
