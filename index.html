@@ -21876,5 +21876,67 @@ renderList();
   justify-content:center!important;
 }
 </style>
+
+<script id="seed-item-popup-shadow-width-fix-v2">
+(function(){
+  function applySeedItemPopupWidthFix(){
+    var host=document.getElementById('seed-v11-host');
+    var root=host&&host.shadowRoot;
+    if(!root) return false;
+    if(root.getElementById('seed-item-popup-shadow-width-style-v2')) return true;
+    var style=document.createElement('style');
+    style.id='seed-item-popup-shadow-width-style-v2';
+    style.textContent=`
+      /* Seeding 상세 팝업 > 아이템 테이블 요청사항만 적용 */
+      #sub-modal .sub-box{
+        width:min(1220px,98vw)!important;
+        max-width:98vw!important;
+      }
+      #sub-items{
+        overflow-x:visible!important;
+      }
+      #sub-items .item-table{
+        width:100%!important;
+        table-layout:fixed!important;
+      }
+      #sub-items .item-table th:nth-child(1),
+      #sub-items .item-table td:nth-child(1){
+        width:36px!important;min-width:36px!important;max-width:36px!important;
+        padding-left:3px!important;padding-right:3px!important;text-align:center!important;
+      }
+      #sub-items .item-table th:nth-child(2),
+      #sub-items .item-table td:nth-child(2){width:105px!important;min-width:105px!important;}
+      #sub-items .item-table th:nth-child(3),
+      #sub-items .item-table td:nth-child(3){width:120px!important;min-width:120px!important;}
+      #sub-items .item-table th:nth-child(4),
+      #sub-items .item-table td:nth-child(4){width:120px!important;min-width:120px!important;}
+      #sub-items .item-table th:nth-child(5),
+      #sub-items .item-table td:nth-child(5){width:350px!important;min-width:350px!important;}
+      #sub-items .item-table th:nth-child(6),
+      #sub-items .item-table td:nth-child(6){width:125px!important;min-width:125px!important;}
+      #sub-items .item-table th:nth-child(7),
+      #sub-items .item-table td:nth-child(7){width:138px!important;min-width:138px!important;}
+      #sub-items .item-table th:nth-child(8),
+      #sub-items .item-table td:nth-child(8){width:64px!important;min-width:64px!important;}
+      #sub-items .seed-item-drag-handle{
+        width:22px!important;min-width:22px!important;max-width:22px!important;
+        height:24px!important;padding:0!important;margin:0 auto!important;
+        display:inline-flex!important;align-items:center!important;justify-content:center!important;
+      }
+      #sub-items .item-table input,
+      #sub-items .item-table select{min-width:0!important;width:100%!important;}
+    `;
+    root.appendChild(style);
+    return true;
+  }
+  if(!applySeedItemPopupWidthFix()){
+    var tries=0;
+    var timer=setInterval(function(){
+      tries++;
+      if(applySeedItemPopupWidthFix()||tries>100) clearInterval(timer);
+    },50);
+  }
+})();
+</script>
 </body>
 </html>
