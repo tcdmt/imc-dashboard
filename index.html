@@ -4684,7 +4684,7 @@ function renderCreatorRows(list){
       +'<td class="dc-td" ondblclick="listChDrop(this,'+ri+')">'+listChBadge(r.ch)+'</td>'
       +'<td class="dc-td">'+dcCell(fmtFollowers(r.followers),'window.creators['+ri+'].followers=__VAL__;fbSaveCreators();',{placeholder:'팔로워'})+'</td>'
       +'<td class="dc-td">'+dcCell(r.contactPoint||'','window.creators['+ri+'].contactPoint=__VAL__;fbSaveCreators();',{placeholder:'컨택 포인트',minW:'110px'})+'</td>'
-      +'<td class="single-check"><input type="checkbox"'+(r.checked?' checked':'')+' onchange="window.creators['+ri+'].checked=this.checked;fbSaveCreators();window.buildCal();window.updateSummary();"></td>'
+      +'<td class="single-check"><input type="checkbox"'+(r.checked?' checked':'')+' onchange="window.creators['+ri+'].checked=this.checked;fbSaveCreators();window.buildCal();window.updateSummary();window.applyFeedbackFilter&&window.applyFeedbackFilter();"></td>'
       +'<td class="dc-td">'+dcCell(r.uploadDate,'window.creators['+ri+'].uploadDate=__VAL__;fbSaveCreators();window.buildCal();window.updateSummary();',{type:'date',minW:'110px'})+'</td>'
       +'<td class="dc-td">'+dcSel(LIST_PLTS,r.platform,'window.creators['+ri+'].platform=__VAL__;fbSaveCreators();')+'</td>'
       +'<td class="dc-td">'+dcCell(r.campaign||'','window.creators['+ri+'].campaign=__VAL__;fbSaveCreators();',{placeholder:'프로모션',minW:'80px'})+'</td>'
@@ -4843,8 +4843,8 @@ window.fbToggleFeedbackCreator = fbToggleFeedbackCreator;
 
 function renderFeedbackRows(list){
   const body=document.getElementById('feedback-body');
-  const elig=list.filter(r=>r.checked||r.progress);
-  if(!elig.length){body.innerHTML='<tr><td colspan="30" style="text-align:center;color:var(--color-text-tertiary);padding:16px;">진행 체크 또는 진행 상태 선택 시 자동 기입됩니다.</td></tr>';return;}
+  const elig=list.filter(r=>r.checked===true);
+  if(!elig.length){body.innerHTML='<tr><td colspan="30" style="text-align:center;color:var(--color-text-tertiary);padding:16px;">List 탭의 진행 컬럼에 체크하면 자동 기입됩니다.</td></tr>';return;}
   let html='';
   elig.forEach(r=>{
     const ci=window.creators.indexOf(r);
@@ -6537,7 +6537,7 @@ function fbAutoFillSales() {
 
   let updated = false;
   (window.creators || []).forEach((r, ci) => {
-    if(!r || (!r.checked && !r.progress)) return;
+    if(!r || r.checked!==true) return;
     const uploadD = r.uploadDate ? new Date(r.uploadDate) : null;
     if(!uploadD || isNaN(uploadD.getTime())) return;
 
@@ -11016,7 +11016,7 @@ if(document.readyState==='loading'){
         '<td class="dc-td">'+dcCell(r.contactPoint||'','window.creators['+ri+'].contactPoint=__VAL__;fbSaveCreators();',{placeholder:'컨택 포인트',minW:'96px'})+'</td>'+ 
         starCell('fit',ri,r)+starCell('style',ri,r)+starCell('mood',ri,r)+starCell('contribution',ri,r)+
         '<td style="text-align:center;">'+pill(decision,'recolab')+'</td>'+ 
-        '<td class="single-check"><input type="checkbox"'+(r.checked?' checked':'')+' onchange="window.creators['+ri+'].checked=this.checked;fbSaveCreators();window.buildCal();window.updateSummary();"></td>'+ 
+        '<td class="single-check"><input type="checkbox"'+(r.checked?' checked':'')+' onchange="window.creators['+ri+'].checked=this.checked;fbSaveCreators();window.buildCal();window.updateSummary();window.applyFeedbackFilter&&window.applyFeedbackFilter();"></td>'+ 
         '<td class="dc-td">'+dcCell(r.uploadDate,'window.creators['+ri+'].uploadDate=__VAL__;fbSaveCreators();window.buildCal();window.updateSummary();',{type:'date',minW:'110px'})+'</td>'+ 
         ddTd(ri,'platform')+
         '<td class="dc-td">'+dcCell(r.campaign||'','window.creators['+ri+'].campaign=__VAL__;fbSaveCreators();',{placeholder:'프로모션',minW:'80px'})+'</td>'+ 
@@ -15948,7 +15948,7 @@ if(document.readyState==='loading'){
     if(!rawRows.length || !Array.isArray(window.creators)) return;
     var updated = false;
     window.creators.forEach(function(r, ci){
-      if(!r.checked && !r.progress) return;
+      if(r.checked!==true) return;
       if(!r._fbData) r._fbData = {};
       var uploadD = r.uploadDate ? new Date(r.uploadDate) : null;
       if(!uploadD || isNaN(uploadD.getTime())) return;
@@ -16780,7 +16780,7 @@ if(document.readyState==='loading'){
     function rowName(row){ return String(rowVal(row, ['상품명','제품명','상품 명','Product Name','name','Name']) || '').trim(); }
 
     window.creators.forEach(function(r, ci){
-      if(!r || (!r.checked && !r.progress)) return;
+      if(!r || r.checked!==true) return;
       if(!r._fbData) r._fbData = {};
       var uploadD = r.uploadDate ? new Date(r.uploadDate) : null;
       if(!uploadD || isNaN(uploadD.getTime())) return;
@@ -16981,7 +16981,7 @@ if(document.readyState==='loading'){
     }
 
     (window.creators || []).forEach(function(r, ci){
-      if(!r || (!r.checked && !r.progress)) return;
+      if(!r || r.checked!==true) return;
       var uploadD = r.uploadDate ? new Date(r.uploadDate) : null;
       if(!uploadD || isNaN(uploadD.getTime())) return;
 
