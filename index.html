@@ -21668,5 +21668,93 @@ renderList();
 })();
 </script>
 
+
+
+<!-- CHOI PATCH: List top horizontal scrollbar reliable sync only -->
+<script id="list-top-scroll-reliable-sync-fix">
+(function(){
+  'use strict';
+
+  function getListWrap(){
+    var body=document.getElementById('creator-body');
+    return (body && body.closest('.tbl-wrap')) || document.querySelector('#pg-list .imc-requested-scroll-wrap') || document.querySelector('#pg-list .tbl-wrap');
+  }
+
+  function getListTop(){
+    return document.querySelector('#pg-list .imc-requested-top-scroll[data-scroll-key="list"]');
+  }
+
+  function refreshListTopScroll(){
+    var page=document.getElementById('pg-list');
+    var wrap=getListWrap();
+    if(!page || !wrap) return;
+
+    if(typeof window.refreshRequestedScrollbars==='function'){
+      try{ window.refreshRequestedScrollbars(); }catch(e){}
+    }
+
+    var top=getListTop();
+    if(!top) return;
+    var inner=top.querySelector('.imc-requested-top-scroll-inner');
+    var table=wrap.querySelector('table');
+    var width=Math.max(
+      table ? table.scrollWidth : 0,
+      table ? table.offsetWidth : 0,
+      wrap.scrollWidth || 0,
+      wrap.clientWidth || 0,
+      2100
+    );
+    if(inner) inner.style.width=width+'px';
+
+    if(top.__listSyncHandler) top.removeEventListener('scroll', top.__listSyncHandler);
+    if(wrap.__listSyncHandler) wrap.removeEventListener('scroll', wrap.__listSyncHandler);
+
+    var syncing=false;
+    var topHandler=function(){
+      if(syncing) return;
+      syncing=true;
+      wrap.scrollLeft=top.scrollLeft;
+      syncing=false;
+    };
+    var wrapHandler=function(){
+      if(syncing) return;
+      syncing=true;
+      top.scrollLeft=wrap.scrollLeft;
+      syncing=false;
+    };
+
+    top.addEventListener('scroll', topHandler, {passive:true});
+    wrap.addEventListener('scroll', wrapHandler, {passive:true});
+    top.__listSyncHandler=topHandler;
+    wrap.__listSyncHandler=wrapHandler;
+    top.scrollLeft=wrap.scrollLeft || 0;
+  }
+
+  window.refreshListTopScroll=refreshListTopScroll;
+
+  function schedule(){
+    refreshListTopScroll();
+    setTimeout(refreshListTopScroll, 50);
+    setTimeout(refreshListTopScroll, 250);
+  }
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', schedule);
+  else schedule();
+
+  window.addEventListener('resize', schedule);
+  document.addEventListener('click', function(e){
+    if(e.target && e.target.closest && e.target.closest('.top-tab, #pg-list')) setTimeout(schedule, 0);
+  }, true);
+
+  var listPage=document.getElementById('pg-list');
+  if(listPage){
+    var observer=new MutationObserver(function(){
+      clearTimeout(window.__listTopScrollFixTimer);
+      window.__listTopScrollFixTimer=setTimeout(schedule, 30);
+    });
+    observer.observe(listPage,{childList:true,subtree:true});
+  }
+})();
+</script>
 </body>
 </html>
