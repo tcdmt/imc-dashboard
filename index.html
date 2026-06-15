@@ -19408,7 +19408,7 @@ const SEEDV11_CH_COLOR = {
 let data = loadData();
 let currentId = null;
 let currentSummaryTab = 'summary';
-let expandedSummaryDay = null;
+let expandedSummaryDays = new Set();
 let currentSub = null;
 let _seedV11Month = 'all', _seedV11Status = 'all', _seedV11Ch = 'all';
 
@@ -19665,7 +19665,7 @@ function confirmDeleteStep(){
 function deleteRow(i){ requestDelete(null,i); }
 
 function getCurrent(){ return data.find(r=>r.id===currentId); }
-function openDetail(id){ currentId=id; currentSummaryTab='summary'; expandedSummaryDay=null; document.getElementById('detail-modal').classList.add('open'); renderDetail(); }
+function openDetail(id){ currentId=id; currentSummaryTab='summary'; expandedSummaryDays=new Set(); document.getElementById('detail-modal').classList.add('open'); renderDetail(); }
 function closeDetail(){ document.getElementById('detail-modal').classList.remove('open'); currentId=null; closeSubModal(); }
 function renderDetail(){
   const r=getCurrent(); if(!r) return;
@@ -19927,7 +19927,8 @@ function dailyShare(d){
   return total ? revenue/total*100 : 0;
 }
 function toggleSummaryDay(dayIdx){
-  expandedSummaryDay = expandedSummaryDay===dayIdx ? null : dayIdx;
+  if(expandedSummaryDays.has(dayIdx)) expandedSummaryDays.delete(dayIdx);
+  else expandedSummaryDays.add(dayIdx);
   renderSummaryContent();
 }
 function productDetailTable(r,dayIdx){
@@ -19953,7 +19954,7 @@ function renderSummaryContent(){
       const rows=dayRows(r,i);
       const auto={productLikes:rows.reduce((s,x)=>s+x.productLikes,0),sales:rows.reduce((s,x)=>s+x.sales,0),revenue:rows.reduce((s,x)=>s+x.revenue,0),totalSales:Math.max(0,...rows.map(x=>x.totalSales||0))};
       const share=auto.totalSales?auto.revenue/auto.totalSales*100:0;
-      const open=expandedSummaryDay===i;
+      const open=expandedSummaryDays.has(i);
       return `<tr>
         <td><button class="org-expand-btn" onclick="toggleSummaryDay(${i})">${open?'−':'+'}</button></td>
         <td style="text-align:left">${fmtDateLabel(r.uploadDate,i)}</td>
@@ -20672,16 +20673,20 @@ tbody tr:hover td{background:var(--color-background-secondary)}
   display:inline-flex!important;
   align-items:center!important;
   justify-content:center!important;
-  width:18px!important;
-  height:18px!important;
-  border-radius:999px!important;
-  border:none!important;
-  background:var(--color-background-secondary)!important;
-  color:var(--color-text-primary)!important;
-  font-weight:800!important;
+  width:22px!important;
+  height:22px!important;
+  border-radius:50%!important;
+  border:0.5px solid var(--color-border-secondary)!important;
+  background:var(--color-background-primary)!important;
+  color:var(--color-text-secondary)!important;
+  font-weight:700!important;
   margin-right:0!important;
   cursor:pointer!important;
   line-height:1!important;
+}
+.org-expand-btn:hover{
+  background:var(--color-background-secondary)!important;
+  color:var(--color-text-primary)!important;
 }
 .org-day-summary-table tr.detail-row td{
   background:var(--color-background-secondary)!important;
@@ -20973,7 +20978,7 @@ const defaultData = [
 let data = loadData();
 let currentId = null;
 let currentSummaryTab = 'summary';
-let expandedSummaryDay = null;
+let expandedSummaryDays = new Set();
 let currentSub = null;
 let _seedMonth = 'all', _seedStatus = 'all', _seedCh = 'all';
 function clone(v){ try{return structuredClone(v)}catch(e){return JSON.parse(JSON.stringify(v))} }
@@ -21206,7 +21211,7 @@ function confirmDeleteStep(){
 function deleteRow(i){ requestDelete(null,i); }
 
 function getCurrent(){ return data.find(r=>r.id===currentId); }
-function openDetail(id){ currentId=id; currentSummaryTab='summary'; expandedSummaryDay=null; document.getElementById('detail-modal').classList.add('open'); renderDetail(); }
+function openDetail(id){ currentId=id; currentSummaryTab='summary'; expandedSummaryDays=new Set(); document.getElementById('detail-modal').classList.add('open'); renderDetail(); }
 function closeDetail(){ document.getElementById('detail-modal').classList.remove('open'); currentId=null; closeSubModal(); }
 function renderDetail(){
   const r=getCurrent(); if(!r) return;
@@ -21343,7 +21348,8 @@ function dailyShare(d){
   return total ? revenue/total*100 : 0;
 }
 function toggleSummaryDay(dayIdx){
-  expandedSummaryDay = expandedSummaryDay===dayIdx ? null : dayIdx;
+  if(expandedSummaryDays.has(dayIdx)) expandedSummaryDays.delete(dayIdx);
+  else expandedSummaryDays.add(dayIdx);
   renderSummaryContent();
 }
 function productDetailTable(r,dayIdx){
@@ -21366,7 +21372,7 @@ function renderSummaryContent(){
     const share=sum.totalSales?sum.revenue/sum.totalSales*100:0;
     const dayRowsHtml=[0,1,2,3].map(i=>{
       const d=r.daily?.[i]||{};
-      const open=expandedSummaryDay===i;
+      const open=expandedSummaryDays.has(i);
       return `<tr>
         <td><button class="org-expand-btn" onclick="seedV11.toggleSummaryDay(${i})">${open?'−':'+'}</button></td>
         <td style="text-align:left">${fmtDateLabel(r.uploadDate,i)}</td>
@@ -21946,7 +21952,7 @@ renderList();
 
 <style id="feedback-organic-summary-ttl-style">
 #fb-v15-modal .fb-v15-summary-ttl td,
-#orgv14-popup .orgv14-summary-ttl td{background:#EAF3DE!important;color:#3B6D11!important;font-weight:600!important;}
+#orgv14-modal .orgv14-summary-ttl td{background:#EAF3DE!important;color:#3B6D11!important;font-weight:600!important;}
 </style>
 </body>
 </html>
