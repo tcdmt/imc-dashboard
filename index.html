@@ -2803,7 +2803,7 @@ html[data-user-role="viewer"] [data-delete]{opacity:.35!important;cursor:not-all
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
       <div style="font-size:12px;font-weight:600;">시딩 크리에이터 목록</div>
       <div style="display:flex;align-items:center;gap:6px;">
-        <button class="add-btn" onclick="window.seedV11AddRow(event)" style="margin-bottom:0;">+ 추가</button>
+        <button id="seed-add-btn" type="button" class="add-btn" onclick="return window.seedV11AddRow(event)" style="margin-bottom:0;">+ 추가</button>
         <button class="add-btn" onclick="window.seedV11SortRows(event)" style="margin-bottom:0;">순서 정리</button>
       </div>
     </div>
@@ -20784,12 +20784,8 @@ window.seedRender();
     var buttons = root.querySelectorAll('button');
     buttons.forEach(function(btn){
       var label = (btn.textContent || '').trim();
-      if(label === '+ 추가' || label === '추가'){
-        btn.onclick = robustAddRow;
-        if(!btn.__seedV11AddBound){
-          btn.__seedV11AddBound = true;
-          btn.addEventListener('click', robustAddRow, true);
-        }
+      if((label === '+ 추가' || label === '추가') && btn.id === 'seed-add-btn'){
+        btn.onclick = function(e){ return robustAddRow(e); };
       }
       if(label === '순서 정리' && typeof window.sortRows === 'function'){
         btn.onclick = function(e){
