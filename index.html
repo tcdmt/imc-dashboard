@@ -2918,6 +2918,21 @@ html[data-user-role="viewer"] [data-delete]{opacity:.35!important;cursor:not-all
 
 </div>
 
+
+<style id="seeding-v11-final-isolation-fix">
+/* Seeding 화면은 활성 메인 탭일 때만 표시 */
+#pg-seeding:not(.imc-main-tab-active){display:none!important;}
+
+/* Seeding 전용 보조 팝업은 닫힘 상태에서 DOM 내용이 노출되지 않도록 고유 ID로 차단 */
+#pg-seeding #detail-modal,
+#pg-seeding #pick-modal,
+#pg-seeding #sub-modal,
+#pg-seeding #delete-modal{display:none!important;}
+#pg-seeding #detail-modal.open,
+#pg-seeding #pick-modal.open,
+#pg-seeding #sub-modal.open,
+#pg-seeding #delete-modal.open{display:flex!important;}
+</style>
 <!-- CELEB -->
 <div id="pg-celeb" style="display:none;">
   <!-- KPI 카드 -->
@@ -6043,7 +6058,11 @@ function budgetMemoBlur(el){
 function switchMain(t){
   TABS.forEach(id=>{
     const el=document.getElementById('pg-'+id);
-    if(el)el.style.display=id===t?'block':'none';
+    if(el){
+      const isActive=id===t;
+      el.style.display=isActive?'block':'none';
+      el.classList.toggle('imc-main-tab-active',isActive);
+    }
   });
   document.querySelectorAll('.top-tab').forEach((b,i)=>{b.classList.toggle('on',TABS[i]===t);});
   if(t==='feedback')window.applyFeedbackFilter&&window.applyFeedbackFilter();
