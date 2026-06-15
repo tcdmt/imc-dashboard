@@ -19717,7 +19717,7 @@ function renderItems(){
       <td><input value="${esc(it.code||'')}" onchange="seedV11.updateItem(${idx},'code',this.value);seedV11.matchItem(${idx},'code')"></td>
       <td><input list="product-name-list-${idx}" value="${esc(it.name||'')}" onfocus="seedV11.renderProductDatalist(${idx})" oninput="seedV11.updateItem(${idx},'name',this.value);seedV11.renderProductDatalist(${idx})" onchange="seedV11.updateItem(${idx},'name',this.value);seedV11.matchItem(${idx},'name')" title="${esc(it.name||'')}"><datalist id="product-name-list-${idx}"></datalist></td>
       <td><input value="${esc(it.color||'')}" onchange="seedV11.updateItem(${idx},'color',this.value)" title="${esc(it.color||'')}"></td>
-      <td><input value="${esc(it.size||'')}" placeholder="직접 기입" onchange="seedV11.updateItem(${idx},'size',this.value)"></td>
+      <td><input value="${esc(it.size||'')}" placeholder="입력" onchange="seedV11.updateItem(${idx},'size',this.value)"></td>
       <td><button class="del-btn" onclick="seedV11.deleteItem(${idx})">삭제</button></td>
     </tr>`).join('');
   r.items.forEach((_,idx)=>renderProductDatalist(idx));
@@ -21246,65 +21246,16 @@ function saveCurrentBasic(){
 function renderItems(){
   const r=getCurrent(); if(!r) return; r.items=r.items||[];
   document.getElementById('item-body').innerHTML = r.items.map((it,idx)=>`
-    <tr class="seed-item-row" data-seed-item-index="${idx}">
-      <td class="seed-item-move-cell"><span class="seed-item-drag-handle" draggable="true" title="드래그해서 순서 이동">⋮⋮</span></td>
+    <tr>
       <td><select onchange="seedV11.updateItem(${idx},'platform',this.value);seedV11.renderItems()">${['무신사','29CM','자사몰'].map(p=>`<option ${p===(it.platform||'무신사')?'selected':''}>${p}</option>`).join('')}</select></td>
       <td><input value="${esc(it.uid||'')}" onchange="seedV11.updateItem(${idx},'uid',this.value);seedV11.matchItem(${idx},'uid')"></td>
       <td><input value="${esc(it.code||'')}" onchange="seedV11.updateItem(${idx},'code',this.value);seedV11.matchItem(${idx},'code')"></td>
       <td><input list="product-name-list-${idx}" value="${esc(it.name||'')}" onfocus="seedV11.renderProductDatalist(${idx})" oninput="seedV11.updateItem(${idx},'name',this.value);seedV11.renderProductDatalist(${idx})" onchange="seedV11.updateItem(${idx},'name',this.value);seedV11.matchItem(${idx},'name')" title="${esc(it.name||'')}"><datalist id="product-name-list-${idx}"></datalist></td>
       <td><input value="${esc(it.color||'')}" onchange="seedV11.updateItem(${idx},'color',this.value)" title="${esc(it.color||'')}"></td>
-      <td><input value="${esc(it.size||'')}" placeholder="직접 기입" onchange="seedV11.updateItem(${idx},'size',this.value)"></td>
+      <td><input value="${esc(it.size||'')}" placeholder="입력" onchange="seedV11.updateItem(${idx},'size',this.value)"></td>
       <td><button class="del-btn" onclick="seedV11.deleteItem(${idx})">삭제</button></td>
     </tr>`).join('');
   r.items.forEach((_,idx)=>renderProductDatalist(idx));
-  bindItemDragEvents();
-}
-function syncItemInputsBeforeReorder(){
-  const r=getCurrent(); const body=document.getElementById('item-body');
-  if(!r || !body) return;
-  Array.from(body.querySelectorAll('tr.seed-item-row')).forEach((tr,idx)=>{
-    const selects=tr.querySelectorAll('select');
-    const inputs=tr.querySelectorAll('input');
-    const it=r.items[idx]||(r.items[idx]={});
-    if(selects[0]) it.platform=selects[0].value;
-    if(inputs[0]) it.uid=inputs[0].value;
-    if(inputs[1]) it.code=inputs[1].value;
-    if(inputs[2]) it.name=inputs[2].value;
-    if(inputs[3]) it.color=inputs[3].value;
-    if(inputs[4]) it.size=inputs[4].value;
-  });
-}
-function bindItemDragEvents(){
-  const r=getCurrent(); const body=document.getElementById('item-body');
-  if(!r || !body) return;
-  const rows=Array.from(body.querySelectorAll('tr.seed-item-row'));
-  rows.forEach((tr,idx)=>{
-    const handle=tr.querySelector('.seed-item-drag-handle');
-    if(!handle) return;
-    handle.addEventListener('dragstart',e=>{
-      syncItemInputsBeforeReorder();
-      e.dataTransfer.effectAllowed='move';
-      e.dataTransfer.setData('text/plain',String(idx));
-      tr.classList.add('seed-item-dragging');
-    });
-    handle.addEventListener('dragend',()=>rows.forEach(row=>row.classList.remove('seed-item-dragging','seed-item-drop-target')));
-    tr.addEventListener('dragover',e=>{e.preventDefault();tr.classList.add('seed-item-drop-target');});
-    tr.addEventListener('dragleave',()=>tr.classList.remove('seed-item-drop-target'));
-    tr.addEventListener('drop',e=>{
-      e.preventDefault();
-      const from=Number(e.dataTransfer.getData('text/plain'));
-      const to=Number(tr.dataset.seedItemIndex);
-      rows.forEach(row=>row.classList.remove('seed-item-dragging','seed-item-drop-target'));
-      if(!Number.isInteger(from)||!Number.isInteger(to)||from===to||from<0||to<0||from>=r.items.length||to>=r.items.length) return;
-      syncItemInputsBeforeReorder();
-      const moved=r.items.splice(from,1)[0];
-      r.items.splice(to,0,moved);
-      r.items.forEach((item,i)=>{ if(item) item._order=i; });
-      saveData();
-      renderItems();
-      renderSummaryContent();
-    });
-  });
 }
 function renderProductDatalist(idx){
   const r=getCurrent(); if(!r || !r.items[idx]) return;
@@ -21889,6 +21840,41 @@ renderList();
   #sub-items tr.seed-item-drop-target td{
     box-shadow:inset 0 2px 0 #185FA5!important;
   }
+</style>
+
+<style id="seed-item-popup-width-adjustment">
+/* Seeding 상세 팝업 > 아이템 테이블 크기/컬럼 너비만 조정 */
+#pg-seeding #sub-modal .sub-box{
+  width:min(1180px,98vw)!important;
+}
+#pg-seeding #sub-items{
+  overflow-x:visible!important;
+}
+#pg-seeding #sub-items .item-table{
+  width:100%!important;
+  table-layout:fixed!important;
+}
+#pg-seeding #sub-items .item-table th:nth-child(1),
+#pg-seeding #sub-items .item-table td:nth-child(1){width:42px!important;min-width:42px!important;max-width:42px!important;padding-left:4px!important;padding-right:4px!important;text-align:center!important;}
+#pg-seeding #sub-items .item-table th:nth-child(2),
+#pg-seeding #sub-items .item-table td:nth-child(2){width:100px!important;min-width:100px!important;}
+#pg-seeding #sub-items .item-table th:nth-child(3),
+#pg-seeding #sub-items .item-table td:nth-child(3){width:110px!important;min-width:110px!important;}
+#pg-seeding #sub-items .item-table th:nth-child(4),
+#pg-seeding #sub-items .item-table td:nth-child(4){width:110px!important;min-width:110px!important;}
+#pg-seeding #sub-items .item-table th:nth-child(5),
+#pg-seeding #sub-items .item-table td:nth-child(5){width:320px!important;min-width:320px!important;}
+#pg-seeding #sub-items .item-table th:nth-child(6),
+#pg-seeding #sub-items .item-table td:nth-child(6){width:120px!important;min-width:120px!important;}
+#pg-seeding #sub-items .item-table th:nth-child(7),
+#pg-seeding #sub-items .item-table td:nth-child(7){width:138px!important;min-width:138px!important;}
+#pg-seeding #sub-items .item-table th:nth-child(8),
+#pg-seeding #sub-items .item-table td:nth-child(8){width:64px!important;min-width:64px!important;}
+#pg-seeding #sub-items .seed-item-drag-handle{
+  display:inline-flex!important;
+  width:22px!important;
+  justify-content:center!important;
+}
 </style>
 </body>
 </html>
