@@ -18601,7 +18601,8 @@ if(document.readyState==='loading'){
 
   window.renderFeedbackRows=function(list){
     var body=$('feedback-body'); if(!body) return;
-    if(!list || !list.length){ body.innerHTML='<tr><td colspan="19" class="fb-v15-empty">표시할 Feedback 데이터가 없습니다.</td></tr>'; syncScroll(); return; }
+    list=(list||[]).filter(function(r){ return r && r.checked===true; });
+    if(!list.length){ body.innerHTML='<tr><td colspan="19" class="fb-v15-empty">표시할 Feedback 데이터가 없습니다.</td></tr>'; syncScroll(); return; }
     body.innerHTML=list.map(function(r){ var ci=creatorIndex(r); var t=creatorTotals(r,ci); return '<tr class="fb-v15-row" onclick="fbV15OpenModal('+ci+')">'+
       '<td><div class="fb-v15-name">'+esc(r.name||'-')+'</div></td>'+ '<td>'+esc(r.followers||'-')+'</td>'+ '<td>'+chBadge(r.ch)+'</td>'+ '<td>'+esc(r.contentType||'-')+'</td>'+ '<td>'+esc(r.collab||r.progress||'-')+'</td>'+ '<td>'+fmtW(r.cost1)+'</td>'+ '<td>'+esc(r.sec||'-')+'</td>'+ '<td>'+fmtW(r.cost2)+'</td>'+ '<td>'+koDate(r.uploadDate)+'</td>'+ '<td>'+platformBadge(r.platform)+'</td>'+ '<td>'+fmtN0(t.view)+'</td>'+ '<td>'+fmtN0(t.like)+'</td>'+ '<td>'+fmtN0(t.comment)+'</td>'+ '<td>'+fmtN0(t.click)+'</td>'+ '<td>'+fmtP(t.ctr,1)+'</td>'+ '<td>'+fmtN0(t.productLike)+'</td>'+ '<td>'+fmtN0(t.sales)+'</td>'+ '<td>'+fmtW(t.revenue)+'</td>'+ '<td>'+fmtP(t.roas,0)+'</td></tr>'; }).join('');
     syncScroll();
@@ -18618,7 +18619,7 @@ if(document.readyState==='loading'){
     s.type=String(($('ff-type')&&$('ff-type').value)||s.type||'0');
     var nm=String(($('ff-name')&&$('ff-name').value)||'').toLowerCase();
     var rows=(window.creators||[]).filter(function(r){
-      if(!r) return false;
+      if(!r || r.checked!==true) return false;
       if(s.month && s.month!=='0'){ var d=r.uploadDate?new Date(r.uploadDate):null; var m=d&&!isNaN(d.getTime())?d.getMonth()+1:0; if(m!==Number(s.month)) return false; }
       if(s.platform && s.platform!=='0' && normPlatform(r.platform)!==normPlatform(s.platform)) return false;
       if(s.channel && s.channel!=='0' && String(r.ch||'')!==s.channel) return false;
@@ -21451,5 +21452,221 @@ renderList();
   if(window.document.readyState==='loading') window.document.addEventListener('DOMContentLoaded',mountSeedingV11); else mountSeedingV11();
 })();
 </script>
+
+
+<!-- PATCH V65: List 탭 고정 컬럼 및 행 잠금 기능 -->
+<style id="list-v65-lock-style">
+  #pg-list .list-lock-btn{
+    border:0.5px solid var(--color-border-secondary);
+    background:var(--color-background-primary);
+    color:var(--color-text-secondary);
+    border-radius:8px;
+    padding:3px 8px;
+    font-size:10px;
+    cursor:pointer;
+    font-family:inherit;
+    white-space:nowrap;
+  }
+  #pg-list .list-lock-btn:hover{
+    background:#E6F1FB;
+    color:#185FA5;
+    border-color:#85B7EB;
+  }
+  #pg-list .list-lock-btn.is-locked{
+    background:#1a1a19;
+    color:#fff;
+    border-color:#1a1a19;
+  }
+  #pg-list .list-lock-btn.is-locked:hover{
+    background:#1a1a19;
+    color:#fff;
+    border-color:#1a1a19;
+  }
+  #pg-list tr.list-row-locked > td:not(.list-lock-cell){
+    pointer-events:none!important;
+  }
+  #pg-list tr.list-row-locked > td:not(.list-lock-cell) input,
+  #pg-list tr.list-row-locked > td:not(.list-lock-cell) button,
+  #pg-list tr.list-row-locked > td:not(.list-lock-cell) select,
+  #pg-list tr.list-row-locked > td:not(.list-lock-cell) .dc-cell{
+    cursor:not-allowed!important;
+  }
+  #listLockConfirmModal{
+    position:fixed;
+    inset:0;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:22px;
+    background:rgba(0,0,0,.32);
+    z-index:50010;
+  }
+  #listLockConfirmModal.active{display:flex;}
+  #listLockConfirmModal .list-lock-box{
+    width:min(420px,100%);
+    background:var(--color-background-primary,#fff);
+    border:0.5px solid var(--color-border-secondary,rgba(0,0,0,.18));
+    border-radius:18px;
+    box-shadow:0 24px 80px rgba(0,0,0,.22);
+    padding:20px;
+  }
+  #listLockConfirmModal .list-lock-title{
+    margin:0 0 8px;
+    font-size:16px;
+    font-weight:700;
+    color:var(--color-text-primary,#1a1a19);
+  }
+  #listLockConfirmModal .list-lock-text{
+    margin:0 0 16px;
+    color:var(--color-text-secondary,#73726c);
+    font-size:12px;
+    line-height:1.6;
+  }
+  #listLockConfirmModal .list-lock-actions{
+    display:flex;
+    justify-content:flex-end;
+    gap:8px;
+  }
+  #listLockConfirmModal .list-lock-cancel,
+  #listLockConfirmModal .list-lock-confirm{
+    font-size:12px;
+    padding:7px 13px;
+    border-radius:8px;
+    cursor:pointer;
+    font-weight:600;
+    font-family:inherit;
+  }
+  #listLockConfirmModal .list-lock-cancel{
+    border:0.5px solid var(--color-border-secondary,rgba(0,0,0,.18));
+    background:var(--color-background-primary,#fff);
+    color:var(--color-text-secondary,#73726c);
+  }
+  #listLockConfirmModal .list-lock-confirm{
+    border:0.5px solid #85B7EB;
+    background:#fff;
+    color:#185FA5;
+  }
+</style>
+<div id="listLockConfirmModal" aria-hidden="true">
+  <div class="list-lock-box" role="dialog" aria-modal="true" aria-labelledby="listLockConfirmTitle">
+    <h3 class="list-lock-title" id="listLockConfirmTitle">고정하시겠습니까?</h3>
+    <p class="list-lock-text" id="listLockConfirmText">고정하면 해당 행을 수정할 수 없습니다.</p>
+    <div class="list-lock-actions">
+      <button type="button" class="list-lock-cancel" id="listLockCancel">취소</button>
+      <button type="button" class="list-lock-confirm" id="listLockConfirm">확인</button>
+    </div>
+  </div>
+</div>
+<script id="list-v65-lock-script">
+(function(){
+  'use strict';
+  let pendingLockIndex=null;
+  let pendingLockScrollLeft=0;
+
+  function getModal(){return document.getElementById('listLockConfirmModal');}
+  function getScroll(){const w=document.querySelector('#pg-list .tbl-wrap');return w?w.scrollLeft:0;}
+  function restoreScroll(x){const w=document.querySelector('#pg-list .tbl-wrap');if(w)requestAnimationFrame(function(){w.scrollLeft=x||0;});}
+
+  function closeLockModal(){
+    const modal=getModal();
+    if(modal){modal.classList.remove('active');modal.setAttribute('aria-hidden','true');}
+    pendingLockIndex=null;
+  }
+
+  function openLockModal(ri){
+    const row=window.creators&&window.creators[ri];
+    if(!row)return;
+    pendingLockIndex=ri;
+    pendingLockScrollLeft=getScroll();
+    const locked=!!row.locked;
+    const title=document.getElementById('listLockConfirmTitle');
+    const text=document.getElementById('listLockConfirmText');
+    if(title)title.textContent=locked?'고정을 해제하시겠습니까?':'고정하시겠습니까?';
+    if(text)text.textContent=locked?'고정을 해제하면 해당 행을 다시 수정할 수 있습니다.':'고정하면 해당 행을 수정할 수 없습니다.';
+    const modal=getModal();
+    if(modal){modal.classList.add('active');modal.setAttribute('aria-hidden','false');}
+  }
+
+  function confirmLock(){
+    if(pendingLockIndex===null)return closeLockModal();
+    const row=window.creators&&window.creators[pendingLockIndex];
+    if(!row)return closeLockModal();
+    row.locked=!row.locked;
+    if(window.fbSaveCreators)window.fbSaveCreators();
+    if(window.applyListFilter)window.applyListFilter();
+    closeLockModal();
+    restoreScroll(pendingLockScrollLeft);
+  }
+
+  window.toggleCreatorLock=function(ri){openLockModal(ri);};
+
+  function decorateListLock(){
+    const head=document.querySelector('#pg-list thead tr');
+    const body=document.getElementById('creator-body');
+    if(!head||!body)return;
+
+    let labels=Array.from(head.children).map(function(th){return (th.textContent||'').trim();});
+    let deleteIdx=labels.indexOf('삭제 버튼');
+    if(deleteIdx<0)deleteIdx=head.children.length-1;
+    if(labels.indexOf('고정')<0){
+      const th=document.createElement('th');
+      th.textContent='고정';
+      th.style.cssText='padding:6px 8px;font-size:10px;font-weight:500;color:var(--color-text-tertiary);white-space:nowrap;text-align:center;min-width:58px;';
+      head.insertBefore(th,head.children[deleteIdx]||null);
+    }
+
+    Array.from(body.querySelectorAll(':scope > tr')).forEach(function(tr){
+      const deleteBtn=tr.querySelector('.v13-del-btn[onclick*="v13DeleteCreator"]');
+      if(!deleteBtn)return;
+      const m=(deleteBtn.getAttribute('onclick')||'').match(/v13DeleteCreator\((\d+)\)/);
+      if(!m)return;
+      const ri=parseInt(m[1],10);
+      const row=window.creators&&window.creators[ri];
+      if(!row)return;
+
+      let lockCell=tr.querySelector('.list-lock-cell');
+      if(!lockCell){
+        lockCell=document.createElement('td');
+        lockCell.className='list-lock-cell';
+        lockCell.style.textAlign='center';
+        deleteBtn.closest('td').insertAdjacentElement('beforebegin',lockCell);
+      }
+      lockCell.innerHTML='<button type="button" class="list-lock-btn'+(row.locked?' is-locked':'')+'" onclick="event.stopPropagation();toggleCreatorLock('+ri+')">고정</button>';
+      tr.classList.toggle('list-row-locked',!!row.locked);
+      tr.setAttribute('data-creator-locked',row.locked?'1':'0');
+      tr.querySelectorAll('input,select,textarea').forEach(function(el){
+        if(!el.closest('.list-lock-cell'))el.disabled=!!row.locked;
+      });
+    });
+  }
+
+  function bind(){
+    const cancel=document.getElementById('listLockCancel');
+    const confirm=document.getElementById('listLockConfirm');
+    const modal=getModal();
+    if(cancel&&!cancel.__bound){cancel.addEventListener('click',closeLockModal);cancel.__bound=true;}
+    if(confirm&&!confirm.__bound){confirm.addEventListener('click',confirmLock);confirm.__bound=true;}
+    if(modal&&!modal.__bound){modal.addEventListener('click',function(e){if(e.target===modal)closeLockModal();});modal.__bound=true;}
+  }
+
+  const prevRender=window.renderCreatorRows;
+  if(typeof prevRender==='function'&&!prevRender.__listV65Lock){
+    const wrapped=function(list){const ret=prevRender.call(this,list);decorateListLock();return ret;};
+    wrapped.__listV65Lock=true;
+    window.renderCreatorRows=wrapped;
+  }
+  const prevApply=window.applyListFilter;
+  if(typeof prevApply==='function'&&!prevApply.__listV65Lock){
+    const wrappedApply=function(){const ret=prevApply.apply(this,arguments);setTimeout(decorateListLock,0);return ret;};
+    wrappedApply.__listV65Lock=true;
+    window.applyListFilter=wrappedApply;
+  }
+
+  function boot(){bind();decorateListLock();setTimeout(decorateListLock,300);}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+  window.addEventListener('load',function(){setTimeout(boot,500);});
+})();
+</script>
+
 </body>
 </html>
