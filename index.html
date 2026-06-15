@@ -19340,6 +19340,30 @@ if(document.readyState==='loading'){
 </style>
 
 
+
+<style id="seeding-cell-controls-fix">
+#pg-seeding .seed-cell-select{
+  appearance:none;-webkit-appearance:none;
+  width:auto;min-width:82px;max-width:100%;
+  border:0.5px solid transparent;border-radius:20px;
+  padding:3px 22px 3px 9px;
+  font-family:inherit;font-size:10px;font-weight:600;line-height:1.2;
+  cursor:pointer;outline:none;
+  background-repeat:no-repeat;
+  background-position:right 8px center;
+  background-size:8px 5px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%2373726c'/%3E%3C/svg%3E");
+}
+#pg-seeding .seed-cell-select:focus{box-shadow:0 0 0 2px rgba(24,95,165,.14);}
+#pg-seeding .seed-date-input{
+  width:124px;min-width:124px;
+  height:28px;padding:3px 6px;
+  border:0.5px solid var(--color-border-secondary);border-radius:6px;
+  background:var(--color-background-primary);color:var(--color-text-primary);
+  font-family:inherit;font-size:11px;cursor:pointer;
+}
+</style>
+
 <!-- SEEDING V11 APPLIED SCRIPT: requested Seeding-only replacement + Item/Sales sheet linkage -->
 <script id="seeding-v11-applied-script">
 
@@ -19503,6 +19527,16 @@ function channelBadge(text){
   return `<span class="channel-pill ${text?'':'empty'}" style="background:${c.bg};color:${c.color};border-color:${c.border||'#E5E7EB'}">${esc(text||'선택')}</span>`;
 }
 
+function seedInlineSelect(i, field, value, opts, colorMap){
+  const current = value || '선택';
+  const c = (colorMap && colorMap[current]) || {bg:'#F3F4F6',color:'#6B7280',border:'#E5E7EB'};
+  const options = (opts || []).map(function(opt){
+    const oc = (colorMap && colorMap[opt]) || {bg:'#F3F4F6',color:'#6B7280'};
+    return `<option value="${esc(opt)}" ${opt===current?'selected':''} style="background:${oc.bg};color:${oc.color}">${esc(opt)}</option>`;
+  }).join('');
+  return `<select class="seed-cell-select" style="background:${c.bg};color:${c.color};border-color:${c.border||c.bg}" onclick="event.stopPropagation()" ondblclick="event.stopPropagation()" onchange="event.stopPropagation();updateField(${i},'${field}',this.value)">${options}</select>`;
+}
+
 function initFilters(){
   const monthRow=document.getElementById('seed-month-btns');
   const stRow=document.getElementById('seed-status-btns');
@@ -19560,18 +19594,16 @@ function renderList(){
     return `<tr>
       <td class="seed-editable" ondblclick="event.stopPropagation();startEdit(this,${i},'name')" onclick="openDetail('${r.id}')"><span class="seed-name">${esc(r.name)||'-'}</span></td>
       <td class="seed-editable" ondblclick="event.stopPropagation();startEdit(this,${i},'handle')" onclick="openDetail('${r.id}')"><span class="seed-id">${esc(r.handle)||'-'}</span></td>
-      <td style="text-align:center" ondblclick="event.stopPropagation();seedDropdown(this,${i},'channel',SEEDV11_CH_OPTS,SEEDV11_CH_COLOR)" title="더블클릭하여 채널 선택">
-        ${channelBadge(r.channel)}
-      </td>
+      <td style="text-align:center">${seedInlineSelect(i,'channel',r.channel||'선택',['선택'].concat(SEEDV11_CH_OPTS),Object.assign({'선택':{bg:'#F3F4F6',color:'#6B7280',border:'#E5E7EB'}},SEEDV11_CH_COLOR))}</td>
       <td class="seed-editable" style="text-align:right" ondblclick="event.stopPropagation();startEdit(this,${i},'followers')" title="숫자 입력 시 K/M으로 표시">${fmtFollower(r.followers)}</td>
       <td>${stars(r.fit,i,'fit')}</td><td>${stars(r.style,i,'style')}</td><td>${stars(r.mood,i,'mood')}</td><td>${stars(r.relation,i,'relation')}</td>
       <td style="text-align:center"><span class="seed-pill ${recoClass(txt)}">${txt}</span></td>
-      <td style="text-align:center" ondblclick="seedDropdown(this,${i},'status',SEEDV11_STATUS_OPTS,SEEDV11_STATUS_COLOR)">${badge(r.status,SEEDV11_STATUS_COLOR)}</td>
-      <td style="text-align:center" ondblclick="seedDropdown(this,${i},'second',SECOND_OPTS,SECOND_COLOR)">${badge(r.second,SECOND_COLOR)}</td>
-      <td class="date-cell ${r.uploadDate?'':'empty'}" ondblclick="event.stopPropagation();startDateEdit(this,${i})" title="더블클릭하여 날짜 선택">${fmtUploadCell(r.uploadDate)}</td>
-      <td style="text-align:center" ondblclick="seedDropdown(this,${i},'standard',SEEDV11_LAYER_OPTS,SEEDV11_LAYER_COLOR)">${badge(r.standard||'선택',SEEDV11_LAYER_COLOR)}</td>
-      <td style="text-align:center" ondblclick="seedDropdown(this,${i},'recoop',SEEDV11_RECOOP_OPTS,SEEDV11_RECOOP_COLOR)">${badge(r.recoop||'선택',SEEDV11_RECOOP_COLOR)}</td>
-      <td style="text-align:center" ondblclick="seedDropdown(this,${i},'longcoop',SEEDV11_LONG_OPTS,SEEDV11_LONG_COLOR)">${badge(r.longcoop||'선택',SEEDV11_LONG_COLOR)}</td>
+      <td style="text-align:center">${seedInlineSelect(i,'status',r.status||'리스트업',SEEDV11_STATUS_OPTS,SEEDV11_STATUS_COLOR)}</td>
+      <td style="text-align:center">${seedInlineSelect(i,'second',r.second||'선택',SECOND_OPTS,SECOND_COLOR)}</td>
+      <td class="date-cell"><input class="seed-date-input" type="date" value="${esc(r.uploadDate||'')}" onclick="event.stopPropagation()" onchange="event.stopPropagation();updateField(${i},'uploadDate',this.value)"></td>
+      <td style="text-align:center">${seedInlineSelect(i,'standard',r.standard||'선택',SEEDV11_LAYER_OPTS,SEEDV11_LAYER_COLOR)}</td>
+      <td style="text-align:center">${seedInlineSelect(i,'recoop',r.recoop||'선택',SEEDV11_RECOOP_OPTS,SEEDV11_RECOOP_COLOR)}</td>
+      <td style="text-align:center">${seedInlineSelect(i,'longcoop',r.longcoop||'선택',SEEDV11_LONG_OPTS,SEEDV11_LONG_COLOR)}</td>
       <td><input class="note-in" value="${esc(r.note||'')}" onchange="updateField(${i},'note',this.value)" onclick="event.stopPropagation()"></td>
       <td><button class="del-btn" onclick="requestDelete(event,${i})">삭제</button></td>
     </tr>`;
@@ -20845,6 +20877,20 @@ tbody tr:hover td{background:var(--color-background-secondary)}
 
 
 
+<div id="seed-add-modal" class="delete-modal" aria-hidden="true">
+  <div class="delete-box" style="width:min(92vw,420px);">
+    <div class="delete-title">시딩 크리에이터 추가</div>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-top:14px;">
+      <div class="form-field"><label>이름</label><input id="seed-add-name" type="text" placeholder="이름 입력"></div>
+      <div class="form-field"><label>ID</label><input id="seed-add-id" type="text" placeholder="ID 입력"></div>
+    </div>
+    <div class="delete-actions" style="margin-top:18px;">
+      <button class="delete-cancel" onclick="seedV11.closeAddModal()">취소</button>
+      <button class="save-btn" onclick="seedV11.confirmAddRow()">추가</button>
+    </div>
+  </div>
+</div>
+
 <div id="delete-modal" class="delete-modal" aria-hidden="true">
   <div class="delete-box">
     <div class="delete-title" id="delete-title">진짜 삭제하시겠습니까?</div>
@@ -20909,6 +20955,15 @@ tbody tr:hover td{background:var(--color-background-secondary)}
 
 `;
     const document=root;
+    root.addEventListener('keydown',function(e){
+      if(e.key==='Enter' && root.getElementById('seed-add-modal')?.classList.contains('open')){
+        e.preventDefault();
+        if(window.seedV11&&window.seedV11.confirmAddRow) window.seedV11.confirmAddRow();
+      }
+      if(e.key==='Escape' && root.getElementById('seed-add-modal')?.classList.contains('open')){
+        if(window.seedV11&&window.seedV11.closeAddModal) window.seedV11.closeAddModal();
+      }
+    });
     
 const STORAGE_KEY = 'seeding-standalone-sample-v8';
 let products = buildProducts();
@@ -21165,9 +21220,26 @@ function ddOutsideClick(e){ if(!e.target.closest('#dd-popup')) closeSeedDropdown
 function closeSeedDropdown(){ const p=document.getElementById('dd-popup'); if(p) p.remove(); document.removeEventListener('mousedown',ddOutsideClick); }
 function updateField(i,key,val){ data[i][key]=val; saveData(); renderList(); if(data[i]&&data[i].id===currentId) renderDetail(); }
 function addRow(){
+  const modal=document.getElementById('seed-add-modal');
+  const nameInput=document.getElementById('seed-add-name');
+  const idInput=document.getElementById('seed-add-id');
+  if(nameInput) nameInput.value='';
+  if(idInput) idInput.value='';
+  if(modal){ modal.classList.add('open'); modal.setAttribute('aria-hidden','false'); }
+  setTimeout(()=>{ if(nameInput) nameInput.focus(); },0);
+}
+function closeAddModal(){
+  const modal=document.getElementById('seed-add-modal');
+  if(modal){ modal.classList.remove('open'); modal.setAttribute('aria-hidden','true'); }
+}
+function confirmAddRow(){
+  const name=String(document.getElementById('seed-add-name')?.value||'').trim();
+  const handle=String(document.getElementById('seed-add-id')?.value||'').trim();
+  if(!name){ alert('이름을 입력해주세요.'); document.getElementById('seed-add-name')?.focus(); return; }
+  if(!handle){ alert('ID를 입력해주세요.'); document.getElementById('seed-add-id')?.focus(); return; }
   const id='s'+Date.now();
-  data.push({id, name:'', handle:'', channel:'', followers:'', fit:0, style:0, mood:0, relation:0, status:'리스트업', second:'선택', uploadDate:'', standard:'선택', recoop:'선택', longcoop:'선택', note:'', basic:{}, items:[], links:[], daily:[0,1,2,3].map(()=>({views:0,likes:0,comments:0,productLikes:0,sales:0,revenue:0,totalSales:0}))});
-  saveData(); renderList();
+  data.push({id, name, handle, channel:'', followers:'', fit:0, style:0, mood:0, relation:0, status:'리스트업', second:'선택', uploadDate:'', standard:'선택', recoop:'선택', longcoop:'선택', note:'', basic:{}, items:[], links:[], daily:[0,1,2,3].map(()=>({views:0,likes:0,comments:0,productLikes:0,sales:0,revenue:0,totalSales:0}))});
+  saveData(); renderList(); closeAddModal();
 }
 function sortRows(){ data.sort((a,b)=>String(a.uploadDate||'9999-99-99').localeCompare(String(b.uploadDate||'9999-99-99'))); saveData(); renderList(); }
 let pendingDeleteIndex = null;
@@ -21467,6 +21539,8 @@ renderList();
 "closeSeedDropdown":closeSeedDropdown,
 "updateField":updateField,
 "addRow":addRow,
+"closeAddModal":closeAddModal,
+"confirmAddRow":confirmAddRow,
 "sortRows":sortRows,
 "requestDelete":requestDelete,
 "cancelDelete":cancelDelete,
