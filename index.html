@@ -22315,5 +22315,161 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 })();
 </script>
 
+
+
+<!-- CHOI PATCH: Manual-only sheet refresh + last-normal-data protection -->
+<script id="manual-only-sheet-refresh-protection">
+(function(){
+  'use strict';
+
+  var nativeFetch = window.fetch.bind(window);
+  var manualDepth = 0;
+  var lastSyncKey = 'tcm_last_successful_sheet_sync_at';
+
+  function isSheetRequest(input){
+    var url='';
+    try{ url = typeof input === 'string' ? input : (input && input.url) || ''; }catch(e){}
+    return /docs\.google\.com\/spreadsheets|\/export\?[^#]*(?:format|output)=csv|\/pub\?[^#]*output=csv/i.test(url);
+  }
+
+  function setStatus(message, type){
+    try{
+      if(typeof window.setSheetSyncStatus === 'function') window.setSheetSyncStatus(message, type || 'loading');
+    }catch(e){}
+  }
+
+  function rowCount(csv){
+    var lines=String(csv||'').split(/\r?\n/).filter(function(line){ return line.trim() !== ''; });
+    return Math.max(0, lines.length - 1);
+  }
+
+  function shouldProtect(oldBody, newBody){
+    var oldRows=rowCount(oldBody), newRows=rowCount(newBody);
+    if(oldRows <= 0) return {protect:false, oldRows:oldRows, newRows:newRows};
+    if(newRows === 0) return {protect:true, reason:'empty', oldRows:oldRows, newRows:newRows};
+    if(oldRows >= 5 && newRows < Math.max(1, Math.floor(oldRows * 0.4))){
+      return {protect:true, reason:'sharp-drop', oldRows:oldRows, newRows:newRows};
+    }
+    return {protect:false, oldRows:oldRows, newRows:newRows};
+  }
+
+  async function readCachedEntry(url){
+    try{
+      if(!window.indexedDB) return null;
+      return await new Promise(function(resolve){
+        var req=indexedDB.open('tcm-sheet-response-cache-v1',1);
+        req.onupgradeneeded=function(){
+          var db=req.result;
+          if(!db.objectStoreNames.contains('responses')) db.createObjectStore('responses',{keyPath:'url'});
+        };
+        req.onerror=function(){ resolve(null); };
+        req.onsuccess=function(){
+          try{
+            var tx=req.result.transaction('responses','readonly');
+            var get=tx.objectStore('responses').get(url);
+            get.onsuccess=function(){ resolve(get.result||null); };
+            get.onerror=function(){ resolve(null); };
+          }catch(e){ resolve(null); }
+        };
+      });
+    }catch(e){ return null; }
+  }
+
+  function responseFromEntry(entry, state){
+    var headers=new Headers(entry && entry.headers || {});
+    headers.set('x-tcm-sheet-cache', state || 'manual-protected');
+    return new Response(entry && entry.body || '', {
+      status:entry && entry.status || 200,
+      statusText:entry && entry.statusText || 'OK',
+      headers:headers
+    });
+  }
+
+  window.fetch = async function(input, init){
+    if(!isSheetRequest(input)) return nativeFetch(input, init);
+
+    var url='';
+    try{ url = typeof input === 'string' ? input : (input && input.url) || ''; }catch(e){}
+    var isManual = manualDepth > 0 || !!(init && (init.cache === 'reload' || (init.headers && (init.headers['x-tcm-force-refresh'] || (typeof init.headers.get === 'function' && init.headers.get('x-tcm-force-refresh'))))));
+
+    /* 평상시에는 기존 공통 캐시 fetch를 그대로 사용하되, 캐시 만료로 재요청하지 않도록 fresh 응답을 직접 반환 */
+    if(!isManual && url){
+      var cached=await readCachedEntry(url);
+      if(cached && cached.body !== undefined){
+        return responseFromEntry(cached,'last-normal');
+      }
+      /* 최초 캐시가 없을 때도 자동 요청으로 기존 화면 데이터를 덮어쓰지 않도록 실패 응답 반환 */
+      return new Response('', {status:503, statusText:'Manual sheet sync required', headers:{'x-tcm-sheet-cache':'manual-required'}});
+    }
+
+    var oldEntry=url ? await readCachedEntry(url) : null;
+    var response=await nativeFetch(input, init);
+    if(!response.ok) return response;
+
+    var newBody=await response.clone().text();
+    if(oldEntry && oldEntry.body !== undefined){
+      var guard=shouldProtect(oldEntry.body,newBody);
+      if(guard.protect){
+        var message = guard.reason === 'empty'
+          ? '새 시트 데이터가 비어 있습니다. 기존 정상 데이터를 유지할까요?'
+          : '시트 행 수가 '+guard.oldRows+'개에서 '+guard.newRows+'개로 크게 줄었습니다. 그래도 업데이트할까요?';
+        var proceed=false;
+        try{ proceed=window.confirm(message); }catch(e){ proceed=false; }
+        if(!proceed){
+          setStatus('⚠️ 급격한 데이터 감소 감지 · 마지막 정상 데이터 유지','loading');
+          return responseFromEntry(oldEntry,'protected-fallback');
+        }
+      }
+    }
+    return response;
+  };
+
+  function wrapManual(fnName, startMessage){
+    var original=window[fnName];
+    if(typeof original !== 'function' || original.__tcmManualOnlyWrapped) return;
+    var wrapped=async function(){
+      manualDepth++;
+      setStatus(startMessage || '시트 변경 사항 확인 중...','loading');
+      try{
+        var result=await original.apply(this,arguments);
+        try{ localStorage.setItem(lastSyncKey,String(Date.now())); }catch(e){}
+        return result;
+      }catch(error){
+        setStatus('❌ 시트 연동 실패 · 마지막 정상 데이터 유지','error');
+        throw error;
+      }finally{
+        manualDepth=Math.max(0,manualDepth-1);
+      }
+    };
+    wrapped.__tcmManualOnlyWrapped=true;
+    window[fnName]=wrapped;
+  }
+
+  function showLastSync(){
+    try{
+      var ts=parseInt(localStorage.getItem(lastSyncKey)||'0',10);
+      if(!ts) return;
+      var d=new Date(ts);
+      var label=d.getFullYear()+'년 '+(d.getMonth()+1)+'월 '+d.getDate()+'일 '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+      setStatus('마지막 정상 연동: '+label,'ok');
+    }catch(e){}
+  }
+
+  function boot(){
+    wrapManual('loadUnifiedSheets','시트 변경 사항 확인 중...');
+    wrapManual('refreshUnifiedSheets','시트 변경 사항 확인 중...');
+    wrapManual('loadItemFromSheet','Item 시트 변경 사항 확인 중...');
+    wrapManual('refreshItemFromSheet','Item 시트 변경 사항 확인 중...');
+    wrapManual('loadMetaFromSheets','Meta 시트 변경 사항 확인 중...');
+    wrapManual('refreshMetaFromSheets','Meta 시트 변경 사항 확인 중...');
+    wrapManual('loadProductStatsFromSheet','상품 좋아요/후기 시트 변경 사항 확인 중...');
+    wrapManual('refreshProductStatsFromSheet','상품 좋아요/후기 시트 변경 사항 확인 중...');
+    showLastSync();
+  }
+
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded',function(){ setTimeout(boot,0); });
+  else setTimeout(boot,0);
+})();
+</script>
 </body>
 </html>
