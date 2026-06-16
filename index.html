@@ -18363,6 +18363,176 @@ if(document.readyState==='loading'){
 })();
 </script>
 
+<!-- CHOI PATCH: Shared sheet response cache only -->
+<script id="shared-sheet-response-cache">
+(function(){
+  'use strict';
+
+  var CACHE_DB = 'tcm-sheet-response-cache-v1';
+  var CACHE_STORE = 'responses';
+  var CACHE_TTL = 10 * 60 * 1000;
+  var memoryCache = new Map();
+  var inflight = new Map();
+  var nativeFetch = window.fetch.bind(window);
+
+  function isSheetRequest(input){
+    var url = '';
+    try{ url = typeof input === 'string' ? input : (input && input.url) || ''; }catch(e){}
+    return /docs\.google\.com\/spreadsheets|\/export\?[^#]*(?:format|output)=csv|\/pub\?[^#]*output=csv/i.test(url);
+  }
+
+  function requestUrl(input){
+    try{ return typeof input === 'string' ? input : (input && input.url) || ''; }
+    catch(e){ return ''; }
+  }
+
+  function hashText(text){
+    var h = 2166136261;
+    text = String(text || '');
+    for(var i=0;i<text.length;i++){
+      h ^= text.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return (h >>> 0).toString(16) + ':' + text.length;
+  }
+
+  function openDb(){
+    return new Promise(function(resolve){
+      if(!window.indexedDB){ resolve(null); return; }
+      try{
+        var req = indexedDB.open(CACHE_DB, 1);
+        req.onupgradeneeded = function(){
+          var db = req.result;
+          if(!db.objectStoreNames.contains(CACHE_STORE)) db.createObjectStore(CACHE_STORE, {keyPath:'url'});
+        };
+        req.onsuccess = function(){ resolve(req.result); };
+        req.onerror = function(){ resolve(null); };
+      }catch(e){ resolve(null); }
+    });
+  }
+
+  async function dbGet(url){
+    if(memoryCache.has(url)) return memoryCache.get(url);
+    var db = await openDb();
+    if(!db) return null;
+    return new Promise(function(resolve){
+      try{
+        var tx = db.transaction(CACHE_STORE, 'readonly');
+        var req = tx.objectStore(CACHE_STORE).get(url);
+        req.onsuccess = function(){
+          var value = req.result || null;
+          if(value) memoryCache.set(url, value);
+          resolve(value);
+        };
+        req.onerror = function(){ resolve(null); };
+      }catch(e){ resolve(null); }
+    });
+  }
+
+  async function dbPut(entry){
+    memoryCache.set(entry.url, entry);
+    var db = await openDb();
+    if(!db) return;
+    try{
+      var tx = db.transaction(CACHE_STORE, 'readwrite');
+      tx.objectStore(CACHE_STORE).put(entry);
+    }catch(e){}
+  }
+
+  function cachedResponse(entry, state){
+    var headers = new Headers(entry.headers || {});
+    headers.set('x-tcm-sheet-cache', state || 'hit');
+    return new Response(entry.body || '', {
+      status: entry.status || 200,
+      statusText: entry.statusText || 'OK',
+      headers: headers
+    });
+  }
+
+  function updateSyncNotice(message, type){
+    try{
+      if(typeof window.setSheetSyncStatus === 'function') window.setSheetSyncStatus(message, type || 'ok');
+    }catch(e){}
+  }
+
+  async function fetchAndCache(input, init, url, oldEntry){
+    try{
+      var response = await nativeFetch(input, init);
+      if(!response.ok) throw new Error('HTTP ' + response.status);
+      var body = await response.clone().text();
+      var newHash = hashText(body);
+      var same = !!(oldEntry && oldEntry.hash === newHash);
+      var headers = {};
+      try{
+        response.headers.forEach(function(v,k){ headers[k] = v; });
+      }catch(e){}
+      var entry = {
+        url:url,
+        body:body,
+        hash:newHash,
+        status:response.status,
+        statusText:response.statusText,
+        headers:headers,
+        savedAt:same && oldEntry.savedAt ? oldEntry.savedAt : Date.now(),
+        checkedAt:Date.now()
+      };
+      await dbPut(entry);
+      if(same) updateSyncNotice('✅ 시트 데이터 변경 없음 · 기존 데이터 사용','ok');
+      return cachedResponse(entry, same ? 'unchanged' : 'updated');
+    }catch(error){
+      if(oldEntry && oldEntry.body !== undefined){
+        updateSyncNotice('⚠️ 시트 응답 실패 · 마지막 정상 데이터 사용','loading');
+        return cachedResponse(oldEntry, 'fallback');
+      }
+      throw error;
+    }
+  }
+
+  window.fetch = async function(input, init){
+    if(!isSheetRequest(input)) return nativeFetch(input, init);
+    var url = requestUrl(input);
+    if(!url) return nativeFetch(input, init);
+
+    var force = !!(init && (init.cache === 'reload' || init.headers && (init.headers['x-tcm-force-refresh'] || (typeof init.headers.get === 'function' && init.headers.get('x-tcm-force-refresh')))));
+    var entry = await dbGet(url);
+    var age = entry ? Date.now() - (entry.checkedAt || entry.savedAt || 0) : Infinity;
+
+    if(entry && !force && age < CACHE_TTL){
+      updateSyncNotice('✅ 최근 연동 데이터 사용 · 중복 요청 생략','ok');
+      return cachedResponse(entry, 'fresh');
+    }
+
+    if(inflight.has(url)){
+      var shared = await inflight.get(url);
+      return shared.clone();
+    }
+
+    var job = fetchAndCache(input, init, url, entry);
+    inflight.set(url, job);
+    try{
+      var result = await job;
+      return result.clone();
+    }finally{
+      inflight.delete(url);
+    }
+  };
+
+  window.tcmSheetCache = {
+    ttlMs:CACHE_TTL,
+    clear:async function(url){
+      if(url) memoryCache.delete(url); else memoryCache.clear();
+      var db = await openDb();
+      if(!db) return;
+      try{
+        var tx = db.transaction(CACHE_STORE, 'readwrite');
+        if(url) tx.objectStore(CACHE_STORE).delete(url); else tx.objectStore(CACHE_STORE).clear();
+      }catch(e){}
+    },
+    forceRefreshOptions:function(){ return {cache:'reload', headers:{'x-tcm-force-refresh':'1'}}; }
+  };
+})();
+</script>
+
 <!-- CHOI PATCH: Sheet sync pending safety guard only -->
 <script id="sheet-sync-pending-safety-guard">
 (function(){
