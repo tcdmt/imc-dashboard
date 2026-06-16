@@ -468,7 +468,7 @@
       const rows = snap => (snap.docs || []).map(d => ({_id: d.id, ...d.data()})).sort(byOrder);
 
       if (promosSnap.docs.length)   window.promos   = rows(promosSnap);
-      if (creatorsSnap.docs.length) window.creators = rows(creatorsSnap);
+      if (creatorsSnap.docs.length) window.creators = fbMergeLinkClicks(rows(creatorsSnap));
       if (productsSnap.docs.length) window.products = rows(productsSnap);
       if (seedingSnap.docs.length)  window.seedData = rows(seedingSnap);
       if (celebsSnap.docs.length)   window.celebData = rows(celebsSnap);
@@ -553,7 +553,7 @@
 
     realtimeUnsubs.push(db.collection('creators').onSnapshot(snap => {
       if (shouldSkipEmptyFirstSnapshot('creators', 'creators', snap)) return;
-      window.creators = toRows(snap);
+      window.creators = fbMergeLinkClicks(toRows(snap));
       if (window.applyListFilter) window.applyListFilter();
       if (window.buildCal) window.buildCal();
       if (window.applyFeedbackFilter) window.applyFeedbackFilter();
@@ -4152,6 +4152,59 @@ window.creators=[];
 window.products=[];
 window.budgets=Array.from({length:12},()=>[0,0,0,0,0]);
 
+/* ── Feedback 링크 클릭 수 로컬 보존 ── */
+const FB_CLICK_BACKUP_KEY='tcm_feedback_link_click_backup_v1';
+function fbCaptureLinkClicks(){
+  try{
+    const backup={};
+    (window.creators||[]).forEach(function(r){
+      if(!r||!r._id||!r._fbData)return;
+      const days={};
+      Object.keys(r._fbData).forEach(function(key){
+        const d=r._fbData[key];
+        if(!d||typeof d!=='object')return;
+        const itemClicks={};
+        if(d._itemData&&typeof d._itemData==='object'){
+          Object.keys(d._itemData).forEach(function(itemKey){
+            const item=d._itemData[itemKey];
+            if(item&&Object.prototype.hasOwnProperty.call(item,'click')) itemClicks[itemKey]=Number(item.click)||0;
+          });
+        }
+        if(Object.prototype.hasOwnProperty.call(d,'click')||Object.keys(itemClicks).length){
+          days[key]={click:Number(d.click)||0,itemClicks:itemClicks};
+        }
+      });
+      if(Object.keys(days).length) backup[String(r._id)]=days;
+    });
+    localStorage.setItem(FB_CLICK_BACKUP_KEY,JSON.stringify(backup));
+  }catch(e){ console.warn('Feedback 링크 클릭 백업 실패:',e); }
+}
+function fbMergeLinkClicks(rows){
+  try{
+    const backup=JSON.parse(localStorage.getItem(FB_CLICK_BACKUP_KEY)||'{}');
+    (rows||[]).forEach(function(r){
+      const saved=r&&r._id?backup[String(r._id)]:null;
+      if(!saved)return;
+      if(!r._fbData)r._fbData={};
+      Object.keys(saved).forEach(function(key){
+        if(!r._fbData[key])r._fbData[key]={view:0,comment:0,like:0,click:0,productLike:0,sales:0,revenue:0,total:0,rankAll:0,rankCat:0};
+        const target=r._fbData[key], src=saved[key]||{};
+        target.click=Number(src.click)||0;
+        if(src.itemClicks&&Object.keys(src.itemClicks).length){
+          if(!target._itemData)target._itemData={};
+          Object.keys(src.itemClicks).forEach(function(itemKey){
+            if(!target._itemData[itemKey])target._itemData[itemKey]={};
+            target._itemData[itemKey].click=Number(src.itemClicks[itemKey])||0;
+          });
+        }
+      });
+    });
+  }catch(e){ console.warn('Feedback 링크 클릭 복원 실패:',e); }
+  return rows;
+}
+window.fbCaptureLinkClicks=fbCaptureLinkClicks;
+window.fbMergeLinkClicks=fbMergeLinkClicks;
+
 /* ══ Firebase 저장 헬퍼 ══ */
 function fbSavePromos(){
   showSaving();
@@ -4160,6 +4213,7 @@ function fbSavePromos(){
 function fbSaveCreators(){
   showSaving();
   // _fbData 포함해서 저장 (Feedback 탭 입력값)
+  fbCaptureLinkClicks();
   if(window.fbSaveBatch) window.fbSaveBatch('creators', window.creators);
 }
 function fbSaveProducts(){
@@ -18816,8 +18870,8 @@ if(document.readyState==='loading'){
   window.fbV15ToggleSummaryDay=function(d){ var ex=window._fbV15.expanded||{}; ex[d]=!ex[d]; window._fbV15.expanded=ex; var ci=window._fbV15.creatorIndex; renderSummary((window.creators||[])[ci],ci); };
   function renderSummary(r,ci){ var t=creatorTotals(r,ci); var ttl={view:0,like:0,comment:0,productLike:0,click:0,sales:0,revenue:0,total:0}; DAYS.forEach(function(d){ var m=dayMetrics(r,ci,d); ttl.view=Math.max(ttl.view,num(m.view)); ttl.like=Math.max(ttl.like,num(m.like)); ttl.comment=Math.max(ttl.comment,num(m.comment)); ttl.productLike=Math.max(ttl.productLike,num(m.productLike)); if(d!==-1){ ttl.click+=num(m.click); ttl.sales+=num(m.sales); ttl.revenue+=num(m.revenue); ttl.total+=num(m.total); } }); ttl.ctr=ttl.view?ttl.click/ttl.view*100:0; ttl.cvr=ttl.click?ttl.sales/ttl.click*100:0; ttl.share=ttl.total?ttl.revenue/ttl.total*100:0; var ttlCost=costOf(r); ttl.roas=ttlCost?ttl.revenue/ttlCost*100:0; var rows=DAYS.map(function(d){ var m=dayMetrics(r,ci,d); var open=!!(window._fbV15.expanded||{})[d]; var row='<tr class="fb-v15-summary-day" onclick="fbV15ToggleSummaryDay('+d+')"><td><span class="fb-v15-toggle">'+(open?'−':'+')+'</span><span class="fb-v15-date-chip">'+esc(dayLabel(r,d))+'</span></td><td>'+fmtN0(m.view)+'</td><td>'+fmtN0(m.like)+'</td><td>'+fmtN0(m.comment)+'</td><td>'+fmtN0(m.click)+'</td><td>'+fmtP(m.ctr,1)+'</td><td>'+fmtN0(m.productLike)+'</td><td>'+fmtN0(m.sales)+'</td><td>'+fmtW(m.revenue)+'</td><td>'+deltaHtml(r,ci,d)+'</td><td>'+fmtP(m.cvr,1)+'</td><td>'+fmtW(m.total)+'</td><td>'+fmtP(m.share,1)+'</td><td>'+fmtP(m.roas,0)+'</td></tr>'; return row + (open?detailRows(r,ci,d,14):''); }).join(''); rows+='<tr class="fb-v15-summary-ttl"><td>TTL</td><td>'+fmtN0(ttl.view)+'</td><td>'+fmtN0(ttl.like)+'</td><td>'+fmtN0(ttl.comment)+'</td><td>'+fmtN0(ttl.click)+'</td><td>'+fmtP(ttl.ctr,1)+'</td><td>'+fmtN0(ttl.productLike)+'</td><td>'+fmtN0(ttl.sales)+'</td><td>'+fmtW(ttl.revenue)+'</td><td>-</td><td>'+fmtP(ttl.cvr,1)+'</td><td>'+fmtW(ttl.total)+'</td><td>'+fmtP(ttl.share,1)+'</td><td>'+fmtP(ttl.roas,0)+'</td></tr>'; $('fb-v15-body').innerHTML='<div class="fb-v15-summary-grid"><div class="fb-v15-card"><div class="fb-v15-card-label">누적 조회수</div><div class="fb-v15-card-val">'+fmtN0(t.view)+'</div></div><div class="fb-v15-card"><div class="fb-v15-card-label">누적 좋아요</div><div class="fb-v15-card-val">'+fmtN0(t.like)+'</div></div><div class="fb-v15-card"><div class="fb-v15-card-label">누적 댓글 수</div><div class="fb-v15-card-val">'+fmtN0(t.comment)+'</div></div><div class="fb-v15-card"><div class="fb-v15-card-label">링크 클릭</div><div class="fb-v15-card-val">'+fmtN0(t.click)+'</div></div><div class="fb-v15-card"><div class="fb-v15-card-label">판매 수량</div><div class="fb-v15-card-val">'+fmtN0(t.sales)+'</div></div><div class="fb-v15-card"><div class="fb-v15-card-label">매출</div><div class="fb-v15-card-val">'+fmtW(t.revenue)+'</div></div><div class="fb-v15-card"><div class="fb-v15-card-label">ROAS</div><div class="fb-v15-card-val">'+fmtP(t.roas,0)+'</div></div></div><div class="fb-v15-panel"><div class="fb-v15-panel-title">기준일별 성과 요약</div><table class="fb-v15-mini"><thead><tr><th>기준일</th><th>조회수</th><th>좋아요</th><th>댓글</th><th>링크 클릭</th><th>CTR</th><th>상품 좋아요</th><th>판매</th><th>매출</th><th>매출 증감</th><th>CVR</th><th>총매출</th><th>매출 비중</th><th>ROAS</th></tr></thead><tbody>'+rows+'</tbody></table></div>'; }
   function directCell(r,ci,d,field,readonly){ var m=dayMetrics(r,ci,d); var val=m.day[field]||0; if(readonly) return '<td><span class="fb-v15-readonly">-</span></td>'; return '<td><span class="fb-v15-editable" ondblclick="fbV15StartEdit(this,'+ci+','+d+',\''+field+'\')">'+fmtN0(val)+'</span></td>'; }
-  window.fbV15StartEdit=function(el,ci,d,field){ if(!el || el.querySelector('input')) return; var r=(window.creators||[])[ci]; var day=ensureDay(r,ci,d); var input=document.createElement('input'); input.className='fb-v15-input'; input.type='text'; input.value=String(num(day[field])); el.textContent=''; el.appendChild(input); input.focus(); input.select(); function commit(){ day[field]=num(input.value); if(typeof window.fbSaveCreators==='function') window.fbSaveCreators(); renderModalBody(); window.applyFeedbackFilter&&window.applyFeedbackFilter(); } input.addEventListener('blur',commit,{once:true}); input.addEventListener('keydown',function(e){ if(e.key==='Enter') input.blur(); if(e.key==='Escape') renderModalBody(); }); };
-  window.fbV15StartItemClick=function(el,ci,d,itemIndex){ if(!el || el.querySelector('input')) return; var r=(window.creators||[])[ci]; var it=itemsOf(r)[itemIndex]; if(!r||!it) return; var day=ensureDay(r,ci,d); var data=ensureItemData(day,it,r.platform); var input=document.createElement('input'); input.className='fb-v15-input'; input.type='text'; input.value=String(num(data.click)); el.textContent=''; el.appendChild(input); input.focus(); input.select(); function commit(){ data.click=num(input.value); if(typeof window.fbSaveCreators==='function') window.fbSaveCreators(); renderModalBody(); window.applyFeedbackFilter&&window.applyFeedbackFilter(); } input.addEventListener('blur',commit,{once:true}); input.addEventListener('keydown',function(e){ if(e.key==='Enter') input.blur(); if(e.key==='Escape') renderModalBody(); }); };
+  window.fbV15StartEdit=function(el,ci,d,field){ if(!el || el.querySelector('input')) return; var r=(window.creators||[])[ci]; var day=ensureDay(r,ci,d); var input=document.createElement('input'); input.className='fb-v15-input'; input.type='text'; input.value=String(num(day[field])); el.textContent=''; el.appendChild(input); input.focus(); input.select(); function commit(){ day[field]=num(input.value); if(field==='click'&&typeof window.fbCaptureLinkClicks==='function') window.fbCaptureLinkClicks(); if(typeof window.fbSaveCreators==='function') window.fbSaveCreators(); renderModalBody(); window.applyFeedbackFilter&&window.applyFeedbackFilter(); } input.addEventListener('blur',commit,{once:true}); input.addEventListener('keydown',function(e){ if(e.key==='Enter') input.blur(); if(e.key==='Escape') renderModalBody(); }); };
+  window.fbV15StartItemClick=function(el,ci,d,itemIndex){ if(!el || el.querySelector('input')) return; var r=(window.creators||[])[ci]; var it=itemsOf(r)[itemIndex]; if(!r||!it) return; var day=ensureDay(r,ci,d); var data=ensureItemData(day,it,r.platform); var input=document.createElement('input'); input.className='fb-v15-input'; input.type='text'; input.value=String(num(data.click)); el.textContent=''; el.appendChild(input); input.focus(); input.select(); function commit(){ data.click=num(input.value); if(typeof window.fbCaptureLinkClicks==='function') window.fbCaptureLinkClicks(); if(typeof window.fbSaveCreators==='function') window.fbSaveCreators(); renderModalBody(); window.applyFeedbackFilter&&window.applyFeedbackFilter(); } input.addEventListener('blur',commit,{once:true}); input.addEventListener('keydown',function(e){ if(e.key==='Enter') input.blur(); if(e.key==='Escape') renderModalBody(); }); };
   function renderDay(r,ci,d){ var m=dayMetrics(r,ci,d); var readonly=d===-1; var cost=costOf(r); var individual=isIndividualLink(r); var roasDisplay=readonly?'-':fmtP(m.roas,0); var clickTop=readonly?'<span class="fb-v15-readonly">-</span>':'<span class="fb-v15-calc">'+fmtN0(m.click)+'</span>'; var metricHtml='<div class="fb-v15-metric-grid"><div class="fb-v15-metric-cell"><div class="fb-v15-metric-label">조회수</div><div class="fb-v15-metric-val">'+directCell(r,ci,d,'view',readonly).replace(/^<td>|<\/td>$/g,'')+'</div></div><div class="fb-v15-metric-cell"><div class="fb-v15-metric-label">좋아요</div><div class="fb-v15-metric-val">'+directCell(r,ci,d,'like',readonly).replace(/^<td>|<\/td>$/g,'')+'</div></div><div class="fb-v15-metric-cell"><div class="fb-v15-metric-label">댓글</div><div class="fb-v15-metric-val">'+directCell(r,ci,d,'comment',readonly).replace(/^<td>|<\/td>$/g,'')+'</div></div><div class="fb-v15-metric-cell"><div class="fb-v15-metric-label">링크 클릭</div><div class="fb-v15-metric-val">'+clickTop+'</div></div><div class="fb-v15-metric-cell"><div class="fb-v15-metric-label">CTR</div><div class="fb-v15-metric-val"><span class="fb-v15-calc">'+(readonly?'-':fmtP(m.ctr,1))+'</span></div></div><div class="fb-v15-metric-cell"><div class="fb-v15-metric-label">ROAS</div><div class="fb-v15-metric-val"><span class="fb-v15-calc">'+roasDisplay+'</span></div></div></div>'; var items=itemsOf(r); var rows=items.map(function(it,idx){ var data=getItemData(m.day,it,r.platform); var sales=num(data.sales), rev=num(data.revenue); var share=m.total&&rev?rev/m.total*100:0; var itemClick=individual?num(data.click):m.click; var cvr=itemClick&&sales?sales/itemClick*100:0; var itemRoas=cost&&rev?rev/cost*100:0; var clickCell;if(individual){ clickCell='<td><span class="'+(readonly?'fb-v15-readonly':'fb-v15-editable')+'" '+(readonly?'':'ondblclick="fbV15StartItemClick(this,'+ci+','+d+','+idx+')"')+'>'+(readonly?'-':fmtN0(data.click))+'</span></td>'; }else{ clickCell=idx===0?'<td rowspan="'+Math.max(items.length,1)+'"><span class="'+(readonly?'fb-v15-readonly':'fb-v15-editable')+'" '+(readonly?'':'ondblclick="fbV15StartEdit(this,'+ci+','+d+',\'click\')"')+'>'+(readonly?'-':fmtN0(m.click))+'</span></td>':''; } return '<tr><td>'+esc(itemUid(it,r.platform)||'-')+'</td><td>'+esc(itemCode(it)||'-')+'</td><td class="fb-v15-product-name">'+esc(itemName(it)||'-')+'</td><td>'+esc(itemColor(it)||'-')+'</td>'+clickCell+'<td class="fb-v15-auto">'+fmtN0(data.productLike)+'</td><td class="fb-v15-auto">'+fmtN0(sales)+'</td><td class="fb-v15-auto">'+fmtW(rev)+'</td><td>'+fmtP(cvr,1)+'</td><td class="fb-v15-auto">'+fmtW(m.total)+'</td><td>'+fmtP(share,1)+'</td><td>'+(readonly?'-':fmtP(itemRoas,0))+'</td></tr>'; }).join(''); $('fb-v15-body').innerHTML=metricHtml+'<div class="fb-v15-panel"><div class="fb-v15-panel-title">상세 내역</div><div class="tbl-wrap" style="border:none;padding:0;"><table class="fb-v15-mini"><thead><tr><th>UID</th><th>상품 코드</th><th>상품명</th><th>컬러</th><th>링크 클릭</th><th>상품 좋아요</th><th>판매 수량</th><th>매출</th><th>CVR</th><th>총 매출</th><th>매출 비중</th><th>ROAS</th></tr></thead><tbody>'+rows+'<tr class="fb-v15-ttl-row"><td colspan="4">TTL</td><td>'+fmtN0(m.click)+'</td><td>'+fmtN0(m.productLike)+'</td><td>'+fmtN0(m.sales)+'</td><td>'+fmtW(m.revenue)+'</td><td>'+fmtP(m.cvr,1)+'</td><td>'+fmtW(m.total)+'</td><td>'+fmtP(m.share,1)+'</td><td>'+roasDisplay+'</td></tr></tbody></table></div></div>'; }
 
 
@@ -22471,5 +22525,105 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   else setTimeout(boot,0);
 })();
 </script>
+
+
+<!-- CHOI PATCH: Sheet sync post-render freeze guard only -->
+<script id="sheet-sync-post-render-freeze-guard">
+(function(){
+  'use strict';
+
+  var batching=false;
+  var queued=new Map();
+  var flushing=false;
+  var renderNames=[
+    'ovRender','ovBuildItemTable','ovBuildItemRankChart','applyFeedbackFilter',
+    'renderProducts','renderBudget','seedRender','celebRender','orgRender','mRender','buildCal'
+  ];
+
+  function schedule(fn){
+    if(typeof requestIdleCallback==='function'){
+      requestIdleCallback(fn,{timeout:120});
+    }else{
+      setTimeout(fn,16);
+    }
+  }
+
+  function flushQueued(){
+    if(flushing) return;
+    flushing=true;
+    var jobs=Array.from(queued.values());
+    queued.clear();
+    var i=0;
+    function next(){
+      if(i>=jobs.length){
+        flushing=false;
+        return;
+      }
+      var job=jobs[i++];
+      schedule(function(){
+        try{ job.fn.apply(job.ctx,job.args); }catch(e){ console.warn('시트 연동 후 렌더 오류:',e); }
+        next();
+      });
+    }
+    next();
+  }
+
+  function wrapRender(name){
+    var original=window[name];
+    if(typeof original!=='function' || original.__tcmSyncRenderCoalesced) return;
+    var wrapped=function(){
+      if(batching){
+        queued.set(name,{fn:original,ctx:this,args:Array.prototype.slice.call(arguments)});
+        return;
+      }
+      return original.apply(this,arguments);
+    };
+    wrapped.__tcmSyncRenderCoalesced=true;
+    wrapped.__tcmOriginal=original;
+    window[name]=wrapped;
+  }
+
+  function ensureRenderWraps(){ renderNames.forEach(wrapRender); }
+
+  function finishStatus(){
+    try{
+      var el=document.getElementById('sheet-sync-status');
+      if(!el) return;
+      var msg=String(el.textContent||'');
+      if(/연동 중|불러오는 중|새로고침 중|확인 중/.test(msg)){
+        if(typeof window.setSheetSyncStatus==='function') window.setSheetSyncStatus('✅ 시트 연동 처리 완료!','ok');
+      }
+    }catch(e){}
+  }
+
+  function wrapSync(name){
+    var original=window[name];
+    if(typeof original!=='function' || original.__tcmSyncFreezeGuard) return;
+    var wrapped=async function(){
+      ensureRenderWraps();
+      batching=true;
+      try{
+        return await original.apply(this,arguments);
+      }finally{
+        batching=false;
+        finishStatus();
+        setTimeout(flushQueued,0);
+      }
+    };
+    wrapped.__tcmSyncFreezeGuard=true;
+    window[name]=wrapped;
+  }
+
+  function boot(){
+    ensureRenderWraps();
+    wrapSync('loadUnifiedSheets');
+    wrapSync('refreshUnifiedSheets');
+  }
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){ setTimeout(boot,80); });
+  else setTimeout(boot,80);
+})();
+</script>
+
 </body>
 </html>
