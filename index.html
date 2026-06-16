@@ -22625,5 +22625,202 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 })();
 </script>
 
+
+
+<!-- CHOI PATCH: Sheet sync modal release + partial Firebase snapshot persistence only -->
+<script id="sheet-sync-modal-release-firebase-snapshot-fix">
+(function(){
+  'use strict';
+
+  var installed=false;
+  var running=false;
+  var STEP_TIMEOUT=90000;
+
+  function sleep(ms){ return new Promise(function(resolve){ setTimeout(resolve,ms); }); }
+  function nextFrame(){ return new Promise(function(resolve){
+    if(typeof requestAnimationFrame==='function') requestAnimationFrame(function(){ setTimeout(resolve,0); });
+    else setTimeout(resolve,0);
+  }); }
+  function withTimeout(promise,label,ms){
+    return Promise.race([
+      Promise.resolve(promise),
+      new Promise(function(_,reject){ setTimeout(function(){ reject(new Error(label+' 응답 시간 초과')); },ms||STEP_TIMEOUT); })
+    ]);
+  }
+  function setStatus(message,type){
+    try{ if(typeof window.setSheetSyncStatus==='function') window.setSheetSyncStatus(message,type||'loading'); }catch(e){}
+  }
+  function panelButtons(disabled){
+    try{
+      var panel=document.getElementById('sheet-sync-panel');
+      if(!panel) return;
+      panel.querySelectorAll('button').forEach(function(btn){
+        if(btn.id==='sheet-sync-close') return;
+        btn.disabled=!!disabled;
+        btn.style.opacity=disabled?'0.55':'';
+        btn.style.cursor=disabled?'wait':'';
+      });
+    }catch(e){}
+  }
+  function closePanelSafely(){
+    try{
+      if(typeof window.closeSheetSyncPanel==='function') window.closeSheetSyncPanel();
+      else{
+        var panel=document.getElementById('sheet-sync-panel');
+        if(panel){ panel.classList.remove('open'); panel.style.display='none'; }
+      }
+      document.body.style.overflow='';
+      document.documentElement.style.overflow='';
+    }catch(e){}
+  }
+  function cloneSafe(value){
+    try{ return JSON.parse(JSON.stringify(value)); }catch(e){ return value; }
+  }
+  function snapshotValue(source){
+    if(source==='meta_ad') return cloneSafe(window.metaRawAd||[]);
+    if(source==='meta_adp') return cloneSafe(window.metaRawAdP||[]);
+    if(source==='meta_sales') return cloneSafe(window.metaRawSales||[]);
+    if(source==='items') return cloneSafe(window.products||[]);
+    if(source==='monthly_budget') return cloneSafe(window.__budgetMonthlyBudget||{});
+    if(source==='daily_spend') return cloneSafe(window.__budgetDailySpend||{});
+    if(source==='sales_goal') return cloneSafe((window.OV_DATA&&window.OV_DATA.targets)||[]);
+    if(source==='product_stats') return cloneSafe(window.productStatsRows||[]);
+    return null;
+  }
+  function hasSnapshotData(value){
+    if(Array.isArray(value)) return value.length>0;
+    return !!(value && typeof value==='object' && Object.keys(value).length);
+  }
+
+  async function persistSnapshot(source,value){
+    if(!hasSnapshotData(value)) return false;
+    if(!window.db || !window.isFirebaseReady) return false;
+    if(typeof window.isCurrentUserEditor==='function' && !window.isCurrentUserEditor()) return false;
+
+    var json=JSON.stringify(value);
+    var CHUNK=300000;
+    var parts=[];
+    for(var i=0;i<json.length;i+=CHUNK) parts.push(json.slice(i,i+CHUNK));
+    if(!parts.length) parts=[''];
+
+    var coll=window.db.collection('sheetSnapshots');
+    var manifestId=source+'__manifest';
+    var manifestRef=coll.doc(manifestId);
+    var oldCount=0;
+    try{
+      var old=await manifestRef.get();
+      if(old.exists) oldCount=parseInt((old.data()||{}).partCount||0,10)||0;
+    }catch(e){}
+
+    var operations=[];
+    for(var d=0;d<oldCount;d++) operations.push({type:'delete',ref:coll.doc(source+'__part_'+String(d).padStart(4,'0'))});
+    parts.forEach(function(part,index){
+      operations.push({type:'set',ref:coll.doc(source+'__part_'+String(index).padStart(4,'0')),data:{
+        source:source,part:index,partCount:parts.length,payload:part,updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+      }});
+    });
+    operations.push({type:'set',ref:manifestRef,data:{
+      source:source,partCount:parts.length,byteLength:json.length,updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+    }});
+
+    for(var start=0;start<operations.length;start+=400){
+      var batch=window.db.batch();
+      operations.slice(start,start+400).forEach(function(op){
+        if(op.type==='delete') batch.delete(op.ref); else batch.set(op.ref,op.data);
+      });
+      await batch.commit();
+      await nextFrame();
+    }
+    return true;
+  }
+
+  async function persistCompletedSources(sources){
+    var saved=[];
+    for(var i=0;i<sources.length;i++){
+      var source=sources[i];
+      var value=snapshotValue(source);
+      if(!hasSnapshotData(value)) continue;
+      try{
+        setStatus('Firebase 저장 중... '+(i+1)+'/'+sources.length,'loading');
+        if(await withTimeout(persistSnapshot(source,value),'Firebase '+source+' 저장',60000)) saved.push(source);
+      }catch(e){ console.warn('시트 스냅샷 Firebase 저장 실패:',source,e); }
+      await nextFrame();
+    }
+    try{
+      if(typeof window.fbSaveSheetUrls==='function') await withTimeout(window.fbSaveSheetUrls(),'시트 URL 저장',30000);
+    }catch(e){ console.warn('시트 URL Firebase 저장 실패:',e); }
+    try{ localStorage.setItem('tcm_last_successful_sheet_sync_at',String(Date.now())); }catch(e){}
+    return saved;
+  }
+
+  function fieldValue(id){ var el=document.getElementById(id); return el&&String(el.value||'').trim(); }
+  function configuredSteps(refreshMode){
+    var steps=[];
+    var hasMeta=['meta-url-ad','meta-url-adp','meta-url-sales'].some(function(id){return !!fieldValue(id);});
+    var hasItem=!!fieldValue('item-sheet-url');
+    var hasBudget=!!(fieldValue('monthly-budget-sheet-url')||fieldValue('daily-spend-sheet-url'));
+    var hasGoal=!!fieldValue('sales-goal-sheet-url');
+    var hasStats=!!fieldValue('product-stats-sheet-url');
+
+    if(hasMeta) steps.push({label:'광고·매출 데이터',fn:refreshMode?window.refreshMetaFromSheets:window.loadMetaFromSheets,sources:['meta_ad','meta_adp','meta_sales']});
+    if(hasItem) steps.push({label:'Item 데이터',fn:refreshMode?window.refreshItemFromSheet:window.loadItemFromSheet,sources:['items']});
+    if(hasBudget) steps.push({label:'예산·일 지출 데이터',fn:window.loadBudgetFromSheet,sources:['monthly_budget','daily_spend']});
+    if(hasGoal) steps.push({label:'목표 매출 데이터',fn:window.loadSalesGoalFromSheet,sources:['sales_goal']});
+    if(hasStats) steps.push({label:'상품 좋아요/후기 데이터',fn:refreshMode?window.refreshProductStatsFromSheet:window.loadProductStatsFromSheet,sources:['product_stats']});
+    return steps.filter(function(step){ return typeof step.fn==='function'; });
+  }
+
+  async function runUnified(refreshMode){
+    if(running) return;
+    var steps=configuredSteps(refreshMode);
+    if(!steps.length){ setStatus('URL을 입력해주세요.','error'); return; }
+
+    running=true;
+    panelButtons(true);
+    var completed=[];
+    var failed=[];
+    try{
+      for(var i=0;i<steps.length;i++){
+        var step=steps[i];
+        setStatus('시트 연동 중... '+(i+1)+'/'+steps.length+' · '+step.label,'loading');
+        try{
+          await withTimeout(step.fn.call(window),step.label,STEP_TIMEOUT);
+          completed=completed.concat(step.sources);
+        }catch(e){
+          failed.push(step.label);
+          console.warn(step.label+' 연동 실패:',e);
+        }
+        await nextFrame();
+      }
+
+      var uniqueCompleted=Array.from(new Set(completed));
+      var saved=await persistCompletedSources(uniqueCompleted);
+      var message='✅ 시트 연동 완료';
+      if(saved.length) message+=' · 완료 데이터 Firebase 저장';
+      if(failed.length) message+=' · 일부 실패: '+failed.join(', ');
+      setStatus(message,failed.length?'loading':'ok');
+      await sleep(500);
+    }catch(e){
+      console.error('전체 시트 연동 처리 오류:',e);
+      setStatus('❌ 시트 연동 오류 · 완료된 데이터는 유지됩니다.','error');
+      await sleep(700);
+    }finally{
+      running=false;
+      panelButtons(false);
+      closePanelSafely();
+    }
+  }
+
+  function install(){
+    if(installed) return;
+    installed=true;
+    window.loadUnifiedSheets=function(){ return runUnified(false); };
+    window.refreshUnifiedSheets=function(){ return runUnified(true); };
+  }
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){ setTimeout(install,300); });
+  else setTimeout(install,300);
+})();
+</script>
 </body>
 </html>
