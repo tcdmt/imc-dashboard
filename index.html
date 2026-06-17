@@ -23514,5 +23514,155 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   else setTimeout(function(){syncDateWidth();if(window.celebRender)window.celebRender();},0);
 })();
 </script>
+
+
+<!-- CHOI PATCH: Persist and restore sheet snapshots across file replacement / browser restart only -->
+<script id="sheet-snapshot-durable-persistence-fix">
+(function(){
+  'use strict';
+  var DB_NAME='TCM_SHEET_SNAPSHOT_CACHE_V2';
+  var STORE='snapshots';
+  var SOURCES=['meta_ad','meta_adp','meta_sales','items','monthly_budget','daily_spend','sales_goal','product_stats'];
+  var firebaseRestoreRunning=false;
+
+  function openDb(){
+    return new Promise(function(resolve,reject){
+      if(!window.indexedDB){ resolve(null); return; }
+      var req=indexedDB.open(DB_NAME,1);
+      req.onupgradeneeded=function(){
+        var db=req.result;
+        if(!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE,{keyPath:'source'});
+      };
+      req.onsuccess=function(){resolve(req.result);};
+      req.onerror=function(){reject(req.error);};
+    });
+  }
+  async function cachePut(source,value){
+    try{
+      var db=await openDb(); if(!db) return;
+      await new Promise(function(resolve,reject){
+        var tx=db.transaction(STORE,'readwrite');
+        tx.objectStore(STORE).put({source:source,value:value,updatedAt:Date.now()});
+        tx.oncomplete=resolve; tx.onerror=function(){reject(tx.error);};
+      });
+      db.close();
+    }catch(e){ console.warn('시트 로컬 스냅샷 저장 실패:',source,e); }
+  }
+  async function cacheGetAll(){
+    try{
+      var db=await openDb(); if(!db) return {};
+      var rows=await new Promise(function(resolve,reject){
+        var tx=db.transaction(STORE,'readonly');
+        var req=tx.objectStore(STORE).getAll();
+        req.onsuccess=function(){resolve(req.result||[]);};
+        req.onerror=function(){reject(req.error);};
+      });
+      db.close();
+      var out={}; rows.forEach(function(r){ if(r&&r.source) out[r.source]=r.value; });
+      return out;
+    }catch(e){ return {}; }
+  }
+  function clone(v){ try{return JSON.parse(JSON.stringify(v));}catch(e){return v;} }
+  function current(source){
+    if(source==='meta_ad') return clone(window.metaRawAd||[]);
+    if(source==='meta_adp') return clone(window.metaRawAdP||[]);
+    if(source==='meta_sales') return clone(window.metaRawSales||[]);
+    if(source==='items') return clone(window.products||[]);
+    if(source==='monthly_budget') return clone(window.__budgetMonthlyBudget||{});
+    if(source==='daily_spend') return clone(window.__budgetDailySpend||{});
+    if(source==='sales_goal') return clone((window.OV_DATA&&window.OV_DATA.targets)||[]);
+    if(source==='product_stats') return clone(window.productStatsRows||[]);
+    return null;
+  }
+  function has(v){ return Array.isArray(v)?v.length>0:!!(v&&typeof v==='object'&&Object.keys(v).length); }
+
+  async function cacheCurrentSnapshots(){
+    for(var i=0;i<SOURCES.length;i++){
+      var v=current(SOURCES[i]);
+      if(has(v)) await cachePut(SOURCES[i],v);
+    }
+    try{ localStorage.setItem('tcm_last_sheet_snapshot_cache_at',String(Date.now())); }catch(e){}
+  }
+
+  function applyMeta(key,rows){
+    rows=Array.isArray(rows)?rows:[];
+    var url='';
+    if(key==='ad') url=window.metaSheetUrlAd||localStorage.getItem('meta_url_ad')||'';
+    if(key==='adp') url=window.metaSheetUrlAdp||localStorage.getItem('meta_url_adp')||'';
+    if(key==='sales') url=window.metaSheetUrlSales||localStorage.getItem('meta_url_sales')||'';
+    if(typeof window.applyMetaSheetLoadResult==='function') window.applyMetaSheetLoadResult(key,url,rows);
+    else if(key==='ad') window.metaRawAd=rows;
+    else if(key==='adp') window.metaRawAdP=rows;
+    else window.metaRawSales=rows;
+  }
+  async function applyValues(v){
+    if(Array.isArray(v.meta_ad)) applyMeta('ad',v.meta_ad);
+    if(Array.isArray(v.meta_adp)) applyMeta('adp',v.meta_adp);
+    if(Array.isArray(v.meta_sales)) applyMeta('sales',v.meta_sales);
+    if(Array.isArray(v.items)) window.products=v.items;
+    if(v.monthly_budget&&typeof v.monthly_budget==='object') window.__budgetMonthlyBudget=v.monthly_budget;
+    if(v.daily_spend&&typeof v.daily_spend==='object') window.__budgetDailySpend=v.daily_spend;
+    if(Array.isArray(v.sales_goal)){
+      if(window.OV_DATA) window.OV_DATA.targets=v.sales_goal;
+      if(window.OV_CHANNEL_DATA) window.OV_CHANNEL_DATA.targets=v.sales_goal;
+    }
+    if(Array.isArray(v.product_stats)){
+      window.productStatsRows=v.product_stats;
+      try{ if(typeof window.applyProductStatsToDashboard==='function') window.applyProductStatsToDashboard(); }catch(e){}
+    }
+    try{ if(typeof window.renderModalItems==='function') window.renderModalItems(); }catch(e){}
+    try{ if(typeof window.applyFeedbackFilter==='function') window.applyFeedbackFilter(); }catch(e){}
+    try{ if(typeof window.ovRender==='function') window.ovRender(window._ovCurrentView||'total'); }catch(e){}
+    try{ if(typeof window.renderBudget==='function') window.renderBudget(); }catch(e){}
+  }
+
+  async function restoreLocalFirst(){
+    var values=await cacheGetAll();
+    if(Object.keys(values).length) await applyValues(values);
+  }
+
+  async function restoreFirebaseAgain(){
+    if(firebaseRestoreRunning||!window.db||!window.isFirebaseReady||!window.currentUser) return;
+    firebaseRestoreRunning=true;
+    try{
+      if(typeof window.restoreSheetSnapshotsFromFirebase==='function'){
+        await window.restoreSheetSnapshotsFromFirebase();
+        await cacheCurrentSnapshots();
+      }
+    }catch(e){ console.warn('Firebase 시트 스냅샷 재복원 실패:',e); }
+    finally{ firebaseRestoreRunning=false; }
+  }
+
+  function wrapSheetLoad(name){
+    var fn=window[name];
+    if(typeof fn!=='function'||fn.__durableSnapshotWrapped) return;
+    var wrapped=async function(){
+      var result=await fn.apply(this,arguments);
+      await cacheCurrentSnapshots();
+      return result;
+    };
+    wrapped.__durableSnapshotWrapped=true;
+    window[name]=wrapped;
+  }
+  function installWrappers(){
+    ['loadMetaFromSheets','refreshMetaFromSheets','loadItemFromSheet','refreshItemFromSheet','loadBudgetFromSheet','loadSalesGoalFromSheet','loadProductStatsFromSheet','refreshProductStatsFromSheet'].forEach(wrapSheetLoad);
+  }
+
+  async function boot(){
+    await restoreLocalFirst();
+    installWrappers();
+    var tries=0;
+    var timer=setInterval(function(){
+      installWrappers();
+      if(window.db&&window.isFirebaseReady&&window.currentUser){ clearInterval(timer); restoreFirebaseAgain(); }
+      else if(++tries>240) clearInterval(timer);
+    },250);
+  }
+  window.addEventListener('pageshow',function(){ restoreLocalFirst().then(restoreFirebaseAgain); });
+  document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible') restoreFirebaseAgain(); });
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
+})();
+</script>
+
 </body>
 </html>
