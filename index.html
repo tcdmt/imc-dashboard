@@ -22901,7 +22901,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
         var manifestRef=coll.doc(source+'__manifest');
         var oldCount=0;
         try{ var old=await manifestRef.get(); if(old.exists) oldCount=parseInt((old.data()||{}).partCount||0,10)||0; }catch(e){}
-        var CHUNK_ROWS=500;
+        var CHUNK_ROWS=1200;
         var partCount=Math.ceil(value.length/CHUNK_ROWS);
         for(var start=0;start<partCount;start++){
           var payload=JSON.stringify(value.slice(start*CHUNK_ROWS,(start+1)*CHUNK_ROWS));
@@ -22934,6 +22934,186 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){setTimeout(install,600);});
   else setTimeout(install,600);
+})();
+</script>
+
+
+
+<!-- CHOI PATCH: Restore last successful sheet snapshots on re-entry only -->
+<script id="sheet-snapshot-restore-on-reentry-fix">
+(function(){
+  'use strict';
+
+  var restorePromise=null;
+  var restoredForUser='';
+
+  function nextFrame(){
+    return new Promise(function(resolve){
+      if(typeof requestAnimationFrame==='function') requestAnimationFrame(function(){ setTimeout(resolve,0); });
+      else setTimeout(resolve,0);
+    });
+  }
+  function currentUserKey(){
+    try{ return String((window.currentUser&&window.currentUser.uid)||(window.currentUser&&window.currentUser.email)||'signed-in'); }
+    catch(e){ return 'signed-in'; }
+  }
+  async function readSource(source){
+    if(!window.db) return null;
+    var coll=window.db.collection('sheetSnapshots');
+    var manifest=await coll.doc(source+'__manifest').get();
+    if(!manifest.exists) return null;
+    var info=manifest.data()||{};
+    var count=parseInt(info.partCount||0,10)||0;
+    if(count<1) return null;
+
+    var payloads=new Array(count);
+    for(var start=0;start<count;start+=20){
+      var end=Math.min(count,start+20), jobs=[];
+      for(var i=start;i<end;i++){
+        (function(index){
+          jobs.push(coll.doc(source+'__part_'+String(index).padStart(4,'0')).get().then(function(doc){
+            payloads[index]=doc.exists?String((doc.data()||{}).payload||''):'';
+          }));
+        })(i);
+      }
+      await Promise.all(jobs);
+      await nextFrame();
+    }
+
+    if(source==='product_stats'){
+      var rows=[], rowChunkMode=true;
+      for(var p=0;p<payloads.length;p++){
+        try{
+          var parsedPart=JSON.parse(payloads[p]||'[]');
+          if(!Array.isArray(parsedPart)){ rowChunkMode=false; break; }
+          rows=rows.concat(parsedPart);
+        }catch(e){ rowChunkMode=false; break; }
+        if(p%8===7) await nextFrame();
+      }
+      if(rowChunkMode) return rows;
+    }
+
+    var joined=payloads.join('');
+    if(!joined) return null;
+    return JSON.parse(joined);
+  }
+
+  function applyMeta(key,rows){
+    rows=Array.isArray(rows)?rows:[];
+    var url='';
+    if(key==='ad') url=window.metaSheetUrlAd||localStorage.getItem('meta_url_ad')||'';
+    if(key==='adp') url=window.metaSheetUrlAdp||localStorage.getItem('meta_url_adp')||'';
+    if(key==='sales') url=window.metaSheetUrlSales||localStorage.getItem('meta_url_sales')||'';
+    if(typeof window.applyMetaSheetLoadResult==='function') window.applyMetaSheetLoadResult(key,url,rows);
+    else{
+      if(key==='ad') window.metaRawAd=rows;
+      if(key==='adp') window.metaRawAdP=rows;
+      if(key==='sales') window.metaRawSales=rows;
+    }
+  }
+  function postBudgetSnapshot(){
+    try{
+      var frame=document.getElementById('budget-module-frame');
+      var target=frame&&frame.contentWindow;
+      if(!target) return;
+      if(window.__budgetMonthlyBudget) target.postMessage({type:'TCM_BUDGET_MONTHLY_IMPORT',monthlyBudget:window.__budgetMonthlyBudget},'*');
+      if(window.__budgetDailySpend) target.postMessage({type:'TCM_BUDGET_DAILY_IMPORT',dailySpend:window.__budgetDailySpend},'*');
+    }catch(e){}
+  }
+  async function applySnapshots(values){
+    if(Array.isArray(values.meta_ad)) applyMeta('ad',values.meta_ad);
+    if(Array.isArray(values.meta_adp)) applyMeta('adp',values.meta_adp);
+    if(Array.isArray(values.meta_sales)) applyMeta('sales',values.meta_sales);
+
+    if(Array.isArray(values.items)){
+      window.products=values.items;
+      try{ if(typeof window.renderModalItems==='function') window.renderModalItems(); }catch(e){}
+    }
+    if(values.monthly_budget&&typeof values.monthly_budget==='object') window.__budgetMonthlyBudget=values.monthly_budget;
+    if(values.daily_spend&&typeof values.daily_spend==='object') window.__budgetDailySpend=values.daily_spend;
+    if(Array.isArray(values.sales_goal)){
+      if(window.OV_DATA) window.OV_DATA.targets=values.sales_goal;
+      if(window.OV_CHANNEL_DATA) window.OV_CHANNEL_DATA.targets=values.sales_goal;
+    }
+    postBudgetSnapshot();
+    var frame=document.getElementById('budget-module-frame');
+    if(frame&&!frame.__sheetSnapshotRestoreBound){
+      frame.__sheetSnapshotRestoreBound=true;
+      frame.addEventListener('load',function(){ setTimeout(postBudgetSnapshot,50); });
+    }
+
+    if(Array.isArray(values.product_stats)){
+      window.productStatsRows=values.product_stats;
+      await nextFrame();
+      try{
+        if(typeof window.applyProductStatsToDashboard==='function') window.applyProductStatsToDashboard();
+      }catch(e){ console.warn('상품 좋아요/후기 스냅샷 화면 적용 실패:',e); }
+    }
+
+    var renderJobs=[
+      function(){ if(typeof window.applyFeedbackFilter==='function') window.applyFeedbackFilter(); },
+      function(){ if(typeof window.ovBuildItemTable==='function') window.ovBuildItemTable(); },
+      function(){ if(typeof window.ovBuildItemRankChart==='function') window.ovBuildItemRankChart(); },
+      function(){ if(typeof window.ovRender==='function') window.ovRender(window._ovCurrentView||'total'); },
+      function(){ if(typeof window.renderBudget==='function') window.renderBudget(); }
+    ];
+    for(var i=0;i<renderJobs.length;i++){
+      try{ renderJobs[i](); }catch(e){}
+      await nextFrame();
+    }
+  }
+
+  async function restoreSnapshots(){
+    if(!window.db||!window.isFirebaseReady||!window.currentUser) return false;
+    var userKey=currentUserKey();
+    if(restoredForUser===userKey) return true;
+    if(restorePromise) return restorePromise;
+
+    restorePromise=(async function(){
+      var sources=['meta_ad','meta_adp','meta_sales','items','monthly_budget','daily_spend','sales_goal','product_stats'];
+      var values={};
+      for(var i=0;i<sources.length;i++){
+        try{
+          var value=await readSource(sources[i]);
+          if(value!==null) values[sources[i]]=value;
+        }catch(e){ console.warn('시트 스냅샷 복원 실패:',sources[i],e); }
+        await nextFrame();
+      }
+      await applySnapshots(values);
+      restoredForUser=userKey;
+      try{ localStorage.setItem('tcm_sheet_snapshot_restored_at',String(Date.now())); }catch(e){}
+      return true;
+    })().finally(function(){ restorePromise=null; });
+
+    return restorePromise;
+  }
+  window.restoreSheetSnapshotsFromFirebase=restoreSnapshots;
+
+  function installLoadWrapper(){
+    var original=window.loadAllFromFirebase;
+    if(typeof original!=='function'||original.__sheetSnapshotRestoreWrapped) return false;
+    var wrapped=async function(){
+      var result=await original.apply(this,arguments);
+      try{ await restoreSnapshots(); }catch(e){ console.warn('재접속 시 시트 데이터 복원 실패:',e); }
+      return result;
+    };
+    wrapped.__sheetSnapshotRestoreWrapped=true;
+    window.loadAllFromFirebase=wrapped;
+    return true;
+  }
+  function boot(){
+    installLoadWrapper();
+    var tries=0;
+    var timer=setInterval(function(){
+      installLoadWrapper();
+      if(window.db&&window.isFirebaseReady&&window.currentUser){
+        clearInterval(timer);
+        restoreSnapshots().catch(function(e){ console.warn('시트 데이터 초기 복원 실패:',e); });
+      }else if(++tries>120){ clearInterval(timer); }
+    },250);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){ setTimeout(boot,0); });
+  else setTimeout(boot,0);
 })();
 </script>
 
