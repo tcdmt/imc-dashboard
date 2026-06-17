@@ -18203,6 +18203,24 @@ if(document.readyState==='loading'){
       return obj;
     }).filter(function(row){ return Object.values(row).some(Boolean); });
   }
+  async function parseCSVObjectsAsync(text){
+    var lines = String(text || '').replace(/^\uFEFF/,'').trim().split(/\r?\n/);
+    if(lines.length < 2) return [];
+    var headers = parseCSVLine(lines[0]).map(function(h){ return clean(h); });
+    var rows=[];
+    for(var i=1;i<lines.length;i++){
+      if(!lines[i]) continue;
+      var vals=parseCSVLine(lines[i]), obj={}, hasValue=false;
+      for(var h=0;h<headers.length;h++){
+        var value=vals[h] || '';
+        obj[headers[h]]=value;
+        if(value) hasValue=true;
+      }
+      if(hasValue) rows.push(obj);
+      if(i % 1000 === 0) await new Promise(function(resolve){ setTimeout(resolve,0); });
+    }
+    return rows;
+  }
   function rowVal(row, keys){
     row = row || {}; keys = Array.isArray(keys) ? keys : [keys];
     if(typeof window.mRawVal === 'function'){
@@ -18238,29 +18256,66 @@ if(document.readyState==='loading'){
       reviews: toNum(rowVal(row, ['후기','리뷰','후기 수','후기수','리뷰 수','리뷰수','reviews','reviewCount']))
     };
   }
-  function productStats(){
-    return (window.productStatsRows || []).map(rowToStat).filter(function(r){ return r.platform || r.uid || r.code || r.name; });
+  var productStatsCacheRef = null;
+  var productStatsCache = [];
+  var productStatsIndex = { uid:new Map(), code:new Map(), name:new Map() };
+
+  function addIndex(map, key, row){
+    if(!key) return;
+    var list = map.get(key);
+    if(!list){ list=[]; map.set(key,list); }
+    list.push(row);
   }
+  function rebuildProductStatsIndex(){
+    var source = window.productStatsRows || [];
+    if(productStatsCacheRef === source) return;
+    productStatsCacheRef = source;
+    productStatsCache = [];
+    productStatsIndex = { uid:new Map(), code:new Map(), name:new Map() };
+    for(var i=0;i<source.length;i++){
+      var r = rowToStat(source[i]);
+      if(!(r.platform || r.uid || r.code || r.name)) continue;
+      productStatsCache.push(r);
+      var pk = r.platform || '*';
+      if(r.uid){ addIndex(productStatsIndex.uid, pk+'|'+r.uid, r); addIndex(productStatsIndex.uid, '*|'+r.uid, r); }
+      if(r.code){ addIndex(productStatsIndex.code, pk+'|'+r.code, r); addIndex(productStatsIndex.code, '*|'+r.code, r); }
+      var nn = norm(r.name);
+      if(nn){ addIndex(productStatsIndex.name, pk+'|'+nn, r); addIndex(productStatsIndex.name, '*|'+nn, r); }
+    }
+    [productStatsIndex.uid,productStatsIndex.code,productStatsIndex.name].forEach(function(map){
+      map.forEach(function(list){ list.sort(function(a,b){ return String(b.date||'').localeCompare(String(a.date||'')); }); });
+    });
+  }
+  function productStats(){ rebuildProductStatsIndex(); return productStatsCache; }
   function pickByDate(rows, date, exactOnly){
     var ds = normalizeDate(date);
-    rows.sort(function(a,b){ return String(b.date || '').localeCompare(String(a.date || '')); });
     if(ds){
-      var exact = rows.find(function(r){ return r.date === ds; });
-      if(exact) return exact;
+      for(var i=0;i<rows.length;i++) if(rows[i].date === ds) return rows[i];
       if(exactOnly) return null;
-      var before = rows.find(function(r){ return r.date && r.date <= ds; });
-      if(before) return before;
+      for(var j=0;j<rows.length;j++) if(rows[j].date && rows[j].date <= ds) return rows[j];
     }
-    return exactOnly ? null : rows[0];
+    return exactOnly ? null : (rows[0] || null);
+  }
+  function indexedRows(map, pk, value){
+    if(!value) return [];
+    var exact = pk ? (map.get(pk+'|'+value) || []) : [];
+    var wildcard = map.get('*|'+value) || [];
+    if(!pk) return wildcard;
+    if(!exact.length) return wildcard;
+    if(exact === wildcard) return exact;
+    var merged = exact.slice();
+    wildcard.forEach(function(r){ if(!r.platform && merged.indexOf(r)===-1) merged.push(r); });
+    merged.sort(function(a,b){ return String(b.date||'').localeCompare(String(a.date||'')); });
+    return merged;
   }
   function findStat(platform, uid, code, name, date, opts){
     opts = opts || {};
+    rebuildProductStatsIndex();
     var pk = normPlatform(platform), u = normUid(uid), c = norm(code), n = norm(name);
-    var rows = productStats().filter(function(r){ return !pk || !r.platform || r.platform === pk; });
     var matched = [];
-    if(u) matched = rows.filter(function(r){ return r.uid && r.uid === u; });
-    if(!matched.length && !u && c) matched = rows.filter(function(r){ return r.code && r.code === c; });
-    if(!matched.length && !u && n) matched = rows.filter(function(r){ return norm(r.name) === n; });
+    if(u) matched = indexedRows(productStatsIndex.uid, pk, u);
+    if(!matched.length && !u && c) matched = indexedRows(productStatsIndex.code, pk, c);
+    if(!matched.length && !u && n) matched = indexedRows(productStatsIndex.name, pk, n);
     if(!matched.length) return null;
     return pickByDate(matched, date, !!opts.exactOnly);
   }
@@ -18389,8 +18444,9 @@ if(document.readyState==='loading'){
     localStorage.setItem('product_stats_sheet_url', url);
     if(window.setSheetSyncStatus) window.setSheetSyncStatus('상품 좋아요/후기 통합 시트 불러오는 중...','loading');
     try{
-      var text = await fetchCsvWithTimeout(url, 15000);
-      window.productStatsRows = parseCSVObjects(text);
+      var text = await fetchCsvWithTimeout(url, 45000);
+      window.productStatsRows = await parseCSVObjectsAsync(text);
+      productStatsCacheRef = null;
       if(!window.productStatsRows.length) throw new Error('상품 좋아요/후기 통합 시트에서 데이터를 찾지 못했어요.');
       saveSheetUrl();
       var result = window.applyProductStatsToDashboard();
@@ -22766,7 +22822,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     if(hasItem) steps.push({label:'Item 데이터',fn:refreshMode?window.refreshItemFromSheet:window.loadItemFromSheet,sources:['items']});
     if(hasBudget) steps.push({label:'예산·일 지출 데이터',fn:window.loadBudgetFromSheet,sources:['monthly_budget','daily_spend']});
     if(hasGoal) steps.push({label:'목표 매출 데이터',fn:window.loadSalesGoalFromSheet,sources:['sales_goal']});
-    if(hasStats) steps.push({label:'상품 좋아요/후기 데이터',fn:refreshMode?window.refreshProductStatsFromSheet:window.loadProductStatsFromSheet,sources:['product_stats']});
+    if(hasStats) steps.push({label:'상품 좋아요/후기 데이터',fn:refreshMode?window.refreshProductStatsFromSheet:window.loadProductStatsFromSheet,sources:[]});
     return steps.filter(function(step){ return typeof step.fn==='function'; });
   }
 
@@ -22822,5 +22878,64 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   else setTimeout(install,300);
 })();
 </script>
+
+<!-- CHOI PATCH: Large product stats Firebase snapshot runs after dashboard unlock -->
+<script id="product-stats-background-firebase-save">
+(function(){
+  'use strict';
+  var queued=false;
+  function waitIdle(fn){
+    if(typeof requestIdleCallback==='function') requestIdleCallback(fn,{timeout:2000});
+    else setTimeout(fn,50);
+  }
+  function saveLargeStatsInBackground(){
+    if(queued) return;
+    queued=true;
+    waitIdle(async function(){
+      try{
+        if(!window.db || !window.isFirebaseReady || (typeof window.isCurrentUserEditor==='function' && !window.isCurrentUserEditor())) return;
+        var value=window.productStatsRows||[];
+        if(!value.length) return;
+        var coll=window.db.collection('sheetSnapshots');
+        var source='product_stats';
+        var manifestRef=coll.doc(source+'__manifest');
+        var oldCount=0;
+        try{ var old=await manifestRef.get(); if(old.exists) oldCount=parseInt((old.data()||{}).partCount||0,10)||0; }catch(e){}
+        var CHUNK_ROWS=500;
+        var partCount=Math.ceil(value.length/CHUNK_ROWS);
+        for(var start=0;start<partCount;start++){
+          var payload=JSON.stringify(value.slice(start*CHUNK_ROWS,(start+1)*CHUNK_ROWS));
+          await coll.doc(source+'__part_'+String(start).padStart(4,'0')).set({source:source,part:start,partCount:partCount,payload:payload,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+          await new Promise(function(resolve){setTimeout(resolve,0);});
+        }
+        for(var d=partCount;d<oldCount;d++){
+          await coll.doc(source+'__part_'+String(d).padStart(4,'0')).delete();
+          await new Promise(function(resolve){setTimeout(resolve,0);});
+        }
+        await manifestRef.set({source:source,partCount:partCount,rowCount:value.length,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+        try{ localStorage.setItem('tcm_product_stats_firebase_saved_at',String(Date.now())); }catch(e){}
+      }catch(e){ console.warn('상품 좋아요/후기 Firebase 백그라운드 저장 실패:',e); }
+      finally{ queued=false; }
+    });
+  }
+  var originalLoad=window.loadProductStatsFromSheet;
+  function install(){
+    ['loadProductStatsFromSheet','refreshProductStatsFromSheet'].forEach(function(name){
+      var original=window[name];
+      if(typeof original!=='function' || original.__largeStatsBackgroundWrapped) return;
+      var wrapped=async function(){
+        var result=await original.apply(this,arguments);
+        if(result) saveLargeStatsInBackground();
+        return result;
+      };
+      wrapped.__largeStatsBackgroundWrapped=true;
+      window[name]=wrapped;
+    });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){setTimeout(install,600);});
+  else setTimeout(install,600);
+})();
+</script>
+
 </body>
 </html>
