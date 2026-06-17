@@ -23935,5 +23935,52 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
 })();
 </script>
 
+
+<!-- CHOI PATCH: Seeding dropdown visual match to List tab only -->
+<style id="seeding-dropdown-list-visual-match-fix">
+#pg-seeding #seed-body td.seed-v12-choice-cell{
+  text-align:center!important;
+  vertical-align:middle!important;
+}
+#pg-seeding .seed-v12-fixed-badge{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  min-height:20px!important;
+  padding:2px 8px!important;
+  border-radius:999px!important;
+  border:0!important;
+  font-size:10px!important;
+  font-weight:600!important;
+  line-height:1.15!important;
+  box-shadow:none!important;
+}
+#seed-v12-dropdown{
+  min-width:140px!important;
+  max-height:260px!important;
+  padding:7px!important;
+  background:#fff!important;
+  border:1px solid #dedede!important;
+  border-radius:12px!important;
+  box-shadow:0 8px 22px rgba(0,0,0,.16)!important;
+}
+#seed-v12-dropdown .seed-v12-option{
+  min-height:29px!important;
+  margin:3px 0!important;
+  padding:6px 10px!important;
+  border:0!important;
+  border-radius:8px!important;
+  font-size:10px!important;
+  font-weight:600!important;
+  line-height:1.2!important;
+  box-shadow:none!important;
+  transform:none!important;
+}
+#seed-v12-dropdown .seed-v12-option:hover{
+  filter:brightness(.97)!important;
+  transform:none!important;
+}
+</style>
+
 </body>
 </html>
