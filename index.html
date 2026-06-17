@@ -1773,6 +1773,13 @@ html[data-user-role="viewer"] [data-delete]{opacity:.35!important;cursor:not-all
 #fb-main-table .fb-creator-toggle-row.is-expanded .fb-collapse-cell{background:#EAF3DE!important;color:#3B6D11!important;}
 </style>
 
+
+<style id="seeding-core-input-fix-style">
+#pg-seeding #seed-body .seed-inline-select{appearance:auto!important;-webkit-appearance:menulist!important;pointer-events:auto!important;}
+#pg-seeding #seed-body td.seed-editable{cursor:text!important;}
+#pg-seeding #seed-body td.date-cell{cursor:pointer!important;text-align:center!important;white-space:nowrap!important;}
+#pg-seeding #seed-body td.date-cell input[type=date]{width:126px!important;height:28px!important;font-size:11px!important;}
+</style>
 </head>
 <body>
 <div class="page">
@@ -19885,6 +19892,12 @@ function updateFlow(){
     if(i<arr.length-1) wrap.insertAdjacentHTML('beforeend','<div class="seed-flow-arrow">→</div>');
   });
 }
+function seedInlineSelect(i,field,value,opts,colorMap){
+  value = value || (opts && opts[0]) || '';
+  const c=(colorMap&&colorMap[value])||{bg:'#f3f4f6',color:'#6b7280',border:'#e5e7eb'};
+  const options=(opts||[]).map(opt=>`<option value="${esc(opt)}" ${String(opt)===String(value)?'selected':''}>${esc(opt)}</option>`).join('');
+  return `<select class="seed-inline-select" data-field="${field}" style="width:auto;min-width:76px;max-width:100%;height:28px;padding:3px 24px 3px 8px;border-radius:999px;border:0.5px solid ${c.border||c.bg};background:${c.bg};color:${c.color};font-family:inherit;font-size:10px;font-weight:600;cursor:pointer;" onclick="event.stopPropagation()" ondblclick="event.stopPropagation()" onchange="event.stopPropagation();seedV11.updateField(${i},'${field}',this.value)">${options}</select>`;
+}
 function renderList(){
   updateKPI(); updateFlow();
   const body=document.getElementById('seed-body');
@@ -19923,8 +19936,14 @@ function startDateEdit(td,i){
   const inp=document.createElement('input');
   inp.className='inline-edit'; inp.type='date'; inp.value=data[i].uploadDate||'';
   td.innerHTML=''; td.appendChild(inp); inp.focus();
-  inp.onblur=()=>{ updateField(i,'uploadDate',inp.value); };
-  inp.onkeydown=e=>{ if(e.key==='Enter') inp.blur(); if(e.key==='Escape') renderList(); };
+  try{ if(inp.showPicker) inp.showPicker(); }catch(e){}
+  let saved=false;
+  const save=()=>{ if(saved)return; saved=true; updateField(i,'uploadDate',inp.value); };
+  inp.onchange=save;
+  inp.onblur=save;
+  inp.onclick=e=>e.stopPropagation();
+  inp.ondblclick=e=>e.stopPropagation();
+  inp.onkeydown=e=>{ if(e.key==='Enter') save(); if(e.key==='Escape') renderList(); };
 }
 
 let ddActive=null;
@@ -21461,18 +21480,16 @@ function renderList(){
     return `<tr>
       <td class="seed-editable" ondblclick="event.stopPropagation();seedV11.startEdit(this,${i},'name')" onclick="seedV11.openDetail('${r.id}')"><span class="seed-name">${esc(r.name)||'-'}</span></td>
       <td class="seed-editable" ondblclick="event.stopPropagation();seedV11.startEdit(this,${i},'handle')" onclick="seedV11.openDetail('${r.id}')"><span class="seed-id">${esc(r.handle)||'-'}</span></td>
-      <td style="text-align:center;cursor:pointer" onclick="event.stopPropagation();seedV11.seedDropdown(this,${i},'channel',CH_OPTS,CH_COLOR)" title="클릭하여 채널 선택">
-        ${channelBadge(r.channel)}
-      </td>
+      <td style="text-align:center">${seedInlineSelect(i,'channel',r.channel||'선택',CH_OPTS,CH_COLOR)}</td>
       <td class="seed-editable" style="text-align:right" ondblclick="event.stopPropagation();seedV11.startEdit(this,${i},'followers')" title="더블클릭 후 숫자를 입력하면 K/M으로 표시">${fmtFollower(r.followers)}</td>
       <td>${stars(r.fit,i,'fit')}</td><td>${stars(r.style,i,'style')}</td><td>${stars(r.mood,i,'mood')}</td><td>${stars(r.relation,i,'relation')}</td>
-      <td style="text-align:center;cursor:pointer" onclick="event.stopPropagation();seedV11.seedDropdown(this,${i},'progress',PROGRESS_OPTS,PROGRESS_COLOR)">${badge(r.progress||txt,PROGRESS_COLOR)}</td>
-      <td style="text-align:center;cursor:pointer" onclick="event.stopPropagation();seedV11.seedDropdown(this,${i},'status',STATUS_OPTS,STATUS_COLOR)">${badge(r.status,STATUS_COLOR)}</td>
-      <td style="text-align:center;cursor:pointer" onclick="event.stopPropagation();seedV11.seedDropdown(this,${i},'second',SECOND_OPTS,SECOND_COLOR)">${badge(r.second,SECOND_COLOR)}</td>
+      <td style="text-align:center">${seedInlineSelect(i,'progress',r.progress||txt,PROGRESS_OPTS,PROGRESS_COLOR)}</td>
+      <td style="text-align:center">${seedInlineSelect(i,'status',r.status||'리스트업',STATUS_OPTS,STATUS_COLOR)}</td>
+      <td style="text-align:center">${seedInlineSelect(i,'second',r.second||'선택',SECOND_OPTS,SECOND_COLOR)}</td>
       <td class="date-cell ${r.uploadDate?'':'empty'}" ondblclick="event.stopPropagation();seedV11.startDateEdit(this,${i})" title="더블클릭하여 날짜 선택">${fmtUploadCell(r.uploadDate)}</td>
-      <td style="text-align:center;cursor:pointer" onclick="event.stopPropagation();seedV11.seedDropdown(this,${i},'standard',LAYER_OPTS,LAYER_COLOR)">${badge(r.standard||'선택',LAYER_COLOR)}</td>
-      <td style="text-align:center;cursor:pointer" onclick="event.stopPropagation();seedV11.seedDropdown(this,${i},'recoop',RECOOP_OPTS,RECOOP_COLOR)">${badge(r.recoop||'선택',RECOOP_COLOR)}</td>
-      <td style="text-align:center;cursor:pointer" onclick="event.stopPropagation();seedV11.seedDropdown(this,${i},'longcoop',LONG_OPTS,LONG_COLOR)">${badge(r.longcoop||'선택',LONG_COLOR)}</td>
+      <td style="text-align:center">${seedInlineSelect(i,'standard',r.standard||'선택',LAYER_OPTS,LAYER_COLOR)}</td>
+      <td style="text-align:center">${seedInlineSelect(i,'recoop',r.recoop||'선택',RECOOP_OPTS,RECOOP_COLOR)}</td>
+      <td style="text-align:center">${seedInlineSelect(i,'longcoop',r.longcoop||'선택',LONG_OPTS,LONG_COLOR)}</td>
       <td class="seed-editable" ondblclick="event.stopPropagation();seedV11.startEdit(this,${i},'note')" title="더블클릭하여 비고 입력">${esc(r.note||'-')}</td>
       <td><button class="del-btn" onclick="seedV11.requestDelete(event,${i})">삭제</button></td>
     </tr>`;
@@ -21492,8 +21509,14 @@ function startDateEdit(td,i){
   const inp=document.createElement('input');
   inp.className='inline-edit'; inp.type='date'; inp.value=data[i].uploadDate||'';
   td.innerHTML=''; td.appendChild(inp); inp.focus();
-  inp.onblur=()=>{ updateField(i,'uploadDate',inp.value); };
-  inp.onkeydown=e=>{ if(e.key==='Enter') inp.blur(); if(e.key==='Escape') renderList(); };
+  try{ if(inp.showPicker) inp.showPicker(); }catch(e){}
+  let saved=false;
+  const save=()=>{ if(saved)return; saved=true; updateField(i,'uploadDate',inp.value); };
+  inp.onchange=save;
+  inp.onblur=save;
+  inp.onclick=e=>e.stopPropagation();
+  inp.ondblclick=e=>e.stopPropagation();
+  inp.onkeydown=e=>{ if(e.key==='Enter') save(); if(e.key==='Escape') renderList(); };
 }
 
 let ddActive=null;
@@ -23688,111 +23711,16 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 
 
 
-<!-- PATCH: Seeding interactive columns robust binding only -->
-<style id="seeding-interactive-columns-robust-style">
-#pg-seeding #seed-body select.seed-robust-select{
-  display:inline-block!important;width:auto!important;min-width:76px!important;max-width:100%!important;
-  height:28px!important;padding:3px 24px 3px 8px!important;border-radius:999px!important;
-  font-family:inherit!important;font-size:10px!important;font-weight:600!important;cursor:pointer!important;
-  appearance:auto!important;-webkit-appearance:menulist!important;
-}
-#pg-seeding #seed-body td.seed-robust-editable{cursor:text!important;}
-#pg-seeding #seed-body td.seed-robust-date{cursor:pointer!important;text-align:center!important;white-space:nowrap!important;}
-#pg-seeding #seed-body td.seed-robust-date input[type=date]{width:126px!important;height:28px!important;font-size:11px!important;}
-</style>
-<script id="seeding-interactive-columns-robust-script">
-(function(){
-  'use strict';
-  var ROOT_ID='pg-seeding', BODY_ID='seed-body';
-  var OPTIONS={
-    channel:['선택','Instagram','YouTube','TikTok','X','Blog'],
-    progress:['진행','미진행','논의 필요'],
-    status:['리스트업','컨택','회신','거절','취합','발송','업로드','스냅'],
-    second:['선택','진행','미진행','사용 권한 없음'],
-    standard:['선택','비주얼','확산','핵심'],
-    recoop:['선택','진행','미진행','논의 필요'],
-    longcoop:['선택','상','중','하']
-  };
-  var COLORS={
-    channel:{선택:['#F3F4F6','#6B7280','#E5E7EB'],Instagram:['#FBEAF0','#993556','#F3C2D3'],YouTube:['#FCEBEB','#A32D2D','#F5C2C2'],TikTok:['#E6F1FB','#185FA5','#B9D8F2'],X:['#F1EFE8','#1A1A1A','#D8D5CB'],Blog:['#EAF3DE','#3B6D11','#CDE8B4']},
-    progress:{진행:['#EAF3DE','#3B6D11','#CDE8B4'],미진행:['#FEE2E2','#991B1B','#FECACA'],'논의 필요':['#FFF3CD','#856404','#FDE68A']},
-    status:{리스트업:['#F3F4F6','#6B7280','#E5E7EB'],컨택:['#EFF6FF','#1E3A8A','#BFDBFE'],회신:['#FEF3C7','#92400E','#FDE68A'],거절:['#FEF2F2','#991B1B','#FECACA'],취합:['#F0FDF4','#166534','#BBF7D0'],발송:['#EDE9FE','#5B21B6','#DDD6FE'],업로드:['#ECFDF5','#065F46','#A7F3D0'],스냅:['#FFF7ED','#9A3412','#FED7AA']},
-    second:{선택:['#F3F4F6','#6B7280','#E5E7EB'],진행:['#DCFCE7','#166534','#86EFAC'],미진행:['#FEE2E2','#991B1B','#FECACA'],'사용 권한 없음':['#E5E7EB','#374151','#D1D5DB']},
-    standard:{선택:['#F3F4F6','#6B7280','#E5E7EB'],비주얼:['#EDE9FE','#5B21B6','#DDD6FE'],확산:['#DBEAFE','#1E40AF','#BFDBFE'],핵심:['#DCFCE7','#166534','#86EFAC']},
-    recoop:{선택:['#F3F4F6','#6B7280','#E5E7EB'],진행:['#DCFCE7','#166534','#86EFAC'],미진행:['#E5E7EB','#374151','#D1D5DB'],'논의 필요':['#FEF3C7','#92400E','#FDE68A']},
-    longcoop:{선택:['#F3F4F6','#6B7280','#E5E7EB'],상:['#DCFCE7','#166534','#86EFAC'],중:['#FEF3C7','#92400E','#FDE68A'],하:['#FEE2E2','#991B1B','#FECACA']}
-  };
-  function api(){ return window.seedV11||null; }
-  function rowsWithIndexes(){
-    try{ var a=api(); if(a&&typeof a.filteredRows==='function') return a.filteredRows(); }catch(e){}
-    return (window.seedData||[]).map(function(r,i){return {r:r,i:i};});
-  }
-  function paintSelect(sel,field){
-    var c=(COLORS[field]&&COLORS[field][sel.value])||['#F3F4F6','#6B7280','#E5E7EB'];
-    sel.style.background=c[0]; sel.style.color=c[1]; sel.style.border='0.5px solid '+c[2];
-  }
-  function makeSelect(td,index,field,value){
-    var sel=document.createElement('select');
-    sel.className='seed-robust-select';
-    (OPTIONS[field]||[]).forEach(function(v){var o=document.createElement('option');o.value=v;o.textContent=v;if(v===(value||'선택'))o.selected=true;sel.appendChild(o);});
-    paintSelect(sel,field);
-    ['click','dblclick','mousedown'].forEach(function(ev){sel.addEventListener(ev,function(e){e.stopPropagation();});});
-    sel.addEventListener('change',function(e){
-      e.stopPropagation(); paintSelect(sel,field);
-      var a=api(); if(a&&typeof a.updateField==='function') a.updateField(index,field,sel.value);
-    });
-    td.innerHTML=''; td.style.textAlign='center'; td.appendChild(sel);
-  }
-  function bindTextCell(td,index,field){
-    td.classList.add('seed-robust-editable');
-    td.removeAttribute('ondblclick');
-    td.addEventListener('dblclick',function(e){
-      e.preventDefault();e.stopImmediatePropagation();
-      var a=api(); if(a&&typeof a.startEdit==='function') a.startEdit(td,index,field);
-    },true);
-  }
-  function bindDateCell(td,index,row){
-    td.classList.add('seed-robust-date'); td.removeAttribute('ondblclick');
-    td.addEventListener('dblclick',function(e){
-      e.preventDefault();e.stopImmediatePropagation();
-      if(td.querySelector('input')) return;
-      var inp=document.createElement('input'); inp.type='date'; inp.value=(row.uploadDate||'');
-      td.innerHTML='';td.appendChild(inp);inp.focus();
-      try{if(inp.showPicker)inp.showPicker();}catch(_e){}
-      var done=false; function save(){if(done)return;done=true;var a=api();if(a&&typeof a.updateField==='function')a.updateField(index,'uploadDate',inp.value);}
-      inp.addEventListener('change',save);inp.addEventListener('blur',save);
-      inp.addEventListener('click',function(ev){ev.stopPropagation();});
-    },true);
-  }
-  function enhance(){
-    var root=document.getElementById(ROOT_ID), body=document.getElementById(BODY_ID), a=api();
-    if(!root||!body||!a) return;
-    var mapped=rowsWithIndexes(), trs=Array.from(body.querySelectorAll('tr'));
-    trs.forEach(function(tr,pos){
-      if(!mapped[pos]||tr.dataset.seedRobustBound==='1') return;
-      var row=mapped[pos].r||{}, index=mapped[pos].i, tds=tr.children;
-      if(tds.length<16)return;
-      tr.dataset.seedRobustBound='1';
-      makeSelect(tds[2],index,'channel',row.channel||'선택');
-      bindTextCell(tds[3],index,'followers');
-      makeSelect(tds[8],index,'progress',row.progress||((typeof a.scoreText==='function')?a.scoreText(row):'논의 필요'));
-      makeSelect(tds[9],index,'status',row.status||'리스트업');
-      makeSelect(tds[10],index,'second',row.second||'선택');
-      bindDateCell(tds[11],index,row);
-      makeSelect(tds[12],index,'standard',row.standard||'선택');
-      makeSelect(tds[13],index,'recoop',row.recoop||'선택');
-      makeSelect(tds[14],index,'longcoop',row.longcoop||'선택');
-    });
-  }
-  function boot(){
-    var body=document.getElementById(BODY_ID); if(!body){setTimeout(boot,200);return;}
-    enhance();
-    var ob=new MutationObserver(function(){setTimeout(enhance,0);});
-    ob.observe(body,{childList:true,subtree:false});
-    document.addEventListener('click',function(e){var tab=e.target&&e.target.closest&&e.target.closest('.top-tab');if(tab&&(tab.textContent||'').trim()==='Seeding')setTimeout(enhance,20);},true);
-  }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
-})();
+
+
+<script id="seeding-global-inline-select-helper">
+window.seedInlineSelect = function(i,field,value,opts,colorMap){
+  function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];});}
+  value=value||((opts&&opts[0])||'');
+  var c=(colorMap&&colorMap[value])||{bg:'#F3F4F6',color:'#6B7280',border:'#E5E7EB'};
+  var options=(opts||[]).map(function(opt){return '<option value="'+esc(opt)+'" '+(String(opt)===String(value)?'selected':'')+'>'+esc(opt)+'</option>';}).join('');
+  return '<select class="seed-inline-select" style="width:auto;min-width:76px;max-width:100%;height:28px;padding:3px 24px 3px 8px;border-radius:999px;border:0.5px solid '+(c.border||c.bg)+';background:'+c.bg+';color:'+c.color+';font-family:inherit;font-size:10px;font-weight:600;cursor:pointer;" onclick="event.stopPropagation()" ondblclick="event.stopPropagation()" onchange="event.stopPropagation();window.seedV11.updateField('+i+',\''+field+'\',this.value)">'+options+'</select>';
+};
 </script>
 </body>
 </html>
