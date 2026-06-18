@@ -22972,43 +22972,20 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       }
 
       var uniqueCompleted=Array.from(new Set(completed));
-      var finishMessage='✅ 시트 연동 완료';
-      if(failed.length) finishMessage+=' · 일부 실패: '+failed.join(', ');
-      if(uniqueCompleted.length) finishMessage+=' · Firebase 백그라운드 저장 중';
-
-      /* 대시보드 조작을 먼저 복구하고, Firebase 저장은 뒤에서 진행 */
-      setStatus(finishMessage,failed.length?'loading':'ok');
-      running=false;
-      panelButtons(false);
-      closePanelSafely();
-
-      if(uniqueCompleted.length){
-        setTimeout(function(){
-          persistCompletedSources(uniqueCompleted).then(function(saved){
-            var message='✅ 시트 연동 완료';
-            if(saved.length) message+=' · Firebase 저장 완료';
-            if(failed.length) message+=' · 일부 실패: '+failed.join(', ');
-            setStatus(message,failed.length?'loading':'ok');
-          }).catch(function(error){
-            console.warn('완료 데이터 Firebase 백그라운드 저장 실패:',error);
-            var message='✅ 시트 연동 완료 · Firebase 저장 지연';
-            if(failed.length) message+=' · 일부 실패: '+failed.join(', ');
-            setStatus(message,'loading');
-          });
-        },0);
-      }
-      return true;
+      var saved=await persistCompletedSources(uniqueCompleted);
+      var message='✅ 시트 연동 완료';
+      if(saved.length) message+=' · 완료 데이터 Firebase 저장';
+      if(failed.length) message+=' · 일부 실패: '+failed.join(', ');
+      setStatus(message,failed.length?'loading':'ok');
+      await sleep(500);
     }catch(e){
       console.error('전체 시트 연동 처리 오류:',e);
       setStatus('❌ 시트 연동 오류 · 완료된 데이터는 유지됩니다.','error');
-      return false;
+      await sleep(700);
     }finally{
-      /* 예외 상황에서도 대기 상태와 팝업을 반드시 해제 */
-      if(running){
-        running=false;
-        panelButtons(false);
-        closePanelSafely();
-      }
+      running=false;
+      panelButtons(false);
+      closePanelSafely();
     }
   }
 
@@ -24257,139 +24234,6 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
   if(document.readyState!=='loading'){setTimeout(function(){var modal=document.getElementById('orgv14-add-modal');if(modal)observer.observe(modal,{childList:true,subtree:true});bindExisting();},0);}
   document.addEventListener('mousedown',function(e){var box=document.getElementById('orgv14-item-suggest');if(box&&!box.contains(e.target)&&!e.target.classList.contains('p-name'))closeSuggest();});
   window.addEventListener('scroll',closeSuggest,true);window.addEventListener('resize',closeSuggest);
-})();
-</script>
-
-
-<!-- CHOI PATCH: safe non-blocking Firebase save queue -->
-<script id="firebase-safe-nonblocking-save-fix">
-(function(){
-  'use strict';
-  var installed=false;
-  var pending={};
-  var timers={};
-  var chains={};
-  var explicitSave=false;
-  var DELAY=1500;
-
-  function cloneRows(rows){
-    try{return JSON.parse(JSON.stringify(Array.isArray(rows)?rows:[]));}
-    catch(e){return Array.isArray(rows)?rows.slice():[];}
-  }
-
-  function runQueued(name, originalBatch){
-    var rows=pending[name];
-    delete pending[name];
-    if(!rows)return;
-    var previous=chains[name]||Promise.resolve();
-    chains[name]=previous.catch(function(){}).then(function(){
-      return originalBatch(name, rows);
-    }).catch(function(err){
-      console.warn('[Firebase background save delayed]', name, err);
-      pending[name]=rows;
-      clearTimeout(timers[name]);
-      timers[name]=setTimeout(function(){runQueued(name,originalBatch);},10000);
-      return false;
-    });
-  }
-
-  function install(){
-    if(installed||typeof window.fbSaveBatch!=='function')return;
-    installed=true;
-    var originalBatch=window.fbSaveBatch.bind(window);
-    var originalSaveAll=typeof window.fbSaveAllDashboard==='function' ? window.fbSaveAllDashboard.bind(window) : null;
-
-    window.fbSaveBatch=function(name, rows){
-      if(explicitSave)return originalBatch(name,rows);
-      pending[name]=cloneRows(rows);
-      clearTimeout(timers[name]);
-      timers[name]=setTimeout(function(){runQueued(name,originalBatch);},DELAY);
-      return Promise.resolve(true);
-    };
-
-    if(originalSaveAll){
-      window.fbSaveAllDashboard=async function(){
-        explicitSave=true;
-        try{return await originalSaveAll();}
-        finally{explicitSave=false;}
-      };
-    }
-
-    window.flushPendingFirebaseSaves=function(){
-      Object.keys(pending).forEach(function(name){
-        clearTimeout(timers[name]);
-        runQueued(name,originalBatch);
-      });
-      return Promise.all(Object.keys(chains).map(function(name){return chains[name].catch(function(){return false;});}));
-    };
-  }
-
-  if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',function(){setTimeout(install,0);},{once:true});
-  }else{
-    setTimeout(install,0);
-  }
-  setTimeout(install,1200);
-})();
-</script>
-
-
-<!-- CHOI PATCH: release only stale sheet-sync overlay that blocks tab clicks -->
-<style id="sheet-sync-stale-overlay-click-release-fix">
-#sheet-sync-panel:not(.open){
-  display:none!important;
-  visibility:hidden!important;
-  pointer-events:none!important;
-}
-#sheet-sync-panel.open{
-  visibility:visible!important;
-  pointer-events:auto!important;
-}
-</style>
-<script id="sheet-sync-stale-overlay-click-release-fix-script">
-(function(){
-  'use strict';
-  function releaseStaleSheetSyncOverlay(){
-    var panel=document.getElementById('sheet-sync-panel');
-    if(!panel) return;
-    var isOpen=panel.classList.contains('open');
-    if(!isOpen){
-      panel.style.setProperty('display','none','important');
-      panel.style.setProperty('pointer-events','none','important');
-      panel.setAttribute('aria-hidden','true');
-      document.body.style.overflow='';
-      document.documentElement.style.overflow='';
-    }
-  }
-  function hardCloseSheetSyncPanel(){
-    var panel=document.getElementById('sheet-sync-panel');
-    if(panel){
-      panel.classList.remove('open');
-      panel.style.setProperty('display','none','important');
-      panel.style.setProperty('pointer-events','none','important');
-      panel.setAttribute('aria-hidden','true');
-    }
-    document.body.style.overflow='';
-    document.documentElement.style.overflow='';
-  }
-  var originalClose=window.closeSheetSyncPanel;
-  window.closeSheetSyncPanel=function(){
-    try{ if(typeof originalClose==='function') originalClose.apply(this,arguments); }
-    finally{ hardCloseSheetSyncPanel(); }
-  };
-  document.addEventListener('click',function(e){
-    var tab=e.target&&e.target.closest&&e.target.closest('.top-tab');
-    if(tab) releaseStaleSheetSyncOverlay();
-  },true);
-  document.addEventListener('DOMContentLoaded',function(){
-    releaseStaleSheetSyncOverlay();
-    var panel=document.getElementById('sheet-sync-panel');
-    if(panel){
-      new MutationObserver(releaseStaleSheetSyncOverlay).observe(panel,{attributes:true,attributeFilter:['class','style']});
-    }
-  });
-  setTimeout(releaseStaleSheetSyncOverlay,0);
-  setTimeout(releaseStaleSheetSyncOverlay,1000);
 })();
 </script>
 </body>
