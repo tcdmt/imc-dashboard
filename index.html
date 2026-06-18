@@ -22972,20 +22972,43 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       }
 
       var uniqueCompleted=Array.from(new Set(completed));
-      var saved=await persistCompletedSources(uniqueCompleted);
-      var message='✅ 시트 연동 완료';
-      if(saved.length) message+=' · 완료 데이터 Firebase 저장';
-      if(failed.length) message+=' · 일부 실패: '+failed.join(', ');
-      setStatus(message,failed.length?'loading':'ok');
-      await sleep(500);
-    }catch(e){
-      console.error('전체 시트 연동 처리 오류:',e);
-      setStatus('❌ 시트 연동 오류 · 완료된 데이터는 유지됩니다.','error');
-      await sleep(700);
-    }finally{
+      var finishMessage='✅ 시트 연동 완료';
+      if(failed.length) finishMessage+=' · 일부 실패: '+failed.join(', ');
+      if(uniqueCompleted.length) finishMessage+=' · Firebase 백그라운드 저장 중';
+
+      /* 대시보드 조작을 먼저 복구하고, Firebase 저장은 뒤에서 진행 */
+      setStatus(finishMessage,failed.length?'loading':'ok');
       running=false;
       panelButtons(false);
       closePanelSafely();
+
+      if(uniqueCompleted.length){
+        setTimeout(function(){
+          persistCompletedSources(uniqueCompleted).then(function(saved){
+            var message='✅ 시트 연동 완료';
+            if(saved.length) message+=' · Firebase 저장 완료';
+            if(failed.length) message+=' · 일부 실패: '+failed.join(', ');
+            setStatus(message,failed.length?'loading':'ok');
+          }).catch(function(error){
+            console.warn('완료 데이터 Firebase 백그라운드 저장 실패:',error);
+            var message='✅ 시트 연동 완료 · Firebase 저장 지연';
+            if(failed.length) message+=' · 일부 실패: '+failed.join(', ');
+            setStatus(message,'loading');
+          });
+        },0);
+      }
+      return true;
+    }catch(e){
+      console.error('전체 시트 연동 처리 오류:',e);
+      setStatus('❌ 시트 연동 오류 · 완료된 데이터는 유지됩니다.','error');
+      return false;
+    }finally{
+      /* 예외 상황에서도 대기 상태와 팝업을 반드시 해제 */
+      if(running){
+        running=false;
+        panelButtons(false);
+        closePanelSafely();
+      }
     }
   }
 
