@@ -24236,5 +24236,165 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
   window.addEventListener('scroll',closeSuggest,true);window.addEventListener('resize',closeSuggest);
 })();
 </script>
+
+
+<!-- CHOI PATCH: non-blocking, debounced Firebase collection saves -->
+<script id="firebase-nonblocking-save-fix">
+(function(){
+  'use strict';
+  var installed=false;
+  var pending=new Map();
+  var timers=new Map();
+  var remoteState=new Map();
+  var chain=Promise.resolve();
+  var explicitSave=false;
+  var DEBOUNCE_MS=1500;
+  var RETRY_MS=12000;
+
+  function clone(value){
+    try{return typeof structuredClone==='function'?structuredClone(value):JSON.parse(JSON.stringify(value));}
+    catch(e){return Array.isArray(value)?value.slice():value;}
+  }
+  function idle(fn){
+    if(typeof requestIdleCallback==='function')requestIdleCallback(fn,{timeout:1800});
+    else setTimeout(fn,30);
+  }
+  function stable(value){
+    try{return JSON.stringify(value);}catch(e){return String(value);}
+  }
+  function openLocalDb(){
+    return new Promise(function(resolve,reject){
+      if(!window.indexedDB){reject(new Error('IndexedDB unavailable'));return;}
+      var req=indexedDB.open('tcm-dashboard-write-cache-v1',1);
+      req.onupgradeneeded=function(){var db=req.result;if(!db.objectStoreNames.contains('collections'))db.createObjectStore('collections',{keyPath:'name'});};
+      req.onsuccess=function(){resolve(req.result);};
+      req.onerror=function(){reject(req.error||new Error('IndexedDB open failed'));};
+    });
+  }
+  function saveLocal(name,items){
+    openLocalDb().then(function(db){
+      var tx=db.transaction('collections','readwrite');
+      tx.objectStore('collections').put({name:name,items:items,updatedAt:Date.now(),pending:true});
+      tx.oncomplete=function(){db.close();};
+      tx.onerror=function(){db.close();};
+    }).catch(function(){});
+  }
+  function markLocalSynced(name){
+    openLocalDb().then(function(db){
+      var tx=db.transaction('collections','readwrite');
+      var store=tx.objectStore('collections');
+      var get=store.get(name);
+      get.onsuccess=function(){var row=get.result;if(row){row.pending=false;row.syncedAt=Date.now();store.put(row);}};
+      tx.oncomplete=function(){db.close();};
+      tx.onerror=function(){db.close();};
+    }).catch(function(){});
+  }
+  function normalizedItems(collName,items){
+    return (Array.isArray(items)?items:[]).map(function(item,i){
+      var row=Object.assign({},item||{});
+      var id=row._id||collName+'_'+i;
+      row._id=id;
+      if(row._order===undefined)row._order=i;
+      return row;
+    });
+  }
+  async function getRemoteState(collName){
+    if(remoteState.has(collName))return remoteState.get(collName);
+    var state=new Map();
+    var snap=await window.db.collection(collName).get();
+    snap.docs.forEach(function(doc){state.set(doc.id,stable(Object.assign({_id:doc.id},doc.data()||{})));});
+    remoteState.set(collName,state);
+    return state;
+  }
+  async function commitChanged(collName,items){
+    if(!window.db||!window.isFirebaseReady)throw new Error('Firebase not ready');
+    if(typeof window.isCurrentUserEditor==='function'&&!window.isCurrentUserEditor())return false;
+    var rows=normalizedItems(collName,items);
+    var state=await getRemoteState(collName);
+    var next=new Map();
+    var ops=[];
+    rows.forEach(function(row){
+      var id=String(row._id);
+      var payload=Object.assign({},row);
+      var sig=stable(payload);
+      next.set(id,sig);
+      if(state.get(id)!==sig)ops.push({type:'set',id:id,data:payload});
+    });
+    state.forEach(function(sig,id){if(!next.has(id))ops.push({type:'delete',id:id});});
+    for(var i=0;i<ops.length;i+=350){
+      var batch=window.db.batch();
+      ops.slice(i,i+350).forEach(function(op){
+        var ref=window.db.collection(collName).doc(op.id);
+        if(op.type==='delete')batch.delete(ref);else batch.set(ref,op.data);
+      });
+      await batch.commit();
+      await new Promise(function(resolve){setTimeout(resolve,0);});
+    }
+    remoteState.set(collName,next);
+    markLocalSynced(collName);
+    return true;
+  }
+  function flushOne(collName){
+    if(!pending.has(collName))return Promise.resolve(true);
+    var items=pending.get(collName);
+    pending.delete(collName);
+    return commitChanged(collName,items).catch(function(err){
+      console.warn(collName+' Firebase background save delayed:',err);
+      pending.set(collName,items);
+      clearTimeout(timers.get(collName));
+      timers.set(collName,setTimeout(function(){schedule(collName,0);},RETRY_MS));
+      return false;
+    });
+  }
+  function schedule(collName,delay){
+    clearTimeout(timers.get(collName));
+    timers.set(collName,setTimeout(function(){
+      idle(function(){chain=chain.then(function(){return flushOne(collName);});});
+    },delay===undefined?DEBOUNCE_MS:delay));
+  }
+  function install(){
+    if(installed||typeof window.fbSaveBatch!=='function')return;
+    installed=true;
+    var originalBatch=window.fbSaveBatch;
+    var originalSaveAll=window.fbSaveAllDashboard;
+
+    window.fbSaveBatch=function(collName,items){
+      if(explicitSave)return originalBatch.apply(this,arguments);
+      try{
+        if(collName==='creators'&&typeof window.fbCaptureLinkClicks==='function')window.fbCaptureLinkClicks();
+        if((collName==='organic'||collName==='celebs')&&typeof window.captureDetailPopupMetrics==='function')window.captureDetailPopupMetrics();
+      }catch(e){}
+      var snapshot=clone(Array.isArray(items)?items:[]);
+      pending.set(collName,snapshot);
+      saveLocal(collName,snapshot);
+      schedule(collName);
+      return Promise.resolve(true);
+    };
+    window.fbSaveBatch.__nonBlockingSave=true;
+
+    if(typeof originalSaveAll==='function'){
+      window.fbSaveAllDashboard=async function(){
+        explicitSave=true;
+        try{
+          var result=await originalSaveAll.apply(this,arguments);
+          pending.clear();
+          remoteState.clear();
+          return result;
+        }finally{explicitSave=false;}
+      };
+    }
+    window.flushPendingFirebaseSaves=function(){
+      Array.from(pending.keys()).forEach(function(name){clearTimeout(timers.get(name));});
+      var names=Array.from(pending.keys());
+      names.forEach(function(name){chain=chain.then(function(){return flushOne(name);});});
+      return chain;
+    };
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(install,0);},{once:true});
+  else setTimeout(install,0);
+  setTimeout(install,1000);
+})();
+</script>
+
 </body>
 </html>
