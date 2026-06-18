@@ -24332,5 +24332,65 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
   setTimeout(install,1200);
 })();
 </script>
+
+
+<!-- CHOI PATCH: release only stale sheet-sync overlay that blocks tab clicks -->
+<style id="sheet-sync-stale-overlay-click-release-fix">
+#sheet-sync-panel:not(.open){
+  display:none!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+}
+#sheet-sync-panel.open{
+  visibility:visible!important;
+  pointer-events:auto!important;
+}
+</style>
+<script id="sheet-sync-stale-overlay-click-release-fix-script">
+(function(){
+  'use strict';
+  function releaseStaleSheetSyncOverlay(){
+    var panel=document.getElementById('sheet-sync-panel');
+    if(!panel) return;
+    var isOpen=panel.classList.contains('open');
+    if(!isOpen){
+      panel.style.setProperty('display','none','important');
+      panel.style.setProperty('pointer-events','none','important');
+      panel.setAttribute('aria-hidden','true');
+      document.body.style.overflow='';
+      document.documentElement.style.overflow='';
+    }
+  }
+  function hardCloseSheetSyncPanel(){
+    var panel=document.getElementById('sheet-sync-panel');
+    if(panel){
+      panel.classList.remove('open');
+      panel.style.setProperty('display','none','important');
+      panel.style.setProperty('pointer-events','none','important');
+      panel.setAttribute('aria-hidden','true');
+    }
+    document.body.style.overflow='';
+    document.documentElement.style.overflow='';
+  }
+  var originalClose=window.closeSheetSyncPanel;
+  window.closeSheetSyncPanel=function(){
+    try{ if(typeof originalClose==='function') originalClose.apply(this,arguments); }
+    finally{ hardCloseSheetSyncPanel(); }
+  };
+  document.addEventListener('click',function(e){
+    var tab=e.target&&e.target.closest&&e.target.closest('.top-tab');
+    if(tab) releaseStaleSheetSyncOverlay();
+  },true);
+  document.addEventListener('DOMContentLoaded',function(){
+    releaseStaleSheetSyncOverlay();
+    var panel=document.getElementById('sheet-sync-panel');
+    if(panel){
+      new MutationObserver(releaseStaleSheetSyncOverlay).observe(panel,{attributes:true,attributeFilter:['class','style']});
+    }
+  });
+  setTimeout(releaseStaleSheetSyncOverlay,0);
+  setTimeout(releaseStaleSheetSyncOverlay,1000);
+})();
+</script>
 </body>
 </html>
