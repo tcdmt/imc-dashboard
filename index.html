@@ -468,11 +468,11 @@
       const rows = snap => (snap.docs || []).map(d => ({_id: d.id, ...d.data()})).sort(byOrder);
 
       if (promosSnap.docs.length)   window.promos   = rows(promosSnap);
-      if (creatorsSnap.docs.length) window.creators = fbMergeLinkClicks(rows(creatorsSnap));
+      if (creatorsSnap.docs.length) { fbCaptureLinkClicks(); window.creators = fbMergeLinkClicks(rows(creatorsSnap)); }
       if (productsSnap.docs.length) window.products = rows(productsSnap);
       if (seedingSnap.docs.length)  window.seedData = rows(seedingSnap);
-      if (celebsSnap.docs.length)   window.celebData = rows(celebsSnap);
-      if (organicSnap.docs.length)  window.organicData = rows(organicSnap);
+      if (celebsSnap.docs.length)   { captureDetailPopupMetrics(); window.celebData = mergeDetailPopupMetrics(rows(celebsSnap),'celebs'); }
+      if (organicSnap.docs.length)  { captureDetailPopupMetrics(); window.organicData = mergeDetailPopupMetrics(rows(organicSnap),'organic'); }
 
       budgetsSnap.docs.forEach(d => {
         const mi = parseInt(d.id);
@@ -553,7 +553,7 @@
 
     realtimeUnsubs.push(db.collection('creators').onSnapshot(snap => {
       if (shouldSkipEmptyFirstSnapshot('creators', 'creators', snap)) return;
-      window.creators = fbMergeLinkClicks(toRows(snap));
+      fbCaptureLinkClicks(); window.creators = fbMergeLinkClicks(toRows(snap));
       if (window.applyListFilter) window.applyListFilter();
       if (window.buildCal) window.buildCal();
       if (window.applyFeedbackFilter) window.applyFeedbackFilter();
@@ -577,13 +577,13 @@
     }));
     realtimeUnsubs.push(db.collection('celebs').onSnapshot(snap => {
       if (shouldSkipEmptyFirstSnapshot('celebs', 'celebData', snap)) return;
-      window.celebData = toRows(snap);
+      captureDetailPopupMetrics(); window.celebData = mergeDetailPopupMetrics(toRows(snap),'celebs');
       if (window.celebRender) window.celebRender();
       if (window.buildCal) window.buildCal();
     }));
     realtimeUnsubs.push(db.collection('organic').onSnapshot(snap => {
       if (shouldSkipEmptyFirstSnapshot('organic', 'organicData', snap)) return;
-      window.organicData = toRows(snap);
+      captureDetailPopupMetrics(); window.organicData = mergeDetailPopupMetrics(toRows(snap),'organic');
       if (window.orgRender) window.orgRender();
     }));
     realtimeUnsubs.push(db.collection('settings').doc('budgetMemos').onSnapshot(doc => {
@@ -4159,69 +4159,142 @@ window.creators=[];
 window.products=[];
 window.budgets=Array.from({length:12},()=>[0,0,0,0,0]);
 
-/* ── Feedback 링크 클릭 수 로컬 보존 ── */
-const FB_CLICK_BACKUP_KEY='tcm_feedback_link_click_backup_v1';
+/* ── 상세 팝업 수동 입력값 안정 보존 ── */
+const FB_CLICK_BACKUP_KEY='tcm_feedback_manual_metrics_backup_v2';
+const DETAIL_BACKUP_KEY='tcm_detail_manual_metrics_backup_v1';
+function fbDayOffsetFromKey(key){
+  var m=String(key||'').match(/(?:^|_)d(-?\d+)$/);
+  return m?String(parseInt(m[1],10)):null;
+}
+function fbCloneSafe(v){try{return JSON.parse(JSON.stringify(v));}catch(e){return v;}}
+function fbManualDayCopy(d){
+  d=d&&typeof d==='object'?d:{};
+  var out={};
+  ['view','comment','like','click','rankAll','rankCat'].forEach(function(k){
+    if(Object.prototype.hasOwnProperty.call(d,k))out[k]=d[k];
+  });
+  if(d._itemData&&typeof d._itemData==='object'){
+    out._itemData={};
+    Object.keys(d._itemData).forEach(function(itemKey){
+      var item=d._itemData[itemKey]||{}, saved={};
+      ['click','sales','revenue'].forEach(function(k){if(Object.prototype.hasOwnProperty.call(item,k))saved[k]=item[k];});
+      if(Object.keys(saved).length)out._itemData[itemKey]=saved;
+    });
+  }
+  return out;
+}
 function fbCaptureLinkClicks(){
   try{
-    const backup={};
+    var backup={};
     (window.creators||[]).forEach(function(r){
       if(!r||!r._id||!r._fbData)return;
-      const days={};
+      var days={};
       Object.keys(r._fbData).forEach(function(key){
-        const d=r._fbData[key];
-        if(!d||typeof d!=='object')return;
-        const itemClicks={};
-        if(d._itemData&&typeof d._itemData==='object'){
-          Object.keys(d._itemData).forEach(function(itemKey){
-            const item=d._itemData[itemKey];
-            if(item&&Object.prototype.hasOwnProperty.call(item,'click')) itemClicks[itemKey]=Number(item.click)||0;
-          });
-        }
-        if(Object.prototype.hasOwnProperty.call(d,'click')||Object.keys(itemClicks).length){
-          days[key]={click:Number(d.click)||0,itemClicks:itemClicks};
-        }
+        var off=fbDayOffsetFromKey(key); if(off===null)return;
+        var copied=fbManualDayCopy(r._fbData[key]);
+        if(Object.keys(copied).length)days[off]=copied;
       });
-      if(Object.keys(days).length) backup[String(r._id)]=days;
+      if(Object.keys(days).length)backup[String(r._id)]=days;
     });
     localStorage.setItem(FB_CLICK_BACKUP_KEY,JSON.stringify(backup));
-  }catch(e){ console.warn('Feedback 링크 클릭 백업 실패:',e); }
+  }catch(e){console.warn('Feedback 수동 입력 백업 실패:',e);}
+}
+function fbMergeObjectsKeepDefined(target,src){
+  target=target||{}; src=src||{};
+  Object.keys(src).forEach(function(k){
+    if(k==='_itemData')return;
+    if(src[k]!==undefined&&src[k]!==null)target[k]=src[k];
+  });
+  if(src._itemData){
+    if(!target._itemData)target._itemData={};
+    Object.keys(src._itemData).forEach(function(itemKey){
+      if(!target._itemData[itemKey])target._itemData[itemKey]={};
+      Object.keys(src._itemData[itemKey]||{}).forEach(function(k){target._itemData[itemKey][k]=src._itemData[itemKey][k];});
+    });
+  }
+  return target;
 }
 function fbMergeLinkClicks(rows){
   try{
-    const backup=JSON.parse(localStorage.getItem(FB_CLICK_BACKUP_KEY)||'{}');
-    (rows||[]).forEach(function(r){
-      const saved=r&&r._id?backup[String(r._id)]:null;
-      if(!saved)return;
+    var backup=JSON.parse(localStorage.getItem(FB_CLICK_BACKUP_KEY)||'{}');
+    (rows||[]).forEach(function(r,idx){
+      if(!r)return;
       if(!r._fbData)r._fbData={};
-      Object.keys(saved).forEach(function(key){
-        if(!r._fbData[key])r._fbData[key]={view:0,comment:0,like:0,click:0,productLike:0,sales:0,revenue:0,total:0,rankAll:0,rankCat:0};
-        const target=r._fbData[key], src=saved[key]||{};
-        target.click=Number(src.click)||0;
-        if(src.itemClicks&&Object.keys(src.itemClicks).length){
-          if(!target._itemData)target._itemData={};
-          Object.keys(src.itemClicks).forEach(function(itemKey){
-            if(!target._itemData[itemKey])target._itemData[itemKey]={};
-            target._itemData[itemKey].click=Number(src.itemClicks[itemKey])||0;
-          });
-        }
+      var normalized={};
+      Object.keys(r._fbData).forEach(function(oldKey){
+        var off=fbDayOffsetFromKey(oldKey); if(off===null)return;
+        normalized[off]=fbMergeObjectsKeepDefined(normalized[off]||{},r._fbData[oldKey]||{});
+      });
+      var saved=(r._id&&backup[String(r._id)])||{};
+      Object.keys(saved).forEach(function(off){normalized[off]=fbMergeObjectsKeepDefined(normalized[off]||{},saved[off]||{});});
+      Object.keys(normalized).forEach(function(off){
+        var canonical=idx+'_d'+off;
+        r._fbData[canonical]=fbMergeObjectsKeepDefined(r._fbData[canonical]||{},normalized[off]);
       });
     });
-  }catch(e){ console.warn('Feedback 링크 클릭 복원 실패:',e); }
+  }catch(e){console.warn('Feedback 수동 입력 복원 실패:',e);}
+  return rows;
+}
+function detailProductKey(p){
+  p=p||{};
+  return [p.platform||'',p.uid||p.UID||'',p.code||p.productCode||'',p.name||p.product||p.productName||''].map(function(v){return String(v||'').trim().toLowerCase().replace(/\s+/g,'');}).join('|');
+}
+function captureDetailPopupMetrics(){
+  try{
+    var store={organic:{},celebs:{}};
+    (window.organicData||[]).forEach(function(r){
+      if(!r||!r._id)return;
+      var products={};
+      (r.products||[]).forEach(function(p){products[detailProductKey(p)]=fbCloneSafe(p.metrics||{});});
+      store.organic[String(r._id)]={orgDaily:fbCloneSafe(r.orgDaily||{}),products:products};
+    });
+    (window.celebData||[]).forEach(function(r){
+      if(!r||!r._id)return;
+      var products={};
+      (r.products||[]).forEach(function(p){products[detailProductKey(p)]=fbCloneSafe(p.metrics||{});});
+      store.celebs[String(r._id)]={celebDaily:fbCloneSafe(r.celebDaily||{}),products:products};
+    });
+    localStorage.setItem(DETAIL_BACKUP_KEY,JSON.stringify(store));
+  }catch(e){console.warn('상세 팝업 입력 백업 실패:',e);}
+}
+function mergeDetailPopupMetrics(rows,type){
+  try{
+    var store=JSON.parse(localStorage.getItem(DETAIL_BACKUP_KEY)||'{}');
+    var map=(store&&store[type])||{};
+    (rows||[]).forEach(function(r){
+      var saved=r&&r._id?map[String(r._id)]:null;if(!saved)return;
+      if(type==='organic'&&saved.orgDaily)r.orgDaily=Object.assign({},r.orgDaily||{},saved.orgDaily);
+      if(type==='celebs'&&saved.celebDaily)r.celebDaily=Object.assign({},r.celebDaily||{},saved.celebDaily);
+      (r.products||[]).forEach(function(p){var m=saved.products&&saved.products[detailProductKey(p)];if(m)p.metrics=Object.assign({},p.metrics||{},m);});
+    });
+  }catch(e){console.warn('상세 팝업 입력 복원 실패:',e);}
   return rows;
 }
 window.fbCaptureLinkClicks=fbCaptureLinkClicks;
 window.fbMergeLinkClicks=fbMergeLinkClicks;
+window.captureDetailPopupMetrics=captureDetailPopupMetrics;
+window.mergeDetailPopupMetrics=mergeDetailPopupMetrics;
 
 /* ══ Firebase 저장 헬퍼 ══ */
 function fbSavePromos(){
   showSaving();
   if(window.fbSaveBatch) window.fbSaveBatch('promos', window.promos);
 }
+let _creatorSaveRunning=false;
+let _creatorSavePending=null;
 function fbSaveCreators(){
   showSaving();
-  // _fbData 포함해서 저장 (Feedback 탭 입력값)
   fbCaptureLinkClicks();
-  if(window.fbSaveBatch) window.fbSaveBatch('creators', window.creators);
+  _creatorSavePending=fbCloneSafe(window.creators||[]);
+  if(_creatorSaveRunning)return;
+  _creatorSaveRunning=true;
+  (async function flushCreatorSave(){
+    while(_creatorSavePending){
+      var snapshot=_creatorSavePending;_creatorSavePending=null;
+      try{if(window.fbSaveBatch)await window.fbSaveBatch('creators',snapshot);}catch(e){console.error('creators 저장 실패:',e);}
+    }
+    _creatorSaveRunning=false;
+  })();
 }
 function fbSaveProducts(){
   showSaving();
@@ -23982,5 +24055,25 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
 }
 </style>
 
+
+<script id="detail-manual-persistence-save-wrapper">
+(function(){
+  function install(){
+    if(!window.fbSaveBatch||window.fbSaveBatch.__detailPersistenceWrapped)return;
+    var original=window.fbSaveBatch;
+    var wrapped=async function(collName,items){
+      if(collName==='creators'&&typeof window.fbCaptureLinkClicks==='function')window.fbCaptureLinkClicks();
+      if((collName==='organic'||collName==='celebs')&&typeof window.captureDetailPopupMetrics==='function')window.captureDetailPopupMetrics();
+      return original.apply(this,arguments);
+    };
+    wrapped.__detailPersistenceWrapped=true;
+    window.fbSaveBatch=wrapped;
+  }
+  install();
+  document.addEventListener('DOMContentLoaded',install,{once:true});
+  setTimeout(install,0);
+  setTimeout(install,1000);
+})();
+</script>
 </body>
 </html>
