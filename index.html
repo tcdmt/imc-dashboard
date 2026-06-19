@@ -24153,5 +24153,171 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
 })();
 </script>
 
+
+
+<!-- CHOI PATCH: Seeding dropdown exact List-tab visual only -->
+<style id="seeding-dropdown-list-exact-visual-fix-v2">
+#pg-seeding #seed-body td.seed-v12-choice-cell{
+  text-align:center!important;
+  vertical-align:middle!important;
+  overflow:visible!important;
+}
+#pg-seeding .seed-v12-fixed-badge{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  min-width:0!important;
+  min-height:18px!important;
+  padding:2px 6px!important;
+  border:0!important;
+  border-radius:5px!important;
+  font-size:9px!important;
+  font-weight:600!important;
+  line-height:1.1!important;
+  letter-spacing:0!important;
+  box-shadow:none!important;
+  white-space:nowrap!important;
+  cursor:default!important;
+}
+#seed-v12-dropdown{
+  position:fixed!important;
+  z-index:2147483000!important;
+  width:auto!important;
+  min-width:104px!important;
+  max-width:180px!important;
+  max-height:min(260px, calc(100vh - 16px))!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  padding:7px!important;
+  background:#fff!important;
+  border:1px solid #dddddd!important;
+  border-radius:12px!important;
+  box-shadow:0 7px 20px rgba(0,0,0,.17)!important;
+  box-sizing:border-box!important;
+}
+#seed-v12-dropdown .seed-v12-option{
+  display:flex!important;
+  align-items:center!important;
+  width:100%!important;
+  min-height:27px!important;
+  margin:0 0 4px 0!important;
+  padding:6px 9px!important;
+  border:0!important;
+  border-radius:7px!important;
+  font-size:10px!important;
+  font-weight:600!important;
+  line-height:1.15!important;
+  text-align:left!important;
+  white-space:nowrap!important;
+  box-shadow:none!important;
+  transform:none!important;
+  box-sizing:border-box!important;
+}
+#seed-v12-dropdown .seed-v12-option:last-child{margin-bottom:0!important;}
+#seed-v12-dropdown .seed-v12-option:hover{
+  filter:brightness(.97)!important;
+  transform:none!important;
+}
+</style>
+<script id="seeding-dropdown-viewport-reposition-guard-v2">
+(function(){
+  'use strict';
+  function reposition(){
+    var popup=document.getElementById('seed-v12-dropdown');
+    if(!popup)return;
+    var active=document.querySelector('#pg-seeding #seed-body td.seed-v12-choice-cell[data-seed-dropdown-anchor="1"]');
+    if(!active)return;
+    var r=active.getBoundingClientRect();
+    var gap=5;
+    popup.style.maxHeight=Math.max(80,window.innerHeight-16)+'px';
+    var w=popup.offsetWidth||104;
+    var h=popup.offsetHeight||120;
+    var left=Math.min(Math.max(8,r.left+(r.width-w)/2),window.innerWidth-w-8);
+    var roomBelow=window.innerHeight-r.bottom-8;
+    var roomAbove=r.top-8;
+    var openAbove=roomBelow<h+gap && roomAbove>roomBelow;
+    var top=openAbove?Math.max(8,r.top-h-gap):Math.min(window.innerHeight-h-8,r.bottom+gap);
+    popup.style.left=Math.round(left)+'px';
+    popup.style.top=Math.round(top)+'px';
+  }
+  document.addEventListener('dblclick',function(e){
+    var td=e.target&&e.target.closest&&e.target.closest('#pg-seeding #seed-body td.seed-v12-choice-cell');
+    if(!td)return;
+    document.querySelectorAll('#pg-seeding #seed-body td[data-seed-dropdown-anchor]').forEach(function(el){el.removeAttribute('data-seed-dropdown-anchor');});
+    td.setAttribute('data-seed-dropdown-anchor','1');
+    setTimeout(reposition,0);
+  },true);
+  new MutationObserver(function(muts){
+    for(var i=0;i<muts.length;i++){
+      for(var j=0;j<muts[i].addedNodes.length;j++){
+        var n=muts[i].addedNodes[j];
+        if(n&&n.nodeType===1&&(n.id==='seed-v12-dropdown'||(n.querySelector&&n.querySelector('#seed-v12-dropdown')))){
+          requestAnimationFrame(reposition);
+          return;
+        }
+      }
+    }
+  }).observe(document.documentElement,{childList:true,subtree:true});
+})();
+</script>
+
+
+<!-- CHOI PATCH: Organic add modal Item sheet exact linkage only -->
+<style id="organic-item-exact-link-v82-style">
+#org-modal-v8 .org-modal-product-row-v8{
+  grid-template-columns:96px minmax(110px,1fr) minmax(120px,1fr) minmax(240px,2fr) minmax(100px,1fr) 28px!important;
+  overflow:visible!important;
+}
+#org-modal-v8 .org-v82-name-wrap{position:relative;min-width:0;overflow:visible;}
+#org-modal-v8 .org-v82-name-wrap .orgm-product-v8{width:100%;}
+#org-v82-suggest{
+  position:fixed;z-index:10050;display:none;max-height:260px;overflow:auto;
+  background:#fff;border:1px solid rgba(0,0,0,.12);border-radius:10px;
+  box-shadow:0 10px 30px rgba(0,0,0,.16);padding:6px;min-width:300px;
+}
+#org-v82-suggest.open{display:block;}
+#org-v82-suggest .org-v82-option{padding:8px 10px;border-radius:7px;cursor:pointer;line-height:1.35;}
+#org-v82-suggest .org-v82-option:hover{background:var(--color-background-secondary);}
+#org-v82-suggest .org-v82-name{font-size:11px;font-weight:600;color:var(--color-text-primary);}
+#org-v82-suggest .org-v82-meta{font-size:10px;color:var(--color-text-tertiary);margin-top:2px;}
+</style>
+<script id="organic-item-exact-link-v82-script">
+(function(){
+  'use strict';
+  function clean(v){return String(v==null?'':v).trim();}
+  function norm(v){return clean(v).toLowerCase().replace(/\s+/g,'');}
+  function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function platformKey(v){var s=norm(v);if(s==='무신사'||s.indexOf('musinsa')>-1)return'musinsa';if(s==='29cm'||s.indexOf('29')>-1)return'cm';if(s==='자사몰'||s.indexOf('store')>-1||s.indexOf('shop')>-1)return'store';return s;}
+  function firstVal(o,ks){o=o||{};for(var i=0;i<ks.length;i++){var v=o[ks[i]];if(v!==undefined&&v!==null&&clean(v)!=='')return v;}return'';}
+  function pCode(p){return clean(firstVal(p,['code','productCode','itemCode','상품코드','상품 코드']));}
+  function pName(p){return clean(firstVal(p,['name','product','productName','itemName','상품명','제품명']));}
+  function pUid(p,platform){var k=platformKey(platform),x='';if(k==='musinsa')x=firstVal(p,['musinsaUid','musinsaUID','musinsa_uid','무신사 UID','무신사UID']);else if(k==='cm')x=firstVal(p,['cmUid','cmUID','cm_uid','29cmUid','29CMUid','29CM UID','29CMUID']);else if(k==='store')x=firstVal(p,['storeUid','storeUID','store_uid','자사몰 UID','자사몰UID']);return clean(x||firstVal(p,['uid','UID']));}
+  function colorFromName(name){var m=String(name||'').match(/\(([^()]*)\)\s*$/);return m?m[1].trim():'';}
+  function exactFind(value,platform,field){var q=norm(value);if(!q)return null;return (window.products||[]).find(function(p){if(field==='uid')return norm(pUid(p,platform))===q;if(field==='code')return norm(pCode(p))===q;return norm(pName(p))===q;})||null;}
+  function fuzzyProducts(value,platform){var q=norm(value);var arr=(window.products||[]).filter(function(p){var n=norm(pName(p)),c=norm(pCode(p)),u=norm(pUid(p,platform));return !q||n.indexOf(q)>-1||c.indexOf(q)>-1||u.indexOf(q)>-1;});return arr.slice(0,30);}
+  function apply(row,p){if(!row||!p)return;var platform=row.querySelector('.orgm-platform-v8').value||'무신사';var name=pName(p);row.querySelector('.orgm-uid-v81').value=pUid(p,platform)||'';row.querySelector('.orgm-code-v81').value=pCode(p)||'';row.querySelector('.orgm-product-v8').value=name||'';row.querySelector('.orgm-color-v8').value=colorFromName(name)||'';}
+  function tryExact(row,field,value){var platform=row.querySelector('.orgm-platform-v8').value||'무신사';var p=exactFind(value,platform,field);if(p)apply(row,p);else if(field==='name')row.querySelector('.orgm-color-v8').value=colorFromName(value)||'';return p;}
+  function getSuggest(){var el=document.getElementById('org-v82-suggest');if(!el){el=document.createElement('div');el.id='org-v82-suggest';document.body.appendChild(el);}return el;}
+  function closeSuggest(){var el=document.getElementById('org-v82-suggest');if(el){el.classList.remove('open');el.innerHTML='';}}
+  function openSuggest(input,row){var pop=getSuggest(),platform=row.querySelector('.orgm-platform-v8').value||'무신사',list=fuzzyProducts(input.value,platform);if(!list.length){closeSuggest();return;}var r=input.getBoundingClientRect();pop.style.left=Math.max(8,Math.min(r.left,window.innerWidth-380))+'px';pop.style.width=Math.max(340,r.width)+'px';var estimated=Math.min(260,list.length*48+12),spaceBelow=window.innerHeight-r.bottom,top=(spaceBelow<estimated&&r.top>estimated)?r.top-estimated-4:r.bottom+4;pop.style.top=Math.max(8,top)+'px';pop.innerHTML=list.map(function(p,i){return '<div class="org-v82-option" data-i="'+i+'"><div class="org-v82-name">'+esc(pName(p)||'-')+'</div><div class="org-v82-meta">'+esc([pCode(p),pUid(p,platform)].filter(Boolean).join(' · '))+'</div></div>';}).join('');pop.classList.add('open');Array.from(pop.children).forEach(function(opt,i){opt.addEventListener('mousedown',function(e){e.preventDefault();apply(row,list[i]);closeSuggest();});});}
+  window.orgModalAddProduct=function(p){
+    var wrap=document.getElementById('orgm-products-v8');if(!wrap)return;p=p||{};
+    var row=document.createElement('div');row.className='org-modal-product-row-v8';
+    row.innerHTML='<select class="orgm-platform-v8"><option>무신사</option><option>29CM</option><option>자사몰</option><option>Offline</option></select><input class="orgm-uid-v81" placeholder="UID 입력"><input class="orgm-code-v81" placeholder="상품 코드 입력"><div class="org-v82-name-wrap"><input class="orgm-product-v8" placeholder="상품명 검색/선택" autocomplete="off"></div><input class="orgm-color-v8" placeholder="컬러 자동" readonly><button type="button" class="del-btn" onclick="this.parentNode.remove()">×</button>';
+    wrap.appendChild(row);
+    var platform=p.platform||'무신사',name=clean(p.product||p.name||p.productName||'');
+    row.querySelector('.orgm-platform-v8').value=platform;row.querySelector('.orgm-uid-v81').value=clean(p.uid||p.UID||'');row.querySelector('.orgm-code-v81').value=clean(p.code||p.productCode||'');row.querySelector('.orgm-product-v8').value=name;row.querySelector('.orgm-color-v8').value=clean(p.color||colorFromName(name));
+    var uid=row.querySelector('.orgm-uid-v81'),code=row.querySelector('.orgm-code-v81'),nameInput=row.querySelector('.orgm-product-v8');
+    ['input','change','blur'].forEach(function(ev){uid.addEventListener(ev,function(){tryExact(row,'uid',uid.value);});code.addEventListener(ev,function(){tryExact(row,'code',code.value);});});
+    nameInput.addEventListener('focus',function(){openSuggest(nameInput,row);});
+    nameInput.addEventListener('input',function(){row.querySelector('.orgm-color-v8').value=colorFromName(nameInput.value)||'';tryExact(row,'name',nameInput.value);openSuggest(nameInput,row);});
+    nameInput.addEventListener('change',function(){tryExact(row,'name',nameInput.value);closeSuggest();});
+    nameInput.addEventListener('blur',function(){setTimeout(closeSuggest,120);tryExact(row,'name',nameInput.value);});
+    row.querySelector('.orgm-platform-v8').addEventListener('change',function(){var val=uid.value||code.value||nameInput.value;var f=uid.value?'uid':(code.value?'code':'name');if(val)tryExact(row,f,val);});
+  };
+  document.addEventListener('mousedown',function(e){var p=document.getElementById('org-v82-suggest');if(p&&p.classList.contains('open')&&!p.contains(e.target)&&!e.target.classList.contains('orgm-product-v8'))closeSuggest();},true);
+  window.addEventListener('scroll',closeSuggest,true);window.addEventListener('resize',closeSuggest);
+})();
+</script>
 </body>
 </html>
