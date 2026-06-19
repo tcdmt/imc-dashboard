@@ -24319,5 +24319,226 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
   window.addEventListener('scroll',closeSuggest,true);window.addEventListener('resize',closeSuggest);
 })();
 </script>
+
+
+<!-- JSON backup download fix: only overrides the backup download function -->
+<script id="json-backup-download-fix">
+(function(){
+  'use strict';
+
+  window.saveAllToFile = function saveAllToFile(){
+    try {
+      var data = {
+        _version: '1.0',
+        _savedAt: new Date().toISOString(),
+        promos: Array.isArray(window.promos) ? window.promos : [],
+        creators: Array.isArray(window.creators) ? window.creators : [],
+        products: Array.isArray(window.products) ? window.products : [],
+        budgets: Array.isArray(window.budgets) ? window.budgets : [],
+        budgetMemos: window.budgetMemos || {},
+        seedData: Array.isArray(window.seedData) ? window.seedData : [],
+        celebData: Array.isArray(window.celebData) ? window.celebData : [],
+        organicData: Array.isArray(window.organicData) ? window.organicData : []
+      };
+
+      var json = JSON.stringify(data, null, 2);
+      var blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      var date = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = 'IMC_Dashboard_Data_' + date + '.json';
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+
+      var badge = document.getElementById('saving-badge');
+      if (badge) {
+        badge.textContent = '✅ 백업 완료!';
+        badge.classList.add('show');
+        badge.style.display = 'inline-block';
+        setTimeout(function(){
+          badge.classList.remove('show');
+          badge.style.display = 'none';
+        }, 2000);
+      }
+    } catch (e) {
+      console.error('JSON 백업 다운로드 실패:', e);
+      alert('JSON 백업 파일을 만들지 못했습니다: ' + (e && e.message ? e.message : e));
+    }
+  };
+})();
+</script>
+
+
+<!-- CHOI PATCH: Feedback detail manual data durable merge fix only -->
+<script id="feedback-detail-manual-persistence-recheck-fix">
+(function(){
+  'use strict';
+  var LOCAL_KEY='tcm_feedback_manual_detail_v3';
+  var REMOTE_DOC='feedbackManualDetailV3';
+  var remoteStarted=false;
+  var remoteSaveTimer=null;
+
+  function norm(v){return String(v==null?'':v).trim().toLowerCase().replace(/\s+/g,'');}
+  function creatorKey(r){
+    r=r||{};
+    if(r._id)return 'id:'+String(r._id);
+    return 'sig:'+[
+      norm(r.name),norm(r.handle||r.idName||r.account),norm(r.uploadDate),norm(r.platform),norm(r.ch||r.channel)
+    ].join('|');
+  }
+  function readStore(){
+    try{
+      var x=JSON.parse(localStorage.getItem(LOCAL_KEY)||'{}');
+      return x&&typeof x==='object'?x:{creators:{}};
+    }catch(e){return {creators:{}};}
+  }
+  function writeStore(store){
+    try{localStorage.setItem(LOCAL_KEY,JSON.stringify(store||{creators:{}}));}
+    catch(e){console.warn('Feedback 상세 데이터 로컬 저장 실패:',e);}
+  }
+  function clone(v){try{return JSON.parse(JSON.stringify(v));}catch(e){return v;}}
+  function dayOffset(key){var m=String(key||'').match(/_d(-?\d+)$/);return m?String(Number(m[1])):null;}
+  function manualDay(d){
+    d=d||{};
+    var out={
+      view:Number(d.view)||0,
+      like:Number(d.like)||0,
+      comment:Number(d.comment)||0,
+      click:Number(d.click)||0,
+      rankAll:Number(d.rankAll)||0,
+      rankCat:Number(d.rankCat)||0
+    };
+    if(d._itemData&&typeof d._itemData==='object'){
+      out.itemClicks={};
+      Object.keys(d._itemData).forEach(function(k){
+        var item=d._itemData[k]||{};
+        if(Object.prototype.hasOwnProperty.call(item,'click'))out.itemClicks[k]=Number(item.click)||0;
+      });
+      if(!Object.keys(out.itemClicks).length)delete out.itemClicks;
+    }
+    return out;
+  }
+  function captureRows(rows){
+    var store=readStore();
+    if(!store.creators)store.creators={};
+    var now=Date.now();
+    (rows||[]).forEach(function(r){
+      if(!r||!r._fbData)return;
+      var days={};
+      Object.keys(r._fbData).forEach(function(k){
+        var off=dayOffset(k);if(off===null)return;
+        days[off]=manualDay(r._fbData[k]);
+      });
+      if(Object.keys(days).length){
+        store.creators[creatorKey(r)]={updatedAt:now,days:days};
+      }
+    });
+    store.updatedAt=now;
+    writeStore(store);
+    return store;
+  }
+  function mergeDay(target,src){
+    if(!src)return target;
+    target=target||{};
+    ['view','like','comment','click','rankAll','rankCat'].forEach(function(f){
+      if(Object.prototype.hasOwnProperty.call(src,f))target[f]=Number(src[f])||0;
+    });
+    if(src.itemClicks&&typeof src.itemClicks==='object'){
+      if(!target._itemData)target._itemData={};
+      Object.keys(src.itemClicks).forEach(function(itemKey){
+        if(!target._itemData[itemKey])target._itemData[itemKey]={};
+        target._itemData[itemKey].click=Number(src.itemClicks[itemKey])||0;
+      });
+    }
+    return target;
+  }
+  function applyStoreToRows(rows,store){
+    rows=rows||[];store=store||readStore();var map=store.creators||{};
+    rows.forEach(function(r,ci){
+      if(!r)return;
+      var saved=map[creatorKey(r)];
+      if(!saved||!saved.days)return;
+      if(!r._fbData)r._fbData={};
+      Object.keys(saved.days).forEach(function(off){
+        var key=ci+'_d'+off;
+        if(!r._fbData[key])r._fbData[key]={view:0,comment:0,like:0,click:0,productLike:0,sales:0,revenue:0,total:0,rankAll:0,rankCat:0};
+        r._fbData[key]=mergeDay(r._fbData[key],saved.days[off]);
+      });
+    });
+    return rows;
+  }
+  function mergeStores(local,remote){
+    local=local||{creators:{}};remote=remote||{creators:{}};
+    if(!local.creators)local.creators={};
+    Object.keys(remote.creators||{}).forEach(function(k){
+      var rv=remote.creators[k]||{},lv=local.creators[k]||{};
+      if(!lv.updatedAt||Number(rv.updatedAt||0)>Number(lv.updatedAt||0))local.creators[k]=clone(rv);
+    });
+    local.updatedAt=Math.max(Number(local.updatedAt)||0,Number(remote.updatedAt)||0);
+    return local;
+  }
+  function saveRemoteSoon(){
+    clearTimeout(remoteSaveTimer);
+    remoteSaveTimer=setTimeout(function(){
+      var store=captureRows(window.creators||[]);
+      if(!window.db||!window.isFirebaseReady||!window.isCurrentUserEditor||!window.isCurrentUserEditor())return;
+      try{
+        window.db.collection('settings').doc(REMOTE_DOC).set(store)
+          .catch(function(e){console.warn('Feedback 상세 데이터 Firebase 저장 실패:',e);});
+      }catch(e){console.warn('Feedback 상세 데이터 Firebase 저장 실패:',e);}
+    },350);
+  }
+  function startRemoteLoad(){
+    if(remoteStarted)return;
+    if(!window.db||!window.isFirebaseReady){setTimeout(startRemoteLoad,500);return;}
+    remoteStarted=true;
+    try{
+      window.db.collection('settings').doc(REMOTE_DOC).get().then(function(doc){
+        var local=readStore();
+        if(doc&&doc.exists)local=mergeStores(local,doc.data()||{});
+        writeStore(local);
+        applyStoreToRows(window.creators||[],local);
+        if(window.applyFeedbackFilter)window.applyFeedbackFilter();
+      }).catch(function(e){remoteStarted=false;console.warn('Feedback 상세 데이터 Firebase 복원 실패:',e);setTimeout(startRemoteLoad,1500);});
+    }catch(e){remoteStarted=false;setTimeout(startRemoteLoad,1500);}
+  }
+
+  /* Firebase creators 로드 결과 배열에 직접 병합 */
+  var previousMerge=window.fbMergeLinkClicks;
+  window.fbMergeLinkClicks=function(rows){
+    var result=typeof previousMerge==='function'?previousMerge(rows):rows;
+    return applyStoreToRows(result,readStore());
+  };
+  try{fbMergeLinkClicks=window.fbMergeLinkClicks;}catch(e){}
+
+  /* Feedback 입력 저장 시 즉시 로컬 백업 + 별도 Firebase 저장 */
+  var previousSave=(typeof window.fbSaveCreators==='function')?window.fbSaveCreators:(typeof fbSaveCreators==='function'?fbSaveCreators:null);
+  var saveWrapped=function(){
+    captureRows(window.creators||[]);
+    saveRemoteSoon();
+    return previousSave?previousSave.apply(this,arguments):undefined;
+  };
+  window.fbSaveCreators=saveWrapped;
+  try{fbSaveCreators=saveWrapped;}catch(e){}
+
+  /* 렌더 직전에도 순번이 바뀐 현재 배열 키로 복원 */
+  var previousApply=window.applyFeedbackFilter;
+  if(typeof previousApply==='function'){
+    window.applyFeedbackFilter=function(){
+      applyStoreToRows(window.creators||[],readStore());
+      return previousApply.apply(this,arguments);
+    };
+    try{applyFeedbackFilter=window.applyFeedbackFilter;}catch(e){}
+  }
+
+  window.addEventListener('beforeunload',function(){captureRows(window.creators||[]);});
+  document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')captureRows(window.creators||[]);});
+  setTimeout(function(){applyStoreToRows(window.creators||[],readStore());startRemoteLoad();},0);
+})();
+</script>
 </body>
 </html>
