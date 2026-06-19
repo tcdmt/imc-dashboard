@@ -235,11 +235,7 @@
       });
     } catch(e) {
       console.error('Firebase 연결 실패:', e);
-      isFirebaseReady = false;
-      window.isFirebaseReady = false;
-      updateFirebaseStatus(false, e.message || String(e));
-      updateAuthUi(null);
-      updateAccessGate('guest', 'Firebase 인증 초기화에 실패했습니다. 새로고침 후 다시 로그인해주세요.');
+      updateFirebaseStatus(false, e.message);
     }
   }
 
@@ -472,11 +468,11 @@
       const rows = snap => (snap.docs || []).map(d => ({_id: d.id, ...d.data()})).sort(byOrder);
 
       if (promosSnap.docs.length)   window.promos   = rows(promosSnap);
-      if (creatorsSnap.docs.length) { fbCaptureLinkClicks(); window.creators = fbMergeLinkClicks(rows(creatorsSnap)); }
+      if (creatorsSnap.docs.length) window.creators = fbMergeLinkClicks(rows(creatorsSnap));
       if (productsSnap.docs.length) window.products = rows(productsSnap);
       if (seedingSnap.docs.length)  window.seedData = rows(seedingSnap);
-      if (celebsSnap.docs.length)   { captureDetailPopupMetrics(); window.celebData = mergeDetailPopupMetrics(rows(celebsSnap),'celebs'); }
-      if (organicSnap.docs.length)  { captureDetailPopupMetrics(); window.organicData = mergeDetailPopupMetrics(rows(organicSnap),'organic'); }
+      if (celebsSnap.docs.length)   window.celebData = rows(celebsSnap);
+      if (organicSnap.docs.length)  window.organicData = rows(organicSnap);
 
       budgetsSnap.docs.forEach(d => {
         const mi = parseInt(d.id);
@@ -557,7 +553,7 @@
 
     realtimeUnsubs.push(db.collection('creators').onSnapshot(snap => {
       if (shouldSkipEmptyFirstSnapshot('creators', 'creators', snap)) return;
-      fbCaptureLinkClicks(); window.creators = fbMergeLinkClicks(toRows(snap));
+      window.creators = fbMergeLinkClicks(toRows(snap));
       if (window.applyListFilter) window.applyListFilter();
       if (window.buildCal) window.buildCal();
       if (window.applyFeedbackFilter) window.applyFeedbackFilter();
@@ -581,13 +577,13 @@
     }));
     realtimeUnsubs.push(db.collection('celebs').onSnapshot(snap => {
       if (shouldSkipEmptyFirstSnapshot('celebs', 'celebData', snap)) return;
-      captureDetailPopupMetrics(); window.celebData = mergeDetailPopupMetrics(toRows(snap),'celebs');
+      window.celebData = toRows(snap);
       if (window.celebRender) window.celebRender();
       if (window.buildCal) window.buildCal();
     }));
     realtimeUnsubs.push(db.collection('organic').onSnapshot(snap => {
       if (shouldSkipEmptyFirstSnapshot('organic', 'organicData', snap)) return;
-      captureDetailPopupMetrics(); window.organicData = mergeDetailPopupMetrics(toRows(snap),'organic');
+      window.organicData = toRows(snap);
       if (window.orgRender) window.orgRender();
     }));
     realtimeUnsubs.push(db.collection('settings').doc('budgetMemos').onSnapshot(doc => {
@@ -608,21 +604,11 @@
       // firebase CDN 아직 로드 중 → 100ms 후 재시도
       setTimeout(function() { tryInitFirebase(attempts + 1); }, 100);
     } else {
-      console.log('ℹ️ Firebase/Auth 미연결 — SDK 로드 실패');
-      updateFirebaseStatus(false, 'Firebase/Auth SDK 로드 실패 — 네트워크 또는 CDN 연결을 확인해주세요.');
+      console.log('ℹ️ Firebase/Auth 미연결 — 로그인이 필요하므로 대시보드를 표시하지 않습니다.');
+      updateFirebaseStatus(false, 'Firebase/Auth SDK 로드 실패 — 로그인할 수 없습니다.');
       updateAuthUi(null);
-      updateAccessGate('guest', 'Firebase 로그인 모듈을 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 새로고침해주세요.');
     }
   }
-
-  // 인증 응답이 오지 않아 checking 상태가 무한 유지되는 것을 방지
-  setTimeout(function() {
-    if (document.documentElement.getAttribute('data-auth-state') === 'checking') {
-      updateFirebaseStatus(false, '로그인 확인 시간이 초과되었습니다.');
-      updateAuthUi(null);
-      updateAccessGate('guest', '로그인 확인이 지연되고 있습니다. 아래 버튼으로 다시 로그인해주세요.');
-    }
-  }, 8000);
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() { tryInitFirebase(); });
@@ -4173,142 +4159,74 @@ window.creators=[];
 window.products=[];
 window.budgets=Array.from({length:12},()=>[0,0,0,0,0]);
 
-/* ── 상세 팝업 수동 입력값 안정 보존 ── */
-const FB_CLICK_BACKUP_KEY='tcm_feedback_manual_metrics_backup_v2';
-const DETAIL_BACKUP_KEY='tcm_detail_manual_metrics_backup_v1';
-function fbDayOffsetFromKey(key){
-  var m=String(key||'').match(/(?:^|_)d(-?\d+)$/);
-  return m?String(parseInt(m[1],10)):null;
-}
-function fbCloneSafe(v){try{return JSON.parse(JSON.stringify(v));}catch(e){return v;}}
-function fbManualDayCopy(d){
-  d=d&&typeof d==='object'?d:{};
-  var out={};
-  ['view','comment','like','click','rankAll','rankCat'].forEach(function(k){
-    if(Object.prototype.hasOwnProperty.call(d,k))out[k]=d[k];
-  });
-  if(d._itemData&&typeof d._itemData==='object'){
-    out._itemData={};
-    Object.keys(d._itemData).forEach(function(itemKey){
-      var item=d._itemData[itemKey]||{}, saved={};
-      ['click','sales','revenue'].forEach(function(k){if(Object.prototype.hasOwnProperty.call(item,k))saved[k]=item[k];});
-      if(Object.keys(saved).length)out._itemData[itemKey]=saved;
-    });
-  }
-  return out;
-}
+/* ── Feedback 링크 클릭 수 로컬 보존 ── */
+const FB_CLICK_BACKUP_KEY='tcm_feedback_link_click_backup_v1';
 function fbCaptureLinkClicks(){
   try{
-    var backup={};
+    const backup={};
     (window.creators||[]).forEach(function(r){
       if(!r||!r._id||!r._fbData)return;
-      var days={};
+      const days={};
       Object.keys(r._fbData).forEach(function(key){
-        var off=fbDayOffsetFromKey(key); if(off===null)return;
-        var copied=fbManualDayCopy(r._fbData[key]);
-        if(Object.keys(copied).length)days[off]=copied;
+        const d=r._fbData[key];
+        if(!d||typeof d!=='object')return;
+        const match=String(key).match(/_d(-?\d+)$/);
+        const stableKey=match?('d'+match[1]):String(key);
+        const itemClicks={};
+        if(d._itemData&&typeof d._itemData==='object'){
+          Object.keys(d._itemData).forEach(function(itemKey){
+            const item=d._itemData[itemKey];
+            if(item&&Object.prototype.hasOwnProperty.call(item,'click')) itemClicks[itemKey]=Number(item.click)||0;
+          });
+        }
+        if(Object.prototype.hasOwnProperty.call(d,'click')||Object.keys(itemClicks).length){
+          days[stableKey]={click:Number(d.click)||0,itemClicks:itemClicks};
+        }
       });
-      if(Object.keys(days).length)backup[String(r._id)]=days;
+      if(Object.keys(days).length) backup[String(r._id)]=days;
     });
     localStorage.setItem(FB_CLICK_BACKUP_KEY,JSON.stringify(backup));
-  }catch(e){console.warn('Feedback 수동 입력 백업 실패:',e);}
-}
-function fbMergeObjectsKeepDefined(target,src){
-  target=target||{}; src=src||{};
-  Object.keys(src).forEach(function(k){
-    if(k==='_itemData')return;
-    if(src[k]!==undefined&&src[k]!==null)target[k]=src[k];
-  });
-  if(src._itemData){
-    if(!target._itemData)target._itemData={};
-    Object.keys(src._itemData).forEach(function(itemKey){
-      if(!target._itemData[itemKey])target._itemData[itemKey]={};
-      Object.keys(src._itemData[itemKey]||{}).forEach(function(k){target._itemData[itemKey][k]=src._itemData[itemKey][k];});
-    });
-  }
-  return target;
+  }catch(e){ console.warn('Feedback 링크 클릭 백업 실패:',e); }
 }
 function fbMergeLinkClicks(rows){
   try{
-    var backup=JSON.parse(localStorage.getItem(FB_CLICK_BACKUP_KEY)||'{}');
-    (rows||[]).forEach(function(r,idx){
-      if(!r)return;
+    const backup=JSON.parse(localStorage.getItem(FB_CLICK_BACKUP_KEY)||'{}');
+    (rows||[]).forEach(function(r,ci){
+      const saved=r&&r._id?backup[String(r._id)]:null;
+      if(!saved)return;
       if(!r._fbData)r._fbData={};
-      var normalized={};
-      Object.keys(r._fbData).forEach(function(oldKey){
-        var off=fbDayOffsetFromKey(oldKey); if(off===null)return;
-        normalized[off]=fbMergeObjectsKeepDefined(normalized[off]||{},r._fbData[oldKey]||{});
+      Object.keys(saved).forEach(function(savedKey){
+        const match=String(savedKey).match(/^d(-?\d+)$/);
+        const targetKey=match?(ci+'_d'+match[1]):savedKey;
+        if(!r._fbData[targetKey])r._fbData[targetKey]={view:0,comment:0,like:0,click:0,productLike:0,sales:0,revenue:0,total:0,rankAll:0,rankCat:0};
+        const target=r._fbData[targetKey], src=saved[savedKey]||{};
+        target.click=Number(src.click)||0;
+        if(src.itemClicks&&Object.keys(src.itemClicks).length){
+          if(!target._itemData)target._itemData={};
+          Object.keys(src.itemClicks).forEach(function(itemKey){
+            if(!target._itemData[itemKey])target._itemData[itemKey]={};
+            target._itemData[itemKey].click=Number(src.itemClicks[itemKey])||0;
+          });
+        }
       });
-      var saved=(r._id&&backup[String(r._id)])||{};
-      Object.keys(saved).forEach(function(off){normalized[off]=fbMergeObjectsKeepDefined(normalized[off]||{},saved[off]||{});});
-      Object.keys(normalized).forEach(function(off){
-        var canonical=idx+'_d'+off;
-        r._fbData[canonical]=fbMergeObjectsKeepDefined(r._fbData[canonical]||{},normalized[off]);
-      });
     });
-  }catch(e){console.warn('Feedback 수동 입력 복원 실패:',e);}
-  return rows;
-}
-function detailProductKey(p){
-  p=p||{};
-  return [p.platform||'',p.uid||p.UID||'',p.code||p.productCode||'',p.name||p.product||p.productName||''].map(function(v){return String(v||'').trim().toLowerCase().replace(/\s+/g,'');}).join('|');
-}
-function captureDetailPopupMetrics(){
-  try{
-    var store={organic:{},celebs:{}};
-    (window.organicData||[]).forEach(function(r){
-      if(!r||!r._id)return;
-      var products={};
-      (r.products||[]).forEach(function(p){products[detailProductKey(p)]=fbCloneSafe(p.metrics||{});});
-      store.organic[String(r._id)]={orgDaily:fbCloneSafe(r.orgDaily||{}),products:products};
-    });
-    (window.celebData||[]).forEach(function(r){
-      if(!r||!r._id)return;
-      var products={};
-      (r.products||[]).forEach(function(p){products[detailProductKey(p)]=fbCloneSafe(p.metrics||{});});
-      store.celebs[String(r._id)]={celebDaily:fbCloneSafe(r.celebDaily||{}),products:products};
-    });
-    localStorage.setItem(DETAIL_BACKUP_KEY,JSON.stringify(store));
-  }catch(e){console.warn('상세 팝업 입력 백업 실패:',e);}
-}
-function mergeDetailPopupMetrics(rows,type){
-  try{
-    var store=JSON.parse(localStorage.getItem(DETAIL_BACKUP_KEY)||'{}');
-    var map=(store&&store[type])||{};
-    (rows||[]).forEach(function(r){
-      var saved=r&&r._id?map[String(r._id)]:null;if(!saved)return;
-      if(type==='organic'&&saved.orgDaily)r.orgDaily=Object.assign({},r.orgDaily||{},saved.orgDaily);
-      if(type==='celebs'&&saved.celebDaily)r.celebDaily=Object.assign({},r.celebDaily||{},saved.celebDaily);
-      (r.products||[]).forEach(function(p){var m=saved.products&&saved.products[detailProductKey(p)];if(m)p.metrics=Object.assign({},p.metrics||{},m);});
-    });
-  }catch(e){console.warn('상세 팝업 입력 복원 실패:',e);}
+  }catch(e){ console.warn('Feedback 링크 클릭 복원 실패:',e); }
   return rows;
 }
 window.fbCaptureLinkClicks=fbCaptureLinkClicks;
 window.fbMergeLinkClicks=fbMergeLinkClicks;
-window.captureDetailPopupMetrics=captureDetailPopupMetrics;
-window.mergeDetailPopupMetrics=mergeDetailPopupMetrics;
+window.addEventListener('beforeunload',function(){ try{ fbCaptureLinkClicks(); }catch(e){} });
 
 /* ══ Firebase 저장 헬퍼 ══ */
 function fbSavePromos(){
   showSaving();
   if(window.fbSaveBatch) window.fbSaveBatch('promos', window.promos);
 }
-let _creatorSaveRunning=false;
-let _creatorSavePending=null;
 function fbSaveCreators(){
   showSaving();
+  // _fbData 포함해서 저장 (Feedback 탭 입력값)
   fbCaptureLinkClicks();
-  _creatorSavePending=fbCloneSafe(window.creators||[]);
-  if(_creatorSaveRunning)return;
-  _creatorSaveRunning=true;
-  (async function flushCreatorSave(){
-    while(_creatorSavePending){
-      var snapshot=_creatorSavePending;_creatorSavePending=null;
-      try{if(window.fbSaveBatch)await window.fbSaveBatch('creators',snapshot);}catch(e){console.error('creators 저장 실패:',e);}
-    }
-    _creatorSaveRunning=false;
-  })();
+  if(window.fbSaveBatch) window.fbSaveBatch('creators', window.creators);
 }
 function fbSaveProducts(){
   showSaving();
@@ -18908,7 +18826,7 @@ if(document.readyState==='loading'){
   function currentIso(){ return iso(new Date()); }
   function creatorIndex(r){ return (window.creators||[]).indexOf(r); }
   function dayKey(ci,d){ return ci + '_d' + d; }
-  function ensureDay(r, ci, d){ if(!r._fbData) r._fbData={}; var k=dayKey(ci,d); if(!r._fbData[k]) r._fbData[k]={view:0,comment:0,like:0,click:0,productLike:0,sales:0,revenue:0,total:0,rankAll:0,rankCat:0,_itemData:{}}; if(!r._fbData[k]._itemData) r._fbData[k]._itemData={}; return r._fbData[k]; }
+  function ensureDay(r, ci, d){ if(!r._fbData) r._fbData={}; var k=dayKey(ci,d); if(!r._fbData[k]){ var suffix='_d'+d; var legacyKey=Object.keys(r._fbData).find(function(x){return String(x).slice(-suffix.length)===suffix;}); if(legacyKey) r._fbData[k]=r._fbData[legacyKey]; } if(!r._fbData[k]) r._fbData[k]={view:0,comment:0,like:0,click:0,productLike:0,sales:0,revenue:0,total:0,rankAll:0,rankCat:0,_itemData:{}}; if(!r._fbData[k]._itemData) r._fbData[k]._itemData={}; return r._fbData[k]; }
   function activeDays(r){ var today=currentIso(); return DAYS.filter(function(d){ var ds=addDays(r && r.uploadDate, d); return ds && ds <= today; }); }
   function norm(v){ return String(v==null?'':v).trim().toLowerCase().replace(/\s+/g,''); }
   function normPlatform(v){ var x=String(v==null?'':v).trim(); var k=x.toLowerCase().replace(/\s+/g,''); if(k==='musinsa'||x==='무신사')return '무신사'; if(k==='29cm'||x==='29CM')return '29CM'; if(k==='store'||k==='자사몰')return '자사몰'; if(k==='offline'||x==='오프라인')return 'Offline'; if(x==='발매'||k==='release')return '발매'; return x; }
@@ -24069,186 +23987,5 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
 }
 </style>
 
-
-<script id="detail-manual-persistence-save-wrapper">
-(function(){
-  function install(){
-    if(!window.fbSaveBatch||window.fbSaveBatch.__detailPersistenceWrapped)return;
-    var original=window.fbSaveBatch;
-    var wrapped=async function(collName,items){
-      if(collName==='creators'&&typeof window.fbCaptureLinkClicks==='function')window.fbCaptureLinkClicks();
-      if((collName==='organic'||collName==='celebs')&&typeof window.captureDetailPopupMetrics==='function')window.captureDetailPopupMetrics();
-      return original.apply(this,arguments);
-    };
-    wrapped.__detailPersistenceWrapped=true;
-    window.fbSaveBatch=wrapped;
-  }
-  install();
-  document.addEventListener('DOMContentLoaded',install,{once:true});
-  setTimeout(install,0);
-  setTimeout(install,1000);
-})();
-</script>
-
-
-<!-- CHOI PATCH: Seeding dropdown exact List-tab visual + viewport flip only -->
-<style id="seeding-dropdown-list-exact-style-fix">
-#pg-seeding #seed-body td.seed-v12-choice-cell{
-  text-align:center!important;
-  vertical-align:middle!important;
-  overflow:visible!important;
-}
-#pg-seeding #seed-body td.seed-v12-choice-cell .seed-v12-fixed-badge{
-  display:inline-flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  width:auto!important;
-  min-width:0!important;
-  min-height:18px!important;
-  height:18px!important;
-  padding:1px 6px!important;
-  border-radius:4px!important;
-  border:0!important;
-  font-size:9px!important;
-  font-weight:600!important;
-  line-height:16px!important;
-  white-space:nowrap!important;
-  box-shadow:none!important;
-  vertical-align:middle!important;
-}
-#seed-v12-dropdown{
-  position:fixed!important;
-  z-index:1000000!important;
-  min-width:138px!important;
-  max-width:220px!important;
-  max-height:min(320px, calc(100vh - 16px))!important;
-  overflow-y:auto!important;
-  padding:6px!important;
-  background:#fff!important;
-  border:1px solid #dedede!important;
-  border-radius:12px!important;
-  box-shadow:0 8px 22px rgba(0,0,0,.16)!important;
-}
-#seed-v12-dropdown .seed-v12-option{
-  display:flex!important;
-  align-items:center!important;
-  justify-content:flex-start!important;
-  width:100%!important;
-  min-height:28px!important;
-  margin:3px 0!important;
-  padding:6px 10px!important;
-  border:0!important;
-  border-radius:8px!important;
-  font-size:10px!important;
-  font-weight:600!important;
-  line-height:1.2!important;
-  white-space:nowrap!important;
-  box-shadow:none!important;
-  transform:none!important;
-}
-#seed-v12-dropdown .seed-v12-option:hover{
-  filter:brightness(.97)!important;
-  transform:none!important;
-}
-</style>
-<script id="seeding-dropdown-list-exact-position-fix">
-(function(){
-  'use strict';
-  function positionPopup(){
-    var popup=document.getElementById('seed-v12-dropdown');
-    if(!popup) return;
-    var anchor=window.__seedV12DropdownAnchor;
-    if(!anchor || !document.body.contains(anchor)) return;
-    var rect=anchor.getBoundingClientRect();
-    var margin=8, gap=4;
-    popup.style.maxHeight='min(320px, calc(100vh - 16px))';
-    var pw=popup.offsetWidth||138;
-    var ph=popup.offsetHeight||180;
-    var left=Math.max(margin,Math.min(rect.left,window.innerWidth-pw-margin));
-    var below=window.innerHeight-rect.bottom-margin;
-    var above=rect.top-margin;
-    var openUp=(below<ph+gap && above>below) || rect.top>window.innerHeight*.62;
-    var top=openUp ? Math.max(margin,rect.top-ph-gap) : Math.min(window.innerHeight-ph-margin,rect.bottom+gap);
-    popup.style.left=left+'px';
-    popup.style.top=Math.max(margin,top)+'px';
-  }
-  document.addEventListener('dblclick',function(e){
-    var cell=e.target&&e.target.closest&&e.target.closest('#pg-seeding #seed-body td.seed-v12-choice-cell');
-    if(!cell) return;
-    window.__seedV12DropdownAnchor=cell;
-    setTimeout(positionPopup,0);
-  },true);
-  document.addEventListener('click',function(e){
-    var cell=e.target&&e.target.closest&&e.target.closest('#pg-seeding #seed-body td.seed-v12-choice-cell');
-    if(cell) window.__seedV12DropdownAnchor=cell;
-  },true);
-  window.addEventListener('resize',positionPopup,true);
-  window.addEventListener('scroll',positionPopup,true);
-  new MutationObserver(function(ms){
-    for(var i=0;i<ms.length;i++){
-      for(var j=0;j<ms[i].addedNodes.length;j++){
-        var n=ms[i].addedNodes[j];
-        if(n&&n.id==='seed-v12-dropdown'){ setTimeout(positionPopup,0); return; }
-      }
-    }
-  }).observe(document.documentElement,{childList:true,subtree:true});
-})();
-</script>
-
-
-
-<!-- CHOI PATCH: Organic add popup item-sheet linking only -->
-<style id="organic-item-sheet-link-only-style">
-#orgv14-add-modal .orgv14-product-row{position:relative;}
-#orgv14-add-modal .p-color[readonly]{background:var(--color-background-secondary);color:var(--color-text-secondary);}
-.orgv14-item-suggest{position:fixed;z-index:71000;display:none;min-width:260px;max-width:min(520px,90vw);max-height:240px;overflow:auto;padding:6px;background:var(--color-background-primary);border:.5px solid var(--color-border-secondary);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.18);}
-.orgv14-item-suggest.open{display:block;}
-.orgv14-item-suggest button{display:block;width:100%;border:0;background:transparent;text-align:left;padding:8px 10px;border-radius:7px;font:inherit;font-size:11px;color:var(--color-text-primary);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.orgv14-item-suggest button:hover{background:var(--color-background-secondary);}
-.orgv14-item-suggest .sub{display:block;margin-top:2px;color:var(--color-text-tertiary);font-size:10px;}
-</style>
-<script id="organic-item-sheet-link-only-script">
-(function(){
-  'use strict';
-  function clean(v){return String(v==null?'':v).trim();}
-  function norm(v){return clean(v).toLowerCase().replace(/\s+/g,'');}
-  function first(obj,keys){for(var i=0;i<keys.length;i++){var v=obj&&obj[keys[i]];if(v!==undefined&&v!==null&&clean(v)!=='')return v;}return '';}
-  function itemCode(it){return clean(first(it,['code','productCode','itemCode','상품 코드','상품코드']));}
-  function itemName(it){return clean(first(it,['name','productName','itemName','product','상품명','제품명']));}
-  function platformKey(p){p=norm(p);if(p==='무신사'||p==='musinsa')return'musinsa';if(p==='29cm'||p==='29')return'29cm';if(p==='자사몰'||p==='store'||p==='스토어')return'store';if(p==='offline'||p==='오프라인')return'offline';return p;}
-  function itemUid(it,platform){var k=platformKey(platform);if(k==='musinsa')return clean(first(it,['musinsaUid','musinsaUID','musinsa_uid','무신사 UID','무신사UID']))||((platformKey(it&&it.platform)==='musinsa')?clean(first(it,['uid','UID'])):'');if(k==='29cm')return clean(first(it,['cmUid','cmUID','cm_uid','29cmUid','29CMUid','29CM UID','29CMUID']))||((platformKey(it&&it.platform)==='29cm')?clean(first(it,['uid','UID'])):'');if(k==='store'||k==='offline')return clean(first(it,['storeUid','storeUID','store_uid','자사몰 UID','자사몰UID']))||((platformKey(it&&it.platform)===k)?clean(first(it,['uid','UID'])):'');return clean(first(it,['uid','UID']));}
-  function allUids(it){return ['무신사','29CM','자사몰','Offline'].map(function(p){return itemUid(it,p);}).filter(Boolean);}
-  function colorFromName(name){var m=clean(name).match(/\(([^()]*)\)\s*$/);return m?clean(m[1]):'';}
-  function pool(){return Array.isArray(window.products)?window.products:[];}
-  function findByUid(v,platform){var t=norm(v);if(!t)return null;return pool().find(function(it){var exact=itemUid(it,platform);if(norm(exact)===t)return true;return allUids(it).some(function(x){return norm(x)===t;});})||null;}
-  function findByCode(v){var t=norm(v);if(!t)return null;return pool().find(function(it){return norm(itemCode(it))===t;})||null;}
-  function findByName(v){var t=norm(v);if(!t)return null;return pool().find(function(it){return norm(itemName(it))===t;})||null;}
-  function apply(row,it){if(!row||!it)return;var platform=row.querySelector('.p-platform')?.value||'무신사';var name=itemName(it);row.querySelector('.p-uid').value=itemUid(it,platform)||'';row.querySelector('.p-code').value=itemCode(it)||'';row.querySelector('.p-name').value=name||'';row.querySelector('.p-color').value=colorFromName(name);}
-  function closeSuggest(){var el=document.getElementById('orgv14-item-suggest');if(el)el.classList.remove('open');}
-  function ensureSuggest(){var el=document.getElementById('orgv14-item-suggest');if(!el){el=document.createElement('div');el.id='orgv14-item-suggest';el.className='orgv14-item-suggest';document.body.appendChild(el);}return el;}
-  function openSuggest(input,row){var q=norm(input.value);var matches=pool().filter(function(it){return !q||norm(itemName(it)).indexOf(q)>-1||norm(itemCode(it)).indexOf(q)>-1;}).slice(0,12);var box=ensureSuggest();if(!matches.length){closeSuggest();return;}box.innerHTML=matches.map(function(it,idx){var n=itemName(it)||'-',c=itemCode(it)||'-';return '<button type="button" data-idx="'+idx+'">'+n+'<span class="sub">'+c+'</span></button>';}).join('');var r=input.getBoundingClientRect();var h=Math.min(240,matches.length*47+12);var top=(window.innerHeight-r.bottom>=h+8)?r.bottom+4:Math.max(8,r.top-h-4);box.style.left=Math.min(r.left,window.innerWidth-Math.max(r.width,300)-8)+'px';box.style.top=top+'px';box.style.width=Math.max(r.width,300)+'px';box.classList.add('open');box.querySelectorAll('button').forEach(function(btn){btn.addEventListener('mousedown',function(e){e.preventDefault();var it=matches[Number(btn.dataset.idx)];apply(row,it);closeSuggest();});});}
-  function bindRow(row){if(!row||row.dataset.itemLinked==='1')return;row.dataset.itemLinked='1';var platform=row.querySelector('.p-platform'),uid=row.querySelector('.p-uid'),code=row.querySelector('.p-code'),name=row.querySelector('.p-name'),color=row.querySelector('.p-color');if(!platform||!uid||!code||!name||!color)return;color.readOnly=true;color.value=color.value||colorFromName(name.value);
-    function syncUid(){var it=findByUid(uid.value,platform.value);if(it)apply(row,it);}
-    function syncCode(){var it=findByCode(code.value);if(it)apply(row,it);}
-    function syncName(){var it=findByName(name.value);if(it)apply(row,it);else color.value=colorFromName(name.value);}
-    uid.addEventListener('input',syncUid);uid.addEventListener('change',syncUid);uid.addEventListener('blur',syncUid);
-    code.addEventListener('input',syncCode);code.addEventListener('change',syncCode);code.addEventListener('blur',syncCode);
-    name.addEventListener('input',function(){color.value=colorFromName(name.value);openSuggest(name,row);});name.addEventListener('focus',function(){openSuggest(name,row);});name.addEventListener('change',syncName);name.addEventListener('blur',function(){setTimeout(function(){syncName();closeSuggest();},120);});
-    platform.addEventListener('change',function(){var it=findByCode(code.value)||findByName(name.value)||findByUid(uid.value,platform.value);if(it)apply(row,it);});
-  }
-  var previous=window.orgV14AddProductInput;
-  window.orgV14AddProductInput=function(p){
-    var wrap=document.getElementById('orgv14-add-products');var before=wrap?wrap.children.length:0;
-    if(typeof previous==='function')previous.apply(this,arguments);
-    setTimeout(function(){var rows=document.querySelectorAll('#orgv14-add-products .orgv14-product-row');var row=rows[before]||rows[rows.length-1];bindRow(row);},0);
-  };
-  function bindExisting(){document.querySelectorAll('#orgv14-add-products .orgv14-product-row').forEach(bindRow);}
-  var observer=new MutationObserver(bindExisting);
-  document.addEventListener('DOMContentLoaded',function(){var modal=document.getElementById('orgv14-add-modal');if(modal)observer.observe(modal,{childList:true,subtree:true});bindExisting();});
-  if(document.readyState!=='loading'){setTimeout(function(){var modal=document.getElementById('orgv14-add-modal');if(modal)observer.observe(modal,{childList:true,subtree:true});bindExisting();},0);}
-  document.addEventListener('mousedown',function(e){var box=document.getElementById('orgv14-item-suggest');if(box&&!box.contains(e.target)&&!e.target.classList.contains('p-name'))closeSuggest();});
-  window.addEventListener('scroll',closeSuggest,true);window.addEventListener('resize',closeSuggest);
-})();
-</script>
 </body>
 </html>
