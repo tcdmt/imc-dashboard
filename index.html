@@ -24075,5 +24075,166 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
   setTimeout(install,1000);
 })();
 </script>
+
+
+<!-- CHOI PATCH: Seeding dropdown exact List-tab visual + viewport flip only -->
+<style id="seeding-dropdown-list-exact-style-fix">
+#pg-seeding #seed-body td.seed-v12-choice-cell{
+  text-align:center!important;
+  vertical-align:middle!important;
+  overflow:visible!important;
+}
+#pg-seeding #seed-body td.seed-v12-choice-cell .seed-v12-fixed-badge{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  width:auto!important;
+  min-width:0!important;
+  min-height:18px!important;
+  height:18px!important;
+  padding:1px 6px!important;
+  border-radius:4px!important;
+  border:0!important;
+  font-size:9px!important;
+  font-weight:600!important;
+  line-height:16px!important;
+  white-space:nowrap!important;
+  box-shadow:none!important;
+  vertical-align:middle!important;
+}
+#seed-v12-dropdown{
+  position:fixed!important;
+  z-index:1000000!important;
+  min-width:138px!important;
+  max-width:220px!important;
+  max-height:min(320px, calc(100vh - 16px))!important;
+  overflow-y:auto!important;
+  padding:6px!important;
+  background:#fff!important;
+  border:1px solid #dedede!important;
+  border-radius:12px!important;
+  box-shadow:0 8px 22px rgba(0,0,0,.16)!important;
+}
+#seed-v12-dropdown .seed-v12-option{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  width:100%!important;
+  min-height:28px!important;
+  margin:3px 0!important;
+  padding:6px 10px!important;
+  border:0!important;
+  border-radius:8px!important;
+  font-size:10px!important;
+  font-weight:600!important;
+  line-height:1.2!important;
+  white-space:nowrap!important;
+  box-shadow:none!important;
+  transform:none!important;
+}
+#seed-v12-dropdown .seed-v12-option:hover{
+  filter:brightness(.97)!important;
+  transform:none!important;
+}
+</style>
+<script id="seeding-dropdown-list-exact-position-fix">
+(function(){
+  'use strict';
+  function positionPopup(){
+    var popup=document.getElementById('seed-v12-dropdown');
+    if(!popup) return;
+    var anchor=window.__seedV12DropdownAnchor;
+    if(!anchor || !document.body.contains(anchor)) return;
+    var rect=anchor.getBoundingClientRect();
+    var margin=8, gap=4;
+    popup.style.maxHeight='min(320px, calc(100vh - 16px))';
+    var pw=popup.offsetWidth||138;
+    var ph=popup.offsetHeight||180;
+    var left=Math.max(margin,Math.min(rect.left,window.innerWidth-pw-margin));
+    var below=window.innerHeight-rect.bottom-margin;
+    var above=rect.top-margin;
+    var openUp=(below<ph+gap && above>below) || rect.top>window.innerHeight*.62;
+    var top=openUp ? Math.max(margin,rect.top-ph-gap) : Math.min(window.innerHeight-ph-margin,rect.bottom+gap);
+    popup.style.left=left+'px';
+    popup.style.top=Math.max(margin,top)+'px';
+  }
+  document.addEventListener('dblclick',function(e){
+    var cell=e.target&&e.target.closest&&e.target.closest('#pg-seeding #seed-body td.seed-v12-choice-cell');
+    if(!cell) return;
+    window.__seedV12DropdownAnchor=cell;
+    setTimeout(positionPopup,0);
+  },true);
+  document.addEventListener('click',function(e){
+    var cell=e.target&&e.target.closest&&e.target.closest('#pg-seeding #seed-body td.seed-v12-choice-cell');
+    if(cell) window.__seedV12DropdownAnchor=cell;
+  },true);
+  window.addEventListener('resize',positionPopup,true);
+  window.addEventListener('scroll',positionPopup,true);
+  new MutationObserver(function(ms){
+    for(var i=0;i<ms.length;i++){
+      for(var j=0;j<ms[i].addedNodes.length;j++){
+        var n=ms[i].addedNodes[j];
+        if(n&&n.id==='seed-v12-dropdown'){ setTimeout(positionPopup,0); return; }
+      }
+    }
+  }).observe(document.documentElement,{childList:true,subtree:true});
+})();
+</script>
+
+
+
+<!-- CHOI PATCH: Organic add popup item-sheet linking only -->
+<style id="organic-item-sheet-link-only-style">
+#orgv14-add-modal .orgv14-product-row{position:relative;}
+#orgv14-add-modal .p-color[readonly]{background:var(--color-background-secondary);color:var(--color-text-secondary);}
+.orgv14-item-suggest{position:fixed;z-index:71000;display:none;min-width:260px;max-width:min(520px,90vw);max-height:240px;overflow:auto;padding:6px;background:var(--color-background-primary);border:.5px solid var(--color-border-secondary);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.18);}
+.orgv14-item-suggest.open{display:block;}
+.orgv14-item-suggest button{display:block;width:100%;border:0;background:transparent;text-align:left;padding:8px 10px;border-radius:7px;font:inherit;font-size:11px;color:var(--color-text-primary);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.orgv14-item-suggest button:hover{background:var(--color-background-secondary);}
+.orgv14-item-suggest .sub{display:block;margin-top:2px;color:var(--color-text-tertiary);font-size:10px;}
+</style>
+<script id="organic-item-sheet-link-only-script">
+(function(){
+  'use strict';
+  function clean(v){return String(v==null?'':v).trim();}
+  function norm(v){return clean(v).toLowerCase().replace(/\s+/g,'');}
+  function first(obj,keys){for(var i=0;i<keys.length;i++){var v=obj&&obj[keys[i]];if(v!==undefined&&v!==null&&clean(v)!=='')return v;}return '';}
+  function itemCode(it){return clean(first(it,['code','productCode','itemCode','상품 코드','상품코드']));}
+  function itemName(it){return clean(first(it,['name','productName','itemName','product','상품명','제품명']));}
+  function platformKey(p){p=norm(p);if(p==='무신사'||p==='musinsa')return'musinsa';if(p==='29cm'||p==='29')return'29cm';if(p==='자사몰'||p==='store'||p==='스토어')return'store';if(p==='offline'||p==='오프라인')return'offline';return p;}
+  function itemUid(it,platform){var k=platformKey(platform);if(k==='musinsa')return clean(first(it,['musinsaUid','musinsaUID','musinsa_uid','무신사 UID','무신사UID']))||((platformKey(it&&it.platform)==='musinsa')?clean(first(it,['uid','UID'])):'');if(k==='29cm')return clean(first(it,['cmUid','cmUID','cm_uid','29cmUid','29CMUid','29CM UID','29CMUID']))||((platformKey(it&&it.platform)==='29cm')?clean(first(it,['uid','UID'])):'');if(k==='store'||k==='offline')return clean(first(it,['storeUid','storeUID','store_uid','자사몰 UID','자사몰UID']))||((platformKey(it&&it.platform)===k)?clean(first(it,['uid','UID'])):'');return clean(first(it,['uid','UID']));}
+  function allUids(it){return ['무신사','29CM','자사몰','Offline'].map(function(p){return itemUid(it,p);}).filter(Boolean);}
+  function colorFromName(name){var m=clean(name).match(/\(([^()]*)\)\s*$/);return m?clean(m[1]):'';}
+  function pool(){return Array.isArray(window.products)?window.products:[];}
+  function findByUid(v,platform){var t=norm(v);if(!t)return null;return pool().find(function(it){var exact=itemUid(it,platform);if(norm(exact)===t)return true;return allUids(it).some(function(x){return norm(x)===t;});})||null;}
+  function findByCode(v){var t=norm(v);if(!t)return null;return pool().find(function(it){return norm(itemCode(it))===t;})||null;}
+  function findByName(v){var t=norm(v);if(!t)return null;return pool().find(function(it){return norm(itemName(it))===t;})||null;}
+  function apply(row,it){if(!row||!it)return;var platform=row.querySelector('.p-platform')?.value||'무신사';var name=itemName(it);row.querySelector('.p-uid').value=itemUid(it,platform)||'';row.querySelector('.p-code').value=itemCode(it)||'';row.querySelector('.p-name').value=name||'';row.querySelector('.p-color').value=colorFromName(name);}
+  function closeSuggest(){var el=document.getElementById('orgv14-item-suggest');if(el)el.classList.remove('open');}
+  function ensureSuggest(){var el=document.getElementById('orgv14-item-suggest');if(!el){el=document.createElement('div');el.id='orgv14-item-suggest';el.className='orgv14-item-suggest';document.body.appendChild(el);}return el;}
+  function openSuggest(input,row){var q=norm(input.value);var matches=pool().filter(function(it){return !q||norm(itemName(it)).indexOf(q)>-1||norm(itemCode(it)).indexOf(q)>-1;}).slice(0,12);var box=ensureSuggest();if(!matches.length){closeSuggest();return;}box.innerHTML=matches.map(function(it,idx){var n=itemName(it)||'-',c=itemCode(it)||'-';return '<button type="button" data-idx="'+idx+'">'+n+'<span class="sub">'+c+'</span></button>';}).join('');var r=input.getBoundingClientRect();var h=Math.min(240,matches.length*47+12);var top=(window.innerHeight-r.bottom>=h+8)?r.bottom+4:Math.max(8,r.top-h-4);box.style.left=Math.min(r.left,window.innerWidth-Math.max(r.width,300)-8)+'px';box.style.top=top+'px';box.style.width=Math.max(r.width,300)+'px';box.classList.add('open');box.querySelectorAll('button').forEach(function(btn){btn.addEventListener('mousedown',function(e){e.preventDefault();var it=matches[Number(btn.dataset.idx)];apply(row,it);closeSuggest();});});}
+  function bindRow(row){if(!row||row.dataset.itemLinked==='1')return;row.dataset.itemLinked='1';var platform=row.querySelector('.p-platform'),uid=row.querySelector('.p-uid'),code=row.querySelector('.p-code'),name=row.querySelector('.p-name'),color=row.querySelector('.p-color');if(!platform||!uid||!code||!name||!color)return;color.readOnly=true;color.value=color.value||colorFromName(name.value);
+    function syncUid(){var it=findByUid(uid.value,platform.value);if(it)apply(row,it);}
+    function syncCode(){var it=findByCode(code.value);if(it)apply(row,it);}
+    function syncName(){var it=findByName(name.value);if(it)apply(row,it);else color.value=colorFromName(name.value);}
+    uid.addEventListener('input',syncUid);uid.addEventListener('change',syncUid);uid.addEventListener('blur',syncUid);
+    code.addEventListener('input',syncCode);code.addEventListener('change',syncCode);code.addEventListener('blur',syncCode);
+    name.addEventListener('input',function(){color.value=colorFromName(name.value);openSuggest(name,row);});name.addEventListener('focus',function(){openSuggest(name,row);});name.addEventListener('change',syncName);name.addEventListener('blur',function(){setTimeout(function(){syncName();closeSuggest();},120);});
+    platform.addEventListener('change',function(){var it=findByCode(code.value)||findByName(name.value)||findByUid(uid.value,platform.value);if(it)apply(row,it);});
+  }
+  var previous=window.orgV14AddProductInput;
+  window.orgV14AddProductInput=function(p){
+    var wrap=document.getElementById('orgv14-add-products');var before=wrap?wrap.children.length:0;
+    if(typeof previous==='function')previous.apply(this,arguments);
+    setTimeout(function(){var rows=document.querySelectorAll('#orgv14-add-products .orgv14-product-row');var row=rows[before]||rows[rows.length-1];bindRow(row);},0);
+  };
+  function bindExisting(){document.querySelectorAll('#orgv14-add-products .orgv14-product-row').forEach(bindRow);}
+  var observer=new MutationObserver(bindExisting);
+  document.addEventListener('DOMContentLoaded',function(){var modal=document.getElementById('orgv14-add-modal');if(modal)observer.observe(modal,{childList:true,subtree:true});bindExisting();});
+  if(document.readyState!=='loading'){setTimeout(function(){var modal=document.getElementById('orgv14-add-modal');if(modal)observer.observe(modal,{childList:true,subtree:true});bindExisting();},0);}
+  document.addEventListener('mousedown',function(e){var box=document.getElementById('orgv14-item-suggest');if(box&&!box.contains(e.target)&&!e.target.classList.contains('p-name'))closeSuggest();});
+  window.addEventListener('scroll',closeSuggest,true);window.addEventListener('resize',closeSuggest);
+})();
+</script>
 </body>
 </html>
