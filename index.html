@@ -235,7 +235,11 @@
       });
     } catch(e) {
       console.error('Firebase 연결 실패:', e);
-      updateFirebaseStatus(false, e.message);
+      isFirebaseReady = false;
+      window.isFirebaseReady = false;
+      updateFirebaseStatus(false, e.message || String(e));
+      updateAuthUi(null);
+      updateAccessGate('guest', 'Firebase 인증 초기화에 실패했습니다. 새로고침 후 다시 로그인해주세요.');
     }
   }
 
@@ -604,11 +608,21 @@
       // firebase CDN 아직 로드 중 → 100ms 후 재시도
       setTimeout(function() { tryInitFirebase(attempts + 1); }, 100);
     } else {
-      console.log('ℹ️ Firebase/Auth 미연결 — 로그인이 필요하므로 대시보드를 표시하지 않습니다.');
-      updateFirebaseStatus(false, 'Firebase/Auth SDK 로드 실패 — 로그인할 수 없습니다.');
+      console.log('ℹ️ Firebase/Auth 미연결 — SDK 로드 실패');
+      updateFirebaseStatus(false, 'Firebase/Auth SDK 로드 실패 — 네트워크 또는 CDN 연결을 확인해주세요.');
       updateAuthUi(null);
+      updateAccessGate('guest', 'Firebase 로그인 모듈을 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 새로고침해주세요.');
     }
   }
+
+  // 인증 응답이 오지 않아 checking 상태가 무한 유지되는 것을 방지
+  setTimeout(function() {
+    if (document.documentElement.getAttribute('data-auth-state') === 'checking') {
+      updateFirebaseStatus(false, '로그인 확인 시간이 초과되었습니다.');
+      updateAuthUi(null);
+      updateAccessGate('guest', '로그인 확인이 지연되고 있습니다. 아래 버튼으로 다시 로그인해주세요.');
+    }
+  }, 8000);
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() { tryInitFirebase(); });
