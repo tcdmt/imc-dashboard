@@ -24540,5 +24540,114 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
   setTimeout(function(){applyStoreToRows(window.creators||[],readStore());startRemoteLoad();},0);
 })();
 </script>
+
+<!-- CHOI PATCH: Organic v14 add popup Item sheet linkage only -->
+<style id="organic-v14-item-sheet-link-fix-style">
+#orgv14-add-modal .orgv14-product-row{
+  grid-template-columns:96px minmax(120px,1fr) minmax(130px,1fr) minmax(240px,2fr) minmax(105px,1fr) 28px!important;
+  overflow:visible!important;
+}
+#orgv14-add-modal .orgv14-item-name-wrap{position:relative;min-width:0;overflow:visible;}
+#orgv14-add-modal .orgv14-item-name-wrap .p-name{width:100%;}
+#orgv14-item-suggest{
+  position:fixed;z-index:90000;display:none;max-height:270px;overflow:auto;
+  background:var(--color-background-primary,#fff);border:.5px solid var(--color-border-secondary,rgba(0,0,0,.18));
+  border-radius:10px;box-shadow:0 12px 34px rgba(0,0,0,.18);padding:6px;min-width:320px;
+}
+#orgv14-item-suggest.open{display:block;}
+#orgv14-item-suggest .orgv14-item-option{padding:8px 10px;border-radius:7px;cursor:pointer;line-height:1.35;}
+#orgv14-item-suggest .orgv14-item-option:hover{background:var(--color-background-secondary,#f5f5f4);}
+#orgv14-item-suggest .orgv14-item-option-name{font-size:11px;font-weight:600;color:var(--color-text-primary,#1a1a19);}
+#orgv14-item-suggest .orgv14-item-option-meta{font-size:10px;color:var(--color-text-tertiary,#9c9a92);margin-top:2px;}
+</style>
+<script id="organic-v14-item-sheet-link-fix-script">
+(function(){
+  'use strict';
+  function clean(v){return String(v==null?'':v).trim();}
+  function norm(v){return clean(v).toLowerCase().replace(/\s+/g,'');}
+  function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function firstVal(o,keys){o=o||{};for(var i=0;i<keys.length;i++){var v=o[keys[i]];if(v!==undefined&&v!==null&&clean(v)!=='')return v;}return '';}
+  function platformKey(v){var s=norm(v);if(s==='무신사'||s.indexOf('musinsa')>-1)return'musinsa';if(s==='29cm'||s.indexOf('29')>-1)return'cm';if(s==='자사몰'||s.indexOf('store')>-1||s.indexOf('shop')>-1)return'store';return s;}
+  function itemCode(p){return clean(firstVal(p,['code','productCode','itemCode','상품코드','상품 코드']));}
+  function itemName(p){return clean(firstVal(p,['name','product','productName','itemName','상품명','제품명']));}
+  function itemUid(p,platform){
+    var k=platformKey(platform),v='';
+    if(k==='musinsa')v=firstVal(p,['musinsaUid','musinsaUID','musinsa_uid','무신사 UID','무신사UID']);
+    else if(k==='cm')v=firstVal(p,['cmUid','cmUID','cm_uid','29cmUid','29CMUid','29CM UID','29CMUID']);
+    else if(k==='store')v=firstVal(p,['storeUid','storeUID','store_uid','자사몰 UID','자사몰UID']);
+    return clean(v||firstVal(p,['uid','UID']));
+  }
+  function colorFromName(name){var m=String(name||'').match(/\(([^()]*)\)\s*$/);return m?m[1].trim():'';}
+  function exactFind(value,platform,field){
+    var q=norm(value);if(!q)return null;
+    return (window.products||[]).find(function(p){
+      if(field==='uid')return norm(itemUid(p,platform))===q;
+      if(field==='code')return norm(itemCode(p))===q;
+      return norm(itemName(p))===q;
+    })||null;
+  }
+  function searchItems(value,platform){
+    var q=norm(value);
+    return (window.products||[]).filter(function(p){
+      var n=norm(itemName(p)),c=norm(itemCode(p)),u=norm(itemUid(p,platform));
+      return !q||n.indexOf(q)>-1||c.indexOf(q)>-1||u.indexOf(q)>-1;
+    }).slice(0,30);
+  }
+  function applyItem(row,item){
+    if(!row||!item)return;
+    var platform=row.querySelector('.p-platform').value||'무신사';
+    var name=itemName(item);
+    row.querySelector('.p-uid').value=itemUid(item,platform)||'';
+    row.querySelector('.p-code').value=itemCode(item)||'';
+    row.querySelector('.p-name').value=name||'';
+    row.querySelector('.p-color').value=colorFromName(name)||'';
+  }
+  function syncExact(row,field,value){
+    var platform=row.querySelector('.p-platform').value||'무신사';
+    var item=exactFind(value,platform,field);
+    if(item)applyItem(row,item);
+    else if(field==='name')row.querySelector('.p-color').value=colorFromName(value)||'';
+    return item;
+  }
+  function suggestEl(){var el=document.getElementById('orgv14-item-suggest');if(!el){el=document.createElement('div');el.id='orgv14-item-suggest';document.body.appendChild(el);}return el;}
+  function closeSuggest(){var el=document.getElementById('orgv14-item-suggest');if(el){el.classList.remove('open');el.innerHTML='';}}
+  function openSuggest(input,row){
+    var platform=row.querySelector('.p-platform').value||'무신사';
+    var list=searchItems(input.value,platform);if(!list.length){closeSuggest();return;}
+    var pop=suggestEl(),r=input.getBoundingClientRect(),h=Math.min(270,list.length*48+12),below=window.innerHeight-r.bottom-8,above=r.top-8;
+    var top=(below<h&&above>below)?Math.max(8,r.top-h-4):Math.min(window.innerHeight-h-8,r.bottom+4);
+    var width=Math.max(340,r.width),left=Math.min(Math.max(8,r.left),window.innerWidth-width-8);
+    pop.style.top=Math.round(top)+'px';pop.style.left=Math.round(left)+'px';pop.style.width=Math.round(width)+'px';
+    pop.innerHTML=list.map(function(p,i){return '<div class="orgv14-item-option" data-i="'+i+'"><div class="orgv14-item-option-name">'+esc(itemName(p)||'-')+'</div><div class="orgv14-item-option-meta">'+esc([itemCode(p),itemUid(p,platform)].filter(Boolean).join(' · '))+'</div></div>';}).join('');
+    pop.classList.add('open');
+    Array.from(pop.children).forEach(function(opt,i){opt.addEventListener('mousedown',function(e){e.preventDefault();applyItem(row,list[i]);closeSuggest();});});
+  }
+  window.orgV14AddProductInput=function(p){
+    p=p||{};var wrap=document.getElementById('orgv14-add-products');if(!wrap)return;
+    var row=document.createElement('div');row.className='orgv14-product-row';
+    row.innerHTML='<select class="p-platform"><option>무신사</option><option>29CM</option><option>자사몰</option><option>Offline</option><option>발매</option></select>'+
+      '<input class="p-uid" placeholder="UID" value="'+esc(p.uid||'')+'">'+
+      '<input class="p-code" placeholder="상품 코드" value="'+esc(p.code||'')+'">'+
+      '<div class="orgv14-item-name-wrap"><input class="p-name" placeholder="상품명 검색/선택" autocomplete="off" value="'+esc(p.name||p.product||'')+'"></div>'+
+      '<input class="p-color" placeholder="컬러 자동" readonly value="'+esc(p.color||colorFromName(p.name||p.product||''))+'">'+
+      '<button class="imc-list-delete-btn" type="button" onclick="this.parentElement.remove()">×</button>';
+    wrap.appendChild(row);
+    var platform=row.querySelector('.p-platform'),uid=row.querySelector('.p-uid'),code=row.querySelector('.p-code'),name=row.querySelector('.p-name'),color=row.querySelector('.p-color');
+    platform.value=(p.platform||'무신사');
+    function syncUid(){syncExact(row,'uid',uid.value);}
+    function syncCode(){syncExact(row,'code',code.value);}
+    uid.addEventListener('input',syncUid);uid.addEventListener('change',syncUid);uid.addEventListener('blur',syncUid);
+    code.addEventListener('input',syncCode);code.addEventListener('change',syncCode);code.addEventListener('blur',syncCode);
+    name.addEventListener('focus',function(){openSuggest(name,row);});
+    name.addEventListener('input',function(){color.value=colorFromName(name.value)||'';syncExact(row,'name',name.value);openSuggest(name,row);});
+    name.addEventListener('change',function(){syncExact(row,'name',name.value);closeSuggest();});
+    name.addEventListener('blur',function(){setTimeout(closeSuggest,120);syncExact(row,'name',name.value);});
+    platform.addEventListener('change',function(){var value=uid.value||code.value||name.value;var field=uid.value?'uid':(code.value?'code':'name');if(value)syncExact(row,field,value);});
+  };
+  document.addEventListener('mousedown',function(e){var pop=document.getElementById('orgv14-item-suggest');if(pop&&pop.classList.contains('open')&&!pop.contains(e.target)&&!e.target.classList.contains('p-name'))closeSuggest();},true);
+  window.addEventListener('scroll',closeSuggest,true);window.addEventListener('resize',closeSuggest);
+})();
+</script>
+
 </body>
 </html>
