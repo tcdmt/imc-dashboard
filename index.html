@@ -529,9 +529,7 @@
         if (window.seedRender)          window.seedRender();
         if (window.celebRender)         window.celebRender();
         if (window.orgRender)           window.orgRender();
-        if (window.buildCal)            window.buildCal();
-        if (window.ovRender)            window.ovRender(window._ovCurrentView || 'total');
-      }, 0);
+        if (window.buildCal)            window.buildCal();      }, 0);
 
     } catch(e) {
       console.error('데이터 로드 실패:', e);
@@ -822,49 +820,6 @@ tr:hover td{background:var(--color-background-secondary);}
 .badge-up{background:#eaf6f0;color:#1e7a4a;}
 .badge-dn{background:#fdf0ef;color:#b0392b;}
 
-/* ── Overview 탭 스타일 ── */
-.ov-pbtn{font-size:11px;padding:5px 12px;border-radius:20px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer;transition:all .15s;font-family:inherit;}
-.ov-pbtn:hover{border-color:var(--color-border-primary);color:var(--color-text-primary);}
-.ov-pbtn.active{background:var(--color-text-primary);color:var(--color-background-primary);border-color:var(--color-text-primary);}
-/* 서브 버튼 (온라인/오프라인 하위) */
-.ov-sbtn{font-size:11px;padding:4px 10px;border-radius:20px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer;transition:all .15s;font-family:inherit;}
-.ov-sbtn:hover{border-color:var(--color-border-primary);color:var(--color-text-primary);}
-.ov-sbtn.active{background:#185FA5;color:#fff;border-color:#185FA5;}
-/* ── Seeding 상태 뱃지 ── */
-.seed-badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500;white-space:nowrap;}
-.seed-컨택{background:#EFF6FF;color:#1E3A8A;}
-.seed-회신{background:#FEF3C7;color:#92400E;}
-.seed-거절{background:#FEF2F2;color:#991B1B;}
-.seed-취합{background:#F0FDF4;color:#166534;}
-.seed-발송{background:#EDE9FE;color:#5B21B6;}
-.seed-업로드{background:#ECFDF5;color:#065F46;}
-.seed-스냅{background:#FFF7ED;color:#9A3412;}
-/* ── Seeding 플로우 ── */
-.seed-flow-step{display:flex;flex-direction:column;align-items:center;gap:4px;}
-.seed-flow-dot{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;}
-.seed-flow-dot.done{background:var(--color-background-secondary);color:var(--color-text-tertiary);border:0.5px solid var(--color-border-secondary);}
-.seed-flow-dot.current{background:var(--color-text-primary);color:var(--color-background-primary);box-shadow:0 0 0 3px rgba(0,0,0,.12);}
-.seed-flow-dot.pending{background:var(--color-background-secondary);color:var(--color-text-tertiary);border:0.5px solid var(--color-border-secondary);}
-.seed-flow-label{font-size:9px;color:var(--color-text-tertiary);}
-.seed-flow-arrow{color:var(--color-text-tertiary);font-size:14px;margin-bottom:14px;}
-/* ── Organic 피드 카드 ── */
-.org-feed-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:10px;overflow:hidden;}
-.org-feed-thumb{height:90px;display:flex;align-items:center;justify-content:center;font-size:28px;background:var(--color-background-secondary);}
-.org-feed-body{padding:10px;}
-.org-feed-handle{font-size:11px;font-weight:600;margin-bottom:3px;}
-.org-feed-caption{font-size:10px;color:var(--color-text-secondary);margin-bottom:6px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-.org-feed-stats{display:flex;gap:8px;font-size:10px;color:var(--color-text-tertiary);}
-/* ── 오가닉 출처 뱃지 ── */
-.org-auto{background:#EAF3DE;color:#2d8c5a;font-size:9px;padding:1px 5px;border-radius:10px;}
-.org-manual{background:#FEF3C7;color:#d97706;font-size:9px;padding:1px 5px;border-radius:10px;}
-/* 키워드 태그 */
-.org-kw-tag{background:#185FA5;color:#fff;padding:3px 10px;border-radius:20px;font-size:11px;display:flex;align-items:center;gap:5px;}
-.org-kw-tag span{cursor:pointer;opacity:.6;font-size:13px;line-height:1;}
-.org-kw-tag span:hover{opacity:1;}
-.org-kw-ig{background:#C13584;}
-.org-kw-x{background:#1a1a1a;}
-
-/* ── Feedback 탭 필터 버튼 ── */
 /* ff-mbtn: Overview 월 선택과 동일한 스타일 */
 .ff-mbtn{font-size:11px;padding:4px 11px;border-radius:6px;border:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);color:var(--color-text-secondary);cursor:pointer;transition:all .12s;font-family:inherit;font-weight:400;}
 .ff-mbtn:hover{background:var(--color-background-primary);border-color:var(--color-border-secondary);color:var(--color-text-primary);}
@@ -873,70 +828,14 @@ tr:hover td{background:var(--color-background-secondary);}
 .ff-pbtn{font-size:11px;padding:5px 12px;border-radius:20px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer;transition:all .15s;font-family:inherit;}
 .ff-pbtn:hover{border-color:var(--color-text-tertiary);color:var(--color-text-primary);}
 .ff-pbtn.active{background:var(--color-text-primary);color:var(--color-background-primary);border-color:var(--color-text-primary);}
-.ov-card{background:var(--color-background-secondary);border-radius:10px;padding:14px 16px;border:0.5px solid var(--color-border-tertiary);}
-.ov-card-label{font-size:10px;font-weight:500;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;}
-.ov-card-val{font-size:22px;font-weight:700;color:var(--color-text-primary);line-height:1.1;}
-.ov-card-sub{font-size:10px;color:var(--color-text-tertiary);margin-top:4px;}
-.ov-quarter{background:var(--color-background-primary);border-radius:10px;border:0.5px solid var(--color-border-tertiary);overflow:hidden;}
-.ov-quarter-header{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer;transition:background .15s;}
-.ov-quarter-header:hover{background:var(--color-background-secondary);}
-.ov-quarter-body{display:none;padding:0 14px 12px;border-top:0.5px solid var(--color-border-tertiary);}
-.ov-quarter-body.open{display:block;}
-.ov-ifbtn{font-size:11px;padding:4px 10px;border-radius:20px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer;}
-.ov-ifbtn.active{background:#185FA5;color:#fff;border-color:#185FA5;}
-.ov-ifbtn.multi-active{background:#2d8c5a;color:#fff;border-color:#2d8c5a;}
-/* ── Overview 중분류 탭 ── */
-.ov-stab{padding:8px 18px;border:none;background:transparent;font-size:12px;font-weight:500;color:var(--color-text-tertiary);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1.5px;transition:all .15s;font-family:inherit;}
-.ov-stab:hover{color:var(--color-text-primary);}
-.ov-stab.active{color:var(--color-text-primary);border-bottom-color:var(--color-text-primary);font-weight:600;}
-.ov-subpage{animation:fadeIn .2s ease;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
 /* 분기 카드 개선 */
-.ov-q-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 0 4px;}
-.ov-q-month{background:var(--color-background-secondary);border-radius:10px;padding:14px;position:relative;}
-.ov-q-month-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
-.ov-q-month-name{font-size:12px;font-weight:700;color:var(--color-text-secondary);}
-.ov-q-month-ach-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;}
-.ov-q-month-sales{font-size:17px;font-weight:700;color:var(--color-text-primary);margin-bottom:4px;}
-.ov-q-month-target{font-size:10px;color:var(--color-text-tertiary);margin-bottom:8px;}
-.ov-q-month-bar{height:5px;background:var(--color-border-tertiary);border-radius:3px;margin-bottom:10px;overflow:hidden;}
-.ov-q-month-bar-fill{height:100%;border-radius:3px;transition:width .6s ease;}
-.ov-q-month-mkt-row{display:flex;align-items:center;justify-content:space-between;background:var(--color-background-primary);border-radius:6px;padding:6px 8px;border:0.5px solid var(--color-border-tertiary);}
-.ov-q-month-mkt-label{font-size:9px;color:var(--color-text-tertiary);font-weight:500;}
-.ov-q-month-mkt-val{font-size:11px;font-weight:600;color:var(--color-text-secondary);}
-.ov-q-month-mkt-ratio{font-size:10px;font-weight:600;}
 /* 분기 세부 내역 */
-.ov-q-detail{margin-top:12px;padding-top:12px;border-top:0.5px solid var(--color-border-tertiary);}
-.ov-q-detail-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
-.ov-q-detail-card{background:var(--color-background-primary);border-radius:8px;padding:10px;border:0.5px solid var(--color-border-tertiary);text-align:center;}
-.ov-q-detail-label{font-size:9px;color:var(--color-text-tertiary);margin-bottom:4px;}
-.ov-q-detail-val{font-size:13px;font-weight:700;}
 /* 채널 KPI */
 .ch-kpi-card{background:var(--color-background-secondary);border-radius:8px;padding:10px 12px;border-left:3px solid #5584f1;}
 
 
 
-/* ── Overview 탭 ── */
-.ov-vbtn{font-size:11px;padding:5px 12px;border-radius:20px;border:0.5px solid var(--color-border-secondary);background:transparent;color:var(--color-text-secondary);cursor:pointer;font-family:inherit;transition:all .15s;}
-.ov-vbtn:hover{background:var(--color-background-secondary);}
-.ov-vbtn.active{background:var(--color-text-primary);color:var(--color-background-primary);border-color:var(--color-text-primary);}
-.ov-kpi-card{background:var(--color-background-secondary);border-radius:12px;padding:16px 18px;}
-.ov-kpi-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--color-text-tertiary);margin-bottom:6px;}
-.ov-kpi-val{font-size:24px;font-weight:700;color:var(--color-text-primary);letter-spacing:-.5px;line-height:1.1;}
-.ov-kpi-sub{font-size:11px;color:var(--color-text-tertiary);margin-top:4px;}
-.ov-kpi-badge{display:inline-flex;align-items:center;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-top:6px;}
-.ov-tbl th{text-align:left;padding:8px 10px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--color-text-tertiary);border-bottom:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);}
-.ov-tbl td{padding:9px 10px;border-bottom:0.5px solid var(--color-border-tertiary);font-size:12px;color:var(--color-text-primary);}
-.ov-tbl tr:last-child td{border-bottom:none;}
-.ov-tbl td.r{text-align:right;}
-.ov-badge-good{background:#EAF3DE;color:#3B6D11;}
-.ov-badge-warn{background:#FFF3CD;color:#856404;}
-.ov-badge-bad{background:#FCEBEB;color:#A32D2D;}
-.ov-bar-wrap{display:flex;align-items:center;gap:10px;}
-.ov-bar-name{width:100px;font-size:11px;color:var(--color-text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0;}
-.ov-bar-track{flex:1;background:var(--color-background-secondary);border-radius:3px;height:20px;overflow:hidden;}
-.ov-bar-fill{height:100%;border-radius:3px;display:flex;align-items:center;padding:0 8px;font-size:10px;font-weight:600;color:#fff;transition:width .5s ease;}
-.ov-bar-stat{width:90px;font-size:11px;text-align:right;color:var(--color-text-secondary);flex-shrink:0;}
 
 /* ── 더블클릭 편집 셀 ── */
 .dc-cell{display:block;width:100%;min-height:22px;padding:3px 6px;cursor:default;border-radius:var(--border-radius-sm);font-size:11.5px;color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box;line-height:1.5;}
@@ -1018,22 +917,18 @@ button.delete-btn:hover,.delete-btn:hover{background:#fff5f5!important;}
 
 
 <style id="overview-v24-filter-restore">
-#ov-common-date-box .slicer-box{
   display:flex!important;
   flex-wrap:wrap!important;
   align-items:center!important;
   gap:12px!important;
 }
-#ov-month-chips{
   display:flex!important;
   flex-wrap:wrap!important;
   gap:4px!important;
 }
-#ov-main-btns{
   display:flex!important;
   gap:5px!important;
 }
-#ov-sub-btns{
   align-items:center!important;
 }
 </style>
@@ -1755,13 +1650,6 @@ html[data-user-role="viewer"] [data-delete]{opacity:.35!important;cursor:not-all
 
 
 <style id="overview-v39-platform-dropdown-filter">
-#ov-main-btns{position:relative!important;display:flex!important;gap:5px!important;align-items:center!important;}
-#ov-sub-btns{display:none!important;}
-.ov-platform-menu{position:absolute;top:calc(100% + 6px);left:0;min-width:180px;max-height:240px;overflow-y:auto;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.14);padding:6px;z-index:120;display:none;}
-.ov-platform-menu.open{display:block;}
-.ov-platform-option{width:100%;border:0;background:transparent;color:var(--color-text-secondary);font-family:inherit;font-size:11px;text-align:left;padding:7px 10px;border-radius:7px;cursor:pointer;white-space:nowrap;}
-.ov-platform-option:hover{background:var(--color-background-secondary);color:var(--color-text-primary);}
-.ov-platform-option.active{background:#185FA5;color:#fff;}
 </style>
 
 
@@ -1908,274 +1796,6 @@ html[data-user-role="viewer"] [data-delete]{opacity:.35!important;cursor:not-all
 
 
 <!-- OVERVIEW -->
-<div id="pg-overview" style="display:none;padding:0 0 32px;">
-
-
-<!-- ── 공통 필터 (날짜 + 채널) ── -->
-<div id="ov-common-date-box" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
-  <div class="slicer-box" style="margin-bottom:0;">
-    <div class="slicer-group">
-      <div class="slicer-label">📅 날짜 범위</div>
-      <div class="date-inputs">
-        <input type="date" id="ov-date-from" onchange="ovCommonDateChange()">
-        <span style="color:var(--color-text-tertiary)">~</span>
-        <input type="date" id="ov-date-to" onchange="ovCommonDateChange()">
-        <button onclick="ovApplyCommonDate()" style="font-size:11px;padding:3px 10px;border-radius:5px;border:none;background:#185FA5;color:#fff;cursor:pointer;font-weight:500;margin-left:2px;">적용</button>
-      </div>
-    </div>
-
-    <div class="slicer-div"></div>
-
-    <div class="slicer-group">
-      <div class="slicer-label">⚡ 분기별</div>
-      <div style="display:flex;gap:4px;" id="ov-quick-chips">
-        <div class="chip" onclick="ovQuickDate('q1',this)">1분기</div>
-        <div class="chip" onclick="ovQuickDate('q2',this)">2분기</div>
-        <div class="chip" onclick="ovQuickDate('q3',this)">3분기</div>
-        <div class="chip" onclick="ovQuickDate('q4',this)">4분기</div>
-        <div class="chip active" onclick="ovQuickDate('ytd',this)">YTD</div>
-      </div>
-    </div>
-
-    <div class="slicer-div"></div>
-
-    <div class="slicer-group">
-      <div class="slicer-label">📆 월 선택</div>
-      <div style="display:flex;gap:4px;flex-wrap:wrap;" id="ov-month-chips">
-        <div class="chip active" onclick="ovQuickMonth('all',this)">전체</div>
-        <div class="chip" onclick="ovQuickMonth('2026-01',this)">1월</div>
-        <div class="chip" onclick="ovQuickMonth('2026-02',this)">2월</div>
-        <div class="chip" onclick="ovQuickMonth('2026-03',this)">3월</div>
-        <div class="chip" onclick="ovQuickMonth('2026-04',this)">4월</div>
-        <div class="chip" onclick="ovQuickMonth('2026-05',this)">5월</div>
-        <div class="chip" onclick="ovQuickMonth('2026-06',this)">6월</div>
-        <div class="chip" onclick="ovQuickMonth('2026-07',this)">7월</div>
-        <div class="chip" onclick="ovQuickMonth('2026-08',this)">8월</div>
-        <div class="chip" onclick="ovQuickMonth('2026-09',this)">9월</div>
-        <div class="chip" onclick="ovQuickMonth('2026-10',this)">10월</div>
-        <div class="chip" onclick="ovQuickMonth('2026-11',this)">11월</div>
-        <div class="chip" onclick="ovQuickMonth('2026-12',this)">12월</div>
-      </div>
-    </div>
-
-    <div class="slicer-div"></div>
-
-    <div class="slicer-group">
-      <div class="slicer-label">📊 플랫폼 구분</div>
-      <div style="display:flex;gap:5px;position:relative;" id="ov-main-btns">
-        <button class="ov-pbtn active" data-main="total"   onclick="ovMainFilter(this,'total')">전체</button>
-        <button class="ov-pbtn"        data-main="online"  onclick="ovMainFilter(this,'online')">온라인 ▾</button>
-        <button class="ov-pbtn"        data-main="offline" onclick="ovMainFilter(this,'offline')">오프라인 ▾</button>
-        <div id="ov-platform-menu" class="ov-platform-menu"></div>
-      </div>
-    </div>
-
-    <div id="ov-sub-btns" style="display:none;"></div>
-  </div>
-</div>
-
-<!-- ── 상단 고정 KPI 요약 ── -->
-<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px;" id="ov-kpi-wrap">
-  <div class="ov-card"><div class="ov-card-label">실 매출</div><div class="ov-card-val" id="ov-ytd-sales">-</div><div class="ov-card-sub" id="ov-ytd-sub">-</div></div>
-  <div class="ov-card"><div class="ov-card-label">마케팅 비용</div><div class="ov-card-val" id="ov-mkt-cost">-</div><div class="ov-card-sub" id="ov-mkt-sub">Budget Daily Spend 기준</div></div>
-  <div class="ov-card"><div class="ov-card-label">마케팅 비중</div><div class="ov-card-val" id="ov-mkt-ratio">-</div><div class="ov-card-sub">실매출 대비</div></div>
-  <div class="ov-card"><div class="ov-card-label">ROI</div><div class="ov-card-val" id="ov-roi">-</div><div class="ov-card-sub">순이익 / 마케팅비용</div></div>
-  <div class="ov-card"><div class="ov-card-label">목표 달성률</div><div class="ov-card-val" id="ov-ytd-ach">-</div><div class="ov-card-sub" id="ov-ytd-ach-sub">-</div></div>
-</div>
-
-<!-- ── 중분류 탭 ── -->
-<div style="display:flex;gap:0;border-bottom:1.5px solid var(--color-border-tertiary);margin-bottom:20px;" id="ov-sub-tabs">
-  <button class="ov-stab active" data-st="annual"  onclick="ovSubTab(this,'annual')">Annual</button>
-  <button class="ov-stab"        data-st="monthly" onclick="ovSubTab(this,'monthly')">Monthly</button>
-  <button class="ov-stab"        data-st="promo"   onclick="ovSubTab(this,'promo')">Promotion</button>
-  <button class="ov-stab"        data-st="item"    onclick="ovSubTab(this,'item')">Product</button>
-</div>
-
-<!-- ════ 중분류 01: 연간 ════ -->
-
-  <!-- ── 채널 필터 버튼 (중분류탭 아래) ── -->
-
-
-  <div id="ovp-annual" class="ov-subpage">
-  <!-- 연간 추이 + 채널 파이 -->
-  <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:14px;margin-bottom:16px;">
-    <div style="background:var(--color-background-primary);border-radius:12px;border:0.5px solid var(--color-border-tertiary);padding:18px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-        <div style="font-size:12px;font-weight:600;color:var(--color-text-primary);">연간 추이</div>
-        <div style="display:flex;gap:10px;font-size:10px;color:var(--color-text-tertiary);">
-          <span><span style="display:inline-block;width:10px;height:10px;background:#5584f1;border-radius:2px;margin-right:3px;"></span>실매출</span>
-          <span><span style="display:inline-block;width:10px;height:10px;background:rgba(244,190,40,0.5);border-radius:2px;margin-right:3px;"></span>목표</span>
-          <span><span style="display:inline-block;width:18px;height:2px;background:#e04e3c;vertical-align:middle;margin-right:3px;"></span>마케팅비율</span>
-        </div>
-      </div>
-      <div style="position:relative;height:190px;"><canvas id="ov-annual-chart"></canvas></div>
-    </div>
-    <div style="background:var(--color-background-primary);border-radius:12px;border:0.5px solid var(--color-border-tertiary);padding:18px;">
-      <div style="font-size:12px;font-weight:600;color:var(--color-text-primary);margin-bottom:12px;">채널별 매출 비중</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center;">
-        <div style="position:relative;height:170px;"><canvas id="ov-pie-chart"></canvas></div>
-        <div id="ov-pie-legend" style="display:flex;flex-direction:column;gap:5px;font-size:10px;"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 분기별 아코디언 (제목 없음, 이미지 스타일) -->
-  <div style="display:flex;flex-direction:column;gap:8px;" id="ov-quarters"></div>
-</div>
-
-<!-- ════ 중분류 02: 월간 ════ -->
-<div id="ovp-monthly" class="ov-subpage" style="display:none;">
-
-  <div style="background:var(--color-background-primary);border-radius:12px;border:0.5px solid var(--color-border-tertiary);padding:18px;margin-bottom:14px;">
-    <div style="font-size:12px;font-weight:600;color:var(--color-text-primary);margin-bottom:12px;">월별 추이</div>
-    <div style="position:relative;height:180px;margin-bottom:14px;"><canvas id="ov-monthly-chart"></canvas></div>
-    <!-- 마케팅 비용 내역 + 월별 실적표 합침 -->
-    <div style="border-top:0.5px solid var(--color-border-tertiary);padding-top:12px;">
-      <button onclick="ovToggleMktDetail(this)" style="font-size:11px;padding:4px 12px;border-radius:20px;border:0.5px solid var(--color-border-secondary);background:transparent;color:var(--color-text-secondary);cursor:pointer;margin-bottom:12px;">
-        💰 마케팅 세부 내역 ▾
-      </button>
-      <div id="ov-mkt-detail" style="display:none;overflow-x:auto;margin-bottom:12px;">
-        <table style="width:100%;font-size:11px;border-collapse:collapse;white-space:nowrap;">
-          <thead><tr style="background:var(--color-background-secondary);">
-            <th style="padding:6px 8px;text-align:left;color:var(--color-text-tertiary);">월</th>
-            <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">Meta</th>
-            <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">Paid</th>
-            <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">CRM</th>
-            <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">Influencer</th>
-            <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">Earned Media</th>
-            <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">ETC</th>
-            <th style="padding:6px 8px;text-align:right;font-weight:600;color:var(--color-text-secondary);">합계</th>
-            <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">목표 매출</th>
-            <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">실제 매출</th>
-            <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">마케팅 비중</th>
-            <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">이익율</th>
-            <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">달성율</th>
-            <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">목표차이</th>
-          </tr></thead>
-          <tbody id="ov-mkt-tbody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-  <!-- 채널 월별 실적표 -->
-  <div style="background:var(--color-background-primary);border-radius:12px;border:0.5px solid var(--color-border-tertiary);padding:18px;">
-    <div style="display:flex;align-items:center;margin-bottom:12px;">
-      <div style="font-size:12px;font-weight:600;color:var(--color-text-primary);">채널</div>
-    </div>
-    <div style="overflow-x:auto;">
-      <table style="width:100%;font-size:11px;border-collapse:collapse;white-space:nowrap;" id="ov-channel-monthly-table">
-        <thead><tr style="background:var(--color-background-secondary);">
-          <th style="padding:6px 8px;text-align:left;color:var(--color-text-tertiary);position:sticky;left:0;background:var(--color-background-secondary);">브랜드</th>
-          <th style="padding:6px 8px;text-align:left;color:var(--color-text-tertiary);position:sticky;left:50px;background:var(--color-background-secondary);">채널</th>
-          <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">1월</th>
-          <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">2월</th>
-          <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">3월</th>
-          <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">4월</th>
-          <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">5월</th>
-          <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">6월</th>
-          <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">7월</th>
-          <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">8월</th>
-          <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">9월</th>
-          <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">10월</th>
-          <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">11월</th>
-          <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">12월</th>
-          <th style="padding:6px 8px;text-align:right;font-weight:600;color:var(--color-text-secondary);background:#EFF6FF;">누적실적</th>
-          <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);background:#EFF6FF;">누적마케팅</th>
-          <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);background:#EFF6FF;">마케팅비중</th>
-          <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);background:#EFF6FF;">ROI</th>
-          <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);background:#EFF6FF;">달성률</th>
-        </tr></thead>
-        <tbody id="ov-channel-monthly-tbody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- 채널별 거래액 세부 내역은 채널 카드로 통합됨 -->
-</div>
-
-
-<!-- ════ 중분류 04: 프로모션 ════ -->
-<div id="ovp-promo" class="ov-subpage" style="display:none;">
-  <!-- 프로모션 필터 (날짜는 Overview 공통 날짜 사용) -->
-  <div class="slicer-box" style="margin-bottom:14px;">
-    <div class="slicer-group">
-      <div class="slicer-label">🔍 프로모션 검색</div>
-      <input type="text" id="promo-search" placeholder="검색..." oninput="ovBuildPromoChart()"
-        style="font-size:11px;padding:3px 8px;border-radius:5px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);outline:none;min-width:180px;">
-    </div>
-  </div>
-  <div style="background:var(--color-background-primary);border-radius:12px;border:0.5px solid var(--color-border-tertiary);padding:18px;margin-bottom:14px;">
-    <div style="font-size:12px;font-weight:600;color:var(--color-text-primary);margin-bottom:12px;">프로모션별 성과</div>
-    <div style="display:flex;gap:10px;font-size:10px;color:var(--color-text-tertiary);margin-bottom:10px;">
-      <span><span style="display:inline-block;width:10px;height:10px;background:rgba(85,132,241,0.5);border-radius:2px;margin-right:3px;"></span>마케팅 비용(좌)</span>
-      <span><span style="display:inline-block;width:10px;height:10px;background:rgba(244,190,40,0.5);border-radius:2px;margin-right:3px;"></span>매출(우)</span>
-      <span><span style="display:inline-block;width:18px;height:2px;background:#e04e3c;vertical-align:middle;margin-right:3px;"></span>ROAS</span>
-    </div>
-    <div style="position:relative;height:180px;"><canvas id="ov-promo-chart"></canvas></div>
-  </div>
-  <div style="background:var(--color-background-primary);border-radius:12px;border:0.5px solid var(--color-border-tertiary);padding:18px;">
-    <div style="font-size:12px;font-weight:600;color:var(--color-text-primary);margin-bottom:12px;">프로모션 세부 내역</div>
-    <div style="overflow-x:auto;">
-      <table style="width:100%;font-size:11px;border-collapse:collapse;white-space:nowrap;">
-        <thead><tr style="background:var(--color-background-secondary);">
-          <th style="padding:6px 8px;text-align:left;color:var(--color-text-tertiary);">플랫폼</th>
-          <th style="padding:6px 8px;text-align:left;color:var(--color-text-tertiary);">프로모션</th>
-          <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">판매 수량</th>
-          <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">판매 금액</th>
-          <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">Meta</th>
-          <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">Paid</th>
-          <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">CRM</th>
-          <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">Influencer</th>
-          <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">Earned Media</th>
-          <th style="padding:6px 8px;text-align:right;font-weight:600;color:var(--color-text-secondary);">총 마케팅비</th>
-          <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">ROAS</th>
-        </tr></thead>
-        <tbody id="ov-promo-tbody"></tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
-<!-- ════ 중분류 05: 상품별 ════ -->
-<div id="ovp-item" class="ov-subpage" style="display:none;">
-  <!-- 상품 순위 그래프 -->
-  <div style="background:var(--color-background-primary);border-radius:12px;border:0.5px solid var(--color-border-tertiary);padding:16px;margin-bottom:14px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-      <div style="font-size:12px;font-weight:600;color:var(--color-text-primary);">상품별 판매 순위</div>
-      <div style="display:flex;gap:5px;">
-        <button class="ov-pbtn active" data-itv="weekly"  onclick="ovItemRankFilter(this,'weekly')">주간</button>
-        <button class="ov-pbtn"        data-itv="monthly" onclick="ovItemRankFilter(this,'monthly')">Monthly</button>
-      </div>
-    </div>
-    <div style="position:relative;height:200px;"><canvas id="ov-item-rank-chart"></canvas></div>
-  </div>
-  <!-- 날짜는 Overview 공통 날짜 범위 사용 -->
-
-
-  <div style="background:var(--color-background-primary);border-radius:12px;border:0.5px solid var(--color-border-tertiary);padding:18px;">
-    <div style="overflow-x:auto;">
-      <table style="width:100%;font-size:11px;border-collapse:collapse;white-space:nowrap;">
-        <thead><tr style="background:var(--color-background-secondary);">
-          <th style="padding:6px 8px;text-align:left;color:var(--color-text-tertiary);">상품 코드</th>
-          <th style="padding:6px 8px;text-align:left;color:var(--color-text-tertiary);">상품명</th>
-          <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">판매 수량</th>
-          <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">판매 금액</th>
-          <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">판매율</th>
-          <th style="padding:6px 8px;text-align:right;color:var(--color-text-tertiary);">원가율</th>
-          <th style="padding:6px 8px;text-align:right;color:#e04e8a;font-weight:600;background:#FFF0F8;">좋아요</th>
-          <th style="padding:6px 8px;text-align:right;color:#185FA5;font-weight:600;background:#EFF6FF;">후기</th>
-        </tr></thead>
-        <tbody id="ov-item-tbody">
-          <tr><td colspan="8" style="text-align:center;padding:20px;color:var(--color-text-tertiary);">Item 탭과 플랫폼 판매 데이터 연동 후 자동 반영됩니다</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
-</div>
-
-<!-- MONTHLY -->
 <div id="pg-monthly" style="display:none;">
   <div class="summary-grid">
     <div class="s-card"><div class="s-label">총 예산</div><div class="s-val" id="ms-budget">₩0</div></div>
@@ -4023,8 +3643,8 @@ function toggleSetupPanel(){
 }
 
 /* ══ 공통 상수 ══ */
-const TABS=['overview','monthly','promotion','meta','list','feedback','crm','seeding','celeb','organic','budget','item'];
-const TAB_LABELS=['Overview','Monthly','Promotion','Meta','List','Feedback','CRM','Seeding','Celeb','Organic','Budget','Item'];
+const TABS=['monthly','promotion','meta','list','feedback','crm','seeding','celeb','organic','budget','item'];
+const TAB_LABELS=['Monthly','Promotion','Meta','List','Feedback','CRM','Seeding','Celeb','Organic','Budget','Item'];
 const CT=['YT 브랜디드','YT PPL','YT 쇼츠','YT 쇼츠 PPL','IG 릴스 브랜디드','IG 릴스 PPL','IG 피드 브랜디드','IG 스토리','X 브랜디드','TT 브랜디드','YT 쇼츠+IG 릴스','YT 쇼츠+IG 릴스+TT 브랜디드'];
 const PST=['상품 셀렉','상품 출고','혜택 정리','혜택 전달','가편 전달','업로드'];
 const SST=['정산 안내','자료 수급','결재 상신','입금 완료'];
@@ -4261,7 +3881,7 @@ async function fbSaveAllDashboardNow(){
 /* ══ 탭 빌드 ══ */
 function buildTabs(){
   const el=document.getElementById('top-tabs');el.innerHTML='';
-  TABS.forEach((t,i)=>{const btn=document.createElement('button');btn.className='top-tab'+(t==='overview'?' on':'');btn.textContent=TAB_LABELS[i];btn.onclick=()=>switchMain(t);el.appendChild(btn);});
+  TABS.forEach((t,i)=>{const btn=document.createElement('button');btn.className='top-tab'+(t==='monthly'?' on':'');btn.textContent=TAB_LABELS[i];btn.onclick=()=>switchMain(t);el.appendChild(btn);});
 }
 function mkSel(opts,vals,onch,id,width){
   const s=document.createElement('select');s.id=id;s.style.cssText=`flex:none;width:${width};font-size:12px;padding:3px 6px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-primary);`;s.setAttribute('onchange',onch);
@@ -5604,7 +5224,6 @@ function switchMain(t){
   document.querySelectorAll('.top-tab').forEach((b,i)=>{b.classList.toggle('on',TABS[i]===t);});
   if(t==='feedback')window.applyFeedbackFilter&&window.applyFeedbackFilter();
   if(t==='meta')mInitMeta&&mInitMeta();
-  if(t==='overview')setTimeout(()=>window.ovRender&&window.ovRender(window._ovCurrentView||'total'),50);
 }
 
 /* ══ 필터 함수 ══ */
@@ -6158,9 +5777,7 @@ async function loadSalesGoalFromSheet(){
   });
   OV_DATA.targets=targets;
   if(window.OV_CHANNEL_DATA) window.OV_CHANNEL_DATA.targets=targets;
-  window.fbSaveSheetUrls&&window.fbSaveSheetUrls();
-  if(window.ovRender) window.ovRender(window._ovCurrentView || 'total');
-  return true;
+  window.fbSaveSheetUrls&&window.fbSaveSheetUrls();  return true;
 }
 async function loadBudgetFromSheet(){
   const loadedMonthly=await loadMonthlyBudgetFromSheet();
@@ -6959,7 +6576,6 @@ function initCreatorPopupListener(){
 }
 
 
-/* ══ Overview 탭 데이터 (이스트엔드 BASE_DATA 기반) ══ */
 const OV_DATA = {"total": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "online": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "offline": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "jasa": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "musinsa": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "29cm": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "v29cm": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "ss_flagship": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "targets": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]};
 const OV_MONTHS = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
 
@@ -6967,7 +6583,6 @@ const OV_MONTHS = ["1월","2월","3월","4월","5월","6월","7월","8월","9월
 const OV_CHANNEL_DATA = {"online": {"musinsa": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "v29cm": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "jasa": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}, "offline": {"ss_flagship": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}, "offline_labels": {"ss_flagship": "성수 플래그십 스토어"}, "targets": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]};
 
 
-/* ══ Overview 탭 로직 (v2) ══ */
 let _ovAnnualChart=null, _ovPieChart=null, _ovMonthlyChart=null, _ovPromoChart=null, _ovChannelChart=null;
 let _ovCurrentView='total', _ovCurrentSub='annual';
 let _ovChSelected=new Set(['all']), _ovChFrom='', _ovChTo='';
@@ -8320,7 +7935,6 @@ function ovBuildItemRankChart(){
 window.ovBuildItemRankChart = ovBuildItemRankChart;
 
 
-/* ══ Overview 공통 날짜 범위 ══ */
 let _ovDateFrom = '', _ovDateTo = '';
 
 function ovCommonDateInit(){
@@ -9895,7 +9509,7 @@ window.dcBudgetCell=dcBudgetCell;
 buildTabs();buildFilters();buildBudgetHeader();
 applyPromoFilter();applyListFilter();renderBudget();renderProducts();buildMonthQuickBtns();buildCal();
 initCreatorPopupListener();
-ovCommonDateInit(); switchMain('overview');
+switchMain('monthly');
 // 테스트 데이터 주입 (Firebase 미연결 시에만)
 if(window._injectTestData && typeof isFirebaseReady === 'undefined'){
   setTimeout(window._injectTestData, 300);
@@ -13235,7 +12849,7 @@ if(document.readyState==='loading'){
   }
 
   const prevSwitch=window.switchMain;
-  window.switchMain=function(t){ if(prevSwitch) prevSwitch(t); if(t==='crm') crmInit(); if(t==='seeding') setTimeout(function(){ if(window.seedSyncScrollbars) window.seedSyncScrollbars(); },80); if(t==='overview') setTimeout(function(){ if(_ovCurrentSub==='promo') ovBuildPromoChart(); if(_ovCurrentSub==='item') ovBuildItemTable(); },80); };
+  window.switchMain=function(t){ if(prevSwitch) prevSwitch(t); if(t==='crm') crmInit(); if(t==='seeding') setTimeout(function(){ if(window.seedSyncScrollbars) window.seedSyncScrollbars(); },80); };
 
   document.addEventListener('DOMContentLoaded',function(){ setTimeout(function(){ buildCrmFilters(); },400); });
 })();
@@ -15286,9 +14900,7 @@ if(document.readyState==='loading'){
     const old = window[fnName];
     if(typeof old !== 'function' || old.__v77ProfitPatched) return;
     window[fnName] = async function(){
-      const ret = await old.apply(this, arguments);
-      if(window.ovRender) window.ovRender(window._ovCurrentView || 'total');
-      return ret;
+      const ret = await old.apply(this, arguments);      return ret;
     };
     window[fnName].__v77ProfitPatched = true;
   }
@@ -15297,9 +14909,7 @@ if(document.readyState==='loading'){
     patchMetaLoad('loadMetaFromSheets');
     patchMetaLoad('refreshMetaFromSheets');
     patchMetaLoad('loadUnifiedSheets');
-    patchMetaLoad('refreshUnifiedSheets');
-    if(window.ovRender) window.ovRender(window._ovCurrentView || 'total');
-  }
+    patchMetaLoad('refreshUnifiedSheets');  }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(boot,0); });
   else setTimeout(boot,0);
   window.addEventListener('load', function(){ setTimeout(boot,200); });
@@ -18369,11 +17979,7 @@ if(document.readyState==='loading'){
   }
   function refreshViews(){
     var jobs = [
-      ['Feedback 갱신', function(){ if(typeof window.applyFeedbackFilter === 'function') window.applyFeedbackFilter(); }],
-      ['Overview 상품 테이블 갱신', function(){ if(typeof window.ovBuildItemTable === 'function') window.ovBuildItemTable(); }],
-      ['Overview 상품 랭킹 갱신', function(){ if(typeof window.ovBuildItemRankChart === 'function') window.ovBuildItemRankChart(); }],
-      ['Overview 렌더 갱신', function(){ if(typeof window.ovRender === 'function' && (window._ovCurrentSub || '') === 'item') window.ovRender(window._ovCurrentView || 'total'); }]
-    ];
+      ['Feedback 갱신', function(){ if(typeof window.applyFeedbackFilter === 'function') window.applyFeedbackFilter(); }],    ];
     jobs.forEach(function(job){
       try{ job[1](); }
       catch(e){ console.warn('상품 좋아요/후기 연동 후 ' + job[0] + ' 중 오류:', e); }
@@ -20843,18 +20449,11 @@ tbody tr:hover td{background:var(--color-background-secondary)}
 .pick-link{display:block;width:100%;text-align:left;border:0.5px solid var(--color-border-secondary);background:var(--color-background-secondary);border-radius:10px;padding:10px 12px;margin-bottom:8px;color:var(--color-text-primary);font-family:inherit;cursor:pointer}
 
 /* v4 요청 반영: KPI/필터/드롭다운/보조 팝업 */
-.ov-card{background:var(--color-background-primary);border-radius:10px;padding:14px 16px;border:0.5px solid var(--color-border-tertiary)}
-.ov-card-label{font-size:10px;font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
-.ov-card-val{font-size:22px;font-weight:800;color:var(--color-text-primary);line-height:1.1}
-.ov-card-sub{font-size:10px;color:var(--color-text-tertiary);margin-top:4px}
 .slicer-box{background:var(--color-background-secondary);border-radius:var(--border-radius-lg);padding:11px 14px;margin-bottom:12px;display:flex;flex-wrap:wrap;gap:12px;align-items:center}
 .slicer-group{display:flex;flex-direction:column;gap:5px}
 .slicer-label{font-size:10px;color:var(--color-text-secondary);font-weight:700}
 .chip{padding:4px 11px;border-radius:6px;font-size:11px;cursor:pointer;border:0.5px solid var(--color-border-tertiary);background:var(--color-background-primary);color:var(--color-text-secondary);white-space:nowrap}
 .chip.active{background:var(--color-text-primary);color:var(--color-background-primary);border-color:var(--color-text-primary);font-weight:500}
-.ov-pbtn{font-size:11px;padding:5px 12px;border-radius:20px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer;transition:all .15s;font-family:inherit}
-.ov-pbtn:hover{border-color:var(--color-border-primary);color:var(--color-text-primary)}
-.ov-pbtn.active{background:var(--color-text-primary);color:var(--color-background-primary);border-color:var(--color-text-primary)}
 .seed-flow-step{display:flex;flex-direction:column;align-items:center;gap:4px}
 .seed-flow-dot{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
 .seed-flow-dot.done{background:var(--color-background-secondary);color:var(--color-text-tertiary);border:0.5px solid var(--color-border-secondary)}
@@ -23670,9 +23269,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       try{ if(typeof window.applyProductStatsToDashboard==='function') window.applyProductStatsToDashboard(); }catch(e){}
     }
     try{ if(typeof window.renderModalItems==='function') window.renderModalItems(); }catch(e){}
-    try{ if(typeof window.applyFeedbackFilter==='function') window.applyFeedbackFilter(); }catch(e){}
-    try{ if(typeof window.ovRender==='function') window.ovRender(window._ovCurrentView||'total'); }catch(e){}
-    try{ if(typeof window.renderBudget==='function') window.renderBudget(); }catch(e){}
+    try{ if(typeof window.applyFeedbackFilter==='function') window.applyFeedbackFilter(); }catch(e){}    try{ if(typeof window.renderBudget==='function') window.renderBudget(); }catch(e){}
   }
 
   async function restoreLocalFirst(){
@@ -24659,142 +24256,6 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
 
 
 
-<!-- CHOI PATCH: Overview manual sync + lazy loading only -->
-<script id="overview-manual-sync-lazyload-fix">
-(function(){
-  'use strict';
-
-  window.__tcmOverviewSyncEnabled = false;
-  var originalFns = {};
-  var wrapped = false;
-
-  function getOverviewPage(){
-    return document.getElementById('pg-overview');
-  }
-
-  function ensureOverlay(){
-    var pg = getOverviewPage();
-    if(!pg) return;
-    var overlay = document.getElementById('tcm-overview-manual-overlay');
-    if(!overlay){
-      overlay = document.createElement('div');
-      overlay.id = 'tcm-overview-manual-overlay';
-      overlay.style.cssText = 'position:absolute;inset:0;z-index:50;background:var(--color-background-tertiary);padding:28px;display:flex;align-items:flex-start;justify-content:center;box-sizing:border-box;';
-      overlay.innerHTML = '<div style="width:min(100%,560px);margin-top:44px;background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:14px;padding:24px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.06);"><div style="font-size:15px;font-weight:600;color:var(--color-text-primary);margin-bottom:8px;">Overview 연동이 비활성화되어 있습니다.</div><div style="font-size:11px;line-height:1.7;color:var(--color-text-tertiary);">초기 로딩 속도를 위해 Overview 계산을 제외했습니다.<br>상단 <b style="color:var(--color-text-secondary);">시트 연동</b>에서 <b style="color:var(--color-text-secondary);">Overview 연동 및 로딩</b>을 선택한 뒤 연동해주세요.</div></div>';
-      pg.style.position = 'relative';
-      pg.appendChild(overlay);
-    }
-    overlay.style.display = window.__tcmOverviewSyncEnabled ? 'none' : 'flex';
-  }
-
-  function removeOverlay(){
-    var overlay = document.getElementById('tcm-overview-manual-overlay');
-    if(overlay) overlay.style.display = 'none';
-  }
-
-  function wrapOverviewFunction(name){
-    var fn = window[name];
-    if(typeof fn !== 'function' || fn.__tcmOverviewLazyWrapped) return;
-    originalFns[name] = fn;
-    var proxy = function(){
-      if(!window.__tcmOverviewSyncEnabled){
-        ensureOverlay();
-        return;
-      }
-      removeOverlay();
-      return fn.apply(this, arguments);
-    };
-    proxy.__tcmOverviewLazyWrapped = true;
-    proxy.__tcmOriginal = fn;
-    window[name] = proxy;
-  }
-
-  function installFunctionGuards(){
-    [
-      'ovRender',
-      'ovRenderChannel',
-      'ovRenderOnlineChannelList',
-      'ovBuildItemTable',
-      'ovBuildItemRankChart'
-    ].forEach(wrapOverviewFunction);
-    wrapped = true;
-  }
-
-  function addSyncOption(){
-    var panel = document.getElementById('sheet-sync-panel');
-    if(!panel || document.getElementById('overview-sync-option-row')) return;
-    var status = document.getElementById('sheet-sync-status');
-    var footer = status && status.parentElement;
-    if(!footer || !footer.parentElement) return;
-
-    var row = document.createElement('div');
-    row.id = 'overview-sync-option-row';
-    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:0.5px solid var(--color-border-tertiary);border-radius:10px;background:var(--color-background-secondary);';
-    row.innerHTML = '<div><div style="font-size:12px;font-weight:500;color:var(--color-text-secondary);">Overview 연동 및 로딩</div><div style="font-size:10px;color:var(--color-text-tertiary);margin-top:2px;">선택한 경우에만 Overview 데이터 계산과 렌더링을 실행합니다.</div></div><label style="display:flex;align-items:center;gap:7px;font-size:11px;color:var(--color-text-secondary);cursor:pointer;white-space:nowrap;"><input id="overview-sync-enabled" type="checkbox" style="width:15px;height:15px;accent-color:#185FA5;"> Overview 연동</label>';
-    footer.parentElement.insertBefore(row, footer);
-  }
-
-  function overviewRequested(){
-    var box = document.getElementById('overview-sync-enabled');
-    return !!(box && box.checked);
-  }
-
-  function runOverviewNow(){
-    installFunctionGuards();
-    removeOverlay();
-    var fn = originalFns.ovRender || (window.ovRender && window.ovRender.__tcmOriginal) || window.ovRender;
-    if(typeof fn === 'function'){
-      try{ fn.call(window, window._ovCurrentView || 'total'); }
-      catch(e){ console.warn('Overview 수동 렌더 오류:', e); }
-    }
-  }
-
-  function wrapSyncFunction(name){
-    var fn = window[name];
-    if(typeof fn !== 'function' || fn.__tcmOverviewSyncOptionWrapped) return;
-    var proxy = async function(){
-      var requested = overviewRequested();
-      window.__tcmOverviewSyncEnabled = requested;
-      if(!requested) ensureOverlay();
-      var result = await fn.apply(this, arguments);
-      if(requested){
-        window.__tcmOverviewSyncEnabled = true;
-        setTimeout(runOverviewNow, 0);
-      }else{
-        window.__tcmOverviewSyncEnabled = false;
-        setTimeout(ensureOverlay, 0);
-      }
-      return result;
-    };
-    proxy.__tcmOverviewSyncOptionWrapped = true;
-    window[name] = proxy;
-  }
-
-  function boot(){
-    addSyncOption();
-    installFunctionGuards();
-    wrapSyncFunction('loadUnifiedSheets');
-    wrapSyncFunction('refreshUnifiedSheets');
-    ensureOverlay();
-
-    var tries = 0;
-    var timer = setInterval(function(){
-      tries++;
-      addSyncOption();
-      installFunctionGuards();
-      wrapSyncFunction('loadUnifiedSheets');
-      wrapSyncFunction('refreshUnifiedSheets');
-      ensureOverlay();
-      if(tries >= 20) clearInterval(timer);
-    }, 250);
-  }
-
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(boot, 0); });
-  else setTimeout(boot, 0);
-})();
-</script>
-
-
 <!-- CHOI PATCH: Feedback daily top-card persistence/race fix only -->
 <script id="feedback-daily-card-persistence-race-fix">
 (function(){
@@ -24937,5 +24398,13 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
   normalizeRows(window.creators||[]);
 })();
 </script>
+
+<script>
+window.__tcmOverviewRemoved = true;
+['ovRender','ovBuildPromoChart','ovBuildItemTable','ovBuildItemRankChart','ovCommonDateInit'].forEach(function(k){
+  try{ window[k]=undefined; }catch(e){}
+});
+</script>
+
 </body>
 </html>
