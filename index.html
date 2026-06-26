@@ -19978,6 +19978,7 @@ function updateKPI(){
 }
 function updateFlow(){
   const wrap=document.getElementById('seed-flow');
+  if(!wrap) return;
   const counts={리스트업:0,컨택:0,회신:0,거절:0,취합:0,발송:0,업로드:0,스냅:0};
   data.forEach(r=>{ if(counts[r.status]!==undefined) counts[r.status]++; });
   const maxStatus=data.reduce((m,r)=>(SEEDV11_STATUS_ORDER[r.status]||0)>(SEEDV11_STATUS_ORDER[m]||0)?r.status:m,'리스트업');
@@ -20031,7 +20032,7 @@ function startEdit(td,i,field){
 }
 function startDateEdit(td,i){
   if(td.querySelector('input')) return;
-  const inp=document.createElement('input');
+  const inp=window.document.createElement('input');
   inp.className='inline-edit'; inp.type='date'; inp.value=data[i].uploadDate||'';
   td.innerHTML=''; td.appendChild(inp); inp.focus();
   try{ if(inp.showPicker) inp.showPicker(); }catch(e){}
@@ -20862,6 +20863,8 @@ tr:last-child td{border-bottom:none}
 tbody tr:hover td{background:var(--color-background-secondary)}
 .seed-name{font-weight:700;cursor:pointer}
 .seed-id{color:#185FA5;font-weight:600}
+.seed-account-link{color:#185FA5;font-weight:600;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+.seed-account-link:hover{color:#0f477d}
 .seed-mini{font-size:10px;color:var(--color-text-tertiary)}
 .seed-rate{display:flex;gap:2px;color:#d97706;font-size:12px}
 .seed-select{appearance:none;-webkit-appearance:none;border:0;background:transparent;font-family:inherit;font-size:10px;font-weight:600;padding:2px 18px 2px 8px;border-radius:20px;cursor:pointer;background-position:right 7px center;background-repeat:no-repeat;background-size:8px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%2373726c'/%3E%3C/svg%3E")}
@@ -21221,11 +21224,6 @@ tbody tr:hover td{background:var(--color-background-secondary)}
     <div class="ov-card"><div class="ov-card-label">스냅 완료</div><div class="ov-card-val" id="seed-kpi-snap">-</div><div class="ov-card-sub">스냅 상태 기준</div></div>
   </div>
 
-  <div style="background:var(--color-background-primary);border-radius:12px;border:0.5px solid var(--color-border-tertiary);padding:16px;margin-bottom:14px;">
-    <div style="font-size:12px;font-weight:600;margin-bottom:12px;">시딩 진행 현황</div>
-    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;" id="seed-flow"></div>
-  </div>
-
   <div class="slicer-box">
     <div class="slicer-group">
       <div class="slicer-label">월 선택</div>
@@ -21521,6 +21519,24 @@ function channelBadge(text){
   const c=CH_COLOR[text]||{bg:'#F3F4F6',color:'#6B7280',border:'#E5E7EB'};
   return `<span class="channel-pill ${text?'':'empty'}" style="background:${c.bg};color:${c.color};border-color:${c.border||'#E5E7EB'}">${esc(text||'선택')}</span>`;
 }
+function seedAccountUrl(channel,handle){
+  const id=String(handle||'').trim().replace(/^@+/, '');
+  if(!id) return '';
+  const v=encodeURIComponent(id);
+  const ch=String(channel||'').trim().toLowerCase();
+  if(ch==='instagram') return 'https://www.instagram.com/'+v;
+  if(ch==='youtube') return 'https://www.youtube.com/@'+v;
+  if(ch==='tiktok') return 'https://www.tiktok.com/@'+v;
+  if(ch==='x') return 'https://x.com/'+v;
+  if(ch==='blog') return 'https://blog.naver.com/'+v;
+  return '';
+}
+function seedHandleCell(r,i){
+  const handle=String(r.handle||'').trim();
+  const url=seedAccountUrl(r.channel,handle);
+  const content=url?`<a class="seed-account-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">${esc(handle)||'-'}</a>`:`<span class="seed-id">${esc(handle)||'-'}</span>`;
+  return `<td class="seed-editable" ondblclick="event.preventDefault();event.stopPropagation();seedV11.startEdit(this,${i},'handle')">${content}</td>`;
+}
 
 function initFilters(){
   const monthRow=document.getElementById('seed-month-btns');
@@ -21577,7 +21593,7 @@ function renderList(){
     const txt=scoreText(r);
     return `<tr>
       <td class="seed-editable" ondblclick="event.stopPropagation();seedV11.startEdit(this,${i},'name')" onclick="seedV11.openDetail('${r.id}')"><span class="seed-name">${esc(r.name)||'-'}</span></td>
-      <td class="seed-editable" ondblclick="event.stopPropagation();seedV11.startEdit(this,${i},'handle')" onclick="seedV11.openDetail('${r.id}')"><span class="seed-id">${esc(r.handle)||'-'}</span></td>
+      ${seedHandleCell(r,i)}
       <td style="text-align:center">${seedInlineSelect(i,'channel',r.channel||'선택',CH_OPTS,CH_COLOR)}</td>
       <td class="seed-editable" style="text-align:right" ondblclick="event.stopPropagation();seedV11.startEdit(this,${i},'followers')" title="더블클릭 후 숫자를 입력하면 K/M으로 표시">${fmtFollower(r.followers)}</td>
       <td>${stars(r.fit,i,'fit')}</td><td>${stars(r.style,i,'style')}</td><td>${stars(r.mood,i,'mood')}</td><td>${stars(r.relation,i,'relation')}</td>
@@ -25030,185 +25046,6 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
 })();
 </script>
 
-
-<!-- CHOI PATCH: Seeding flow hidden + upload date picker + channel ID links only -->
-<style id="seeding-date-id-link-fix-style">
-#pg-seeding .seed-account-link{
-  color:#185FA5!important;
-  text-decoration:underline!important;
-  text-underline-offset:2px;
-  cursor:pointer;
-  font-weight:500;
-}
-#pg-seeding .seed-account-link:hover{color:#0f477d!important;}
-</style>
-<script id="seeding-date-id-link-fix-script">
-(function(){
-  'use strict';
-
-  function hideFlowCard(){
-    var flow=document.getElementById('seed-flow');
-    if(flow&&flow.parentElement) flow.parentElement.style.display='none';
-  }
-
-  function cleanHandle(value){
-    return String(value==null?'':value).trim().replace(/^@+/, '');
-  }
-
-  function accountUrl(channel, handle){
-    var id=cleanHandle(handle);
-    if(!id) return '';
-    var ch=String(channel||'').trim().toLowerCase();
-    var encoded=encodeURIComponent(id);
-    if(ch==='instagram') return 'https://www.instagram.com/'+encoded;
-    if(ch==='youtube') return 'https://www.youtube.com/@'+encoded;
-    if(ch==='tiktok') return 'https://www.tiktok.com/@'+encoded;
-    if(ch==='x') return 'https://x.com/'+encoded;
-    if(ch==='blog') return 'https://blog.naver.com/'+encoded;
-    return '';
-  }
-
-  function rowIndex(row){
-    if(!row) return -1;
-    if(row.dataset&&row.dataset.seedLinkIndex){
-      var stored=Number(row.dataset.seedLinkIndex);
-      if(Number.isInteger(stored)) return stored;
-    }
-    var idCell=row.cells&&row.cells[1];
-    var code=idCell?String(idCell.getAttribute('ondblclick')||''):'';
-    var match=code.match(/startEdit\(this,(\d+),'handle'\)/);
-    if(match){
-      var idx=Number(match[1]);
-      if(row.dataset) row.dataset.seedLinkIndex=String(idx);
-      return idx;
-    }
-    return -1;
-  }
-
-  function enhanceIdCell(row){
-    if(!row||!row.cells||row.cells.length<3) return;
-    var idx=rowIndex(row);
-    if(idx<0) return;
-    var records=window.seedData||[];
-    var record=records[idx]||{};
-    var td=row.cells[1];
-    var handle=String(record.handle||'').trim();
-    var url=accountUrl(record.channel,handle);
-
-    td.removeAttribute('onclick');
-    td.onclick=function(e){e.stopPropagation();};
-    td.ondblclick=function(e){
-      e.preventDefault();e.stopPropagation();
-      if(window.seedV11&&typeof window.seedV11.startEdit==='function') window.seedV11.startEdit(td,idx,'handle');
-    };
-
-    if(td.querySelector('input')) return;
-    if(url){
-      td.innerHTML='';
-      var a=document.createElement('a');
-      a.className='seed-account-link';
-      a.href=url;
-      a.target='_blank';
-      a.rel='noopener noreferrer';
-      a.textContent=handle||'-';
-      a.title='계정으로 이동';
-      a.onclick=function(e){e.stopPropagation();};
-      a.ondblclick=function(e){
-        e.preventDefault();e.stopPropagation();
-        if(window.seedV11&&typeof window.seedV11.startEdit==='function') window.seedV11.startEdit(td,idx,'handle');
-      };
-      td.appendChild(a);
-    }else{
-      td.innerHTML='<span class="seed-id">'+(handle||'-')+'</span>';
-    }
-  }
-
-  function enhanceRows(){
-    hideFlowCard();
-    var body=document.getElementById('seed-body');
-    if(!body) return;
-    Array.from(body.rows||[]).forEach(enhanceIdCell);
-  }
-
-  function installDatePickerOverride(){
-    if(!window.seedV11||typeof window.seedV11.updateField!=='function') return false;
-    if(window.seedV11.startDateEdit&&window.seedV11.startDateEdit.__seedExternalPicker) return true;
-
-    var picker=function(td,idx){
-      var old=document.getElementById('seed-external-date-picker');
-      if(old) old.remove();
-      var records=window.seedData||[];
-      var current=(records[idx]&&records[idx].uploadDate)||'';
-      var input=document.createElement('input');
-      input.id='seed-external-date-picker';
-      input.type='date';
-      input.value=current;
-      input.setAttribute('aria-label','업로드일 선택');
-      input.style.position='fixed';
-      input.style.left='-9999px';
-      input.style.top='0';
-      input.style.opacity='0';
-      input.style.pointerEvents='none';
-      document.body.appendChild(input);
-
-      var finished=false;
-      function finish(save){
-        if(finished) return;
-        finished=true;
-        if(save&&input.value!==current&&window.seedV11&&typeof window.seedV11.updateField==='function'){
-          window.seedV11.updateField(idx,'uploadDate',input.value);
-        }
-        setTimeout(function(){if(input&&input.parentNode)input.remove();},0);
-      }
-      input.addEventListener('change',function(){finish(true);},{once:true});
-      input.addEventListener('cancel',function(){finish(false);},{once:true});
-      input.addEventListener('blur',function(){setTimeout(function(){finish(input.value!==current);},150);},{once:true});
-      input.focus({preventScroll:true});
-      try{
-        if(typeof input.showPicker==='function') input.showPicker();
-        else input.click();
-      }catch(e){ input.click(); }
-    };
-    picker.__seedExternalPicker=true;
-    window.seedV11.startDateEdit=picker;
-    return true;
-  }
-
-  function wrapRender(){
-    if(!window.seedV11||typeof window.seedV11.renderList!=='function') return false;
-    var old=window.seedV11.renderList;
-    if(old.__seedIdLinkWrapped) return true;
-    var wrapped=function(){
-      var result=old.apply(this,arguments);
-      setTimeout(function(){installDatePickerOverride();enhanceRows();},0);
-      return result;
-    };
-    wrapped.__seedIdLinkWrapped=true;
-    window.seedV11.renderList=wrapped;
-    return true;
-  }
-
-  function install(){
-    hideFlowCard();
-    installDatePickerOverride();
-    wrapRender();
-    enhanceRows();
-    var body=document.getElementById('seed-body');
-    if(body&&!body.__seedIdLinkObserver){
-      body.__seedIdLinkObserver=true;
-      new MutationObserver(function(){setTimeout(enhanceRows,0);}).observe(body,{childList:true,subtree:true});
-    }
-    var tries=0;
-    var timer=setInterval(function(){
-      hideFlowCard();installDatePickerOverride();wrapRender();enhanceRows();
-      if(++tries>80) clearInterval(timer);
-    },250);
-  }
-
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',install);
-  else install();
-})();
-</script>
 
 </body>
 </html>
