@@ -1783,6 +1783,11 @@ html[data-user-role="viewer"] [data-delete]{opacity:.35!important;cursor:not-all
 #pg-seeding #seed-body td.date-cell{cursor:pointer!important;text-align:center!important;white-space:nowrap!important;}
 #pg-seeding #seed-body td.date-cell input[type=date]{width:126px!important;height:28px!important;font-size:11px!important;}
 </style>
+
+<style id="feedback-product-summary-v16-style">
+#fb-v15-modal .fb-v15-panel .fb-v15-product-name{min-width:190px;text-align:center!important;}
+</style>
+
 </head>
 <body>
 <div class="page">
@@ -18939,7 +18944,92 @@ if(document.readyState==='loading'){
   function renderModalBody(){ var ci=window._fbV15.creatorIndex; var r=(window.creators||[])[ci]; if(!r) return; if(window._fbV15.tab==='summary') renderSummary(r,ci); else renderDay(r,ci,Number(window._fbV15.tab.slice(1))); }
   function detailRows(r,ci,d,colspan){ var m=dayMetrics(r,ci,d); var day=m.day; var items=itemsOf(r); var individual=isIndividualLink(r); var rows=items.map(function(it,idx){ var data=getItemData(day,it,r.platform); var sales=num(data.sales); var rev=num(data.revenue); var share=m.total&&rev?rev/m.total*100:0; var itemClick=individual?num(data.click):m.click; var cvr=itemClick&&sales?sales/itemClick*100:0; var clickCell=individual?'<td>'+fmtN0(data.click)+'</td>':(idx===0?'<td rowspan="'+Math.max(items.length,1)+'">'+fmtN0(m.click)+'</td>':''); return '<tr><td>'+esc(itemUid(it,r.platform)||'-')+'</td><td>'+esc(itemCode(it)||'-')+'</td><td class="fb-v15-product-name">'+esc(itemName(it)||'-')+'</td><td>'+esc(itemColor(it)||'-')+'</td>'+clickCell+'<td>'+fmtN0(data.productLike)+'</td><td>'+fmtN0(sales)+'</td><td>'+fmtW(rev)+'</td><td>'+fmtP(cvr,1)+'</td><td>'+fmtP(share,1)+'</td></tr>'; }).join(''); return '<tr class="fb-v15-detail-row"><td colspan="'+colspan+'"><div class="fb-v15-detail-box"><table class="fb-v15-mini"><thead><tr><th>UID</th><th>상품 코드</th><th>상품명</th><th>컬러</th><th>링크 클릭</th><th>상품 좋아요</th><th>판매 수량</th><th>매출</th><th>CVR</th><th>매출 비중</th></tr></thead><tbody>'+rows+'</tbody></table></div></td></tr>'; }
   window.fbV15ToggleSummaryDay=function(d){ var ex=window._fbV15.expanded||{}; ex[d]=!ex[d]; window._fbV15.expanded=ex; var ci=window._fbV15.creatorIndex; renderSummary((window.creators||[])[ci],ci); };
-  function renderSummary(r,ci){ var t=creatorTotals(r,ci); var ttl={view:0,like:0,comment:0,productLike:0,click:0,sales:0,revenue:0,total:0}; DAYS.forEach(function(d){ var m=dayMetrics(r,ci,d); ttl.view=Math.max(ttl.view,num(m.view)); ttl.like=Math.max(ttl.like,num(m.like)); ttl.comment=Math.max(ttl.comment,num(m.comment)); ttl.productLike=Math.max(ttl.productLike,num(m.productLike)); if(d!==-1){ ttl.click+=num(m.click); ttl.sales+=num(m.sales); ttl.revenue+=num(m.revenue); ttl.total+=num(m.total); } }); ttl.ctr=ttl.view?ttl.click/ttl.view*100:0; ttl.cvr=ttl.click?ttl.sales/ttl.click*100:0; ttl.share=ttl.total?ttl.revenue/ttl.total*100:0; var ttlCost=costOf(r); ttl.roas=ttlCost?ttl.revenue/ttlCost*100:0; var rows=DAYS.map(function(d){ var m=dayMetrics(r,ci,d); var open=!!(window._fbV15.expanded||{})[d]; var row='<tr class="fb-v15-summary-day" onclick="fbV15ToggleSummaryDay('+d+')"><td><span class="fb-v15-toggle">'+(open?'−':'+')+'</span><span class="fb-v15-date-chip">'+esc(dayLabel(r,d))+'</span></td><td>'+fmtN0(m.view)+'</td><td>'+fmtN0(m.like)+'</td><td>'+fmtN0(m.comment)+'</td><td>'+fmtN0(m.click)+'</td><td>'+fmtP(m.ctr,1)+'</td><td>'+fmtN0(m.productLike)+'</td><td>'+fmtN0(m.sales)+'</td><td>'+fmtW(m.revenue)+'</td><td>'+deltaHtml(r,ci,d)+'</td><td>'+fmtP(m.cvr,1)+'</td><td>'+fmtW(m.total)+'</td><td>'+fmtP(m.share,1)+'</td><td>'+fmtP(m.roas,0)+'</td></tr>'; return row + (open?detailRows(r,ci,d,14):''); }).join(''); rows+='<tr class="fb-v15-summary-ttl"><td>TTL</td><td>'+fmtN0(ttl.view)+'</td><td>'+fmtN0(ttl.like)+'</td><td>'+fmtN0(ttl.comment)+'</td><td>'+fmtN0(ttl.click)+'</td><td>'+fmtP(ttl.ctr,1)+'</td><td>'+fmtN0(ttl.productLike)+'</td><td>'+fmtN0(ttl.sales)+'</td><td>'+fmtW(ttl.revenue)+'</td><td>-</td><td>'+fmtP(ttl.cvr,1)+'</td><td>'+fmtW(ttl.total)+'</td><td>'+fmtP(ttl.share,1)+'</td><td>'+fmtP(ttl.roas,0)+'</td></tr>'; $('fb-v15-body').innerHTML='<div class="fb-v15-summary-grid"><div class="fb-v15-card"><div class="fb-v15-card-label">누적 조회수</div><div class="fb-v15-card-val">'+fmtN0(t.view)+'</div></div><div class="fb-v15-card"><div class="fb-v15-card-label">누적 좋아요</div><div class="fb-v15-card-val">'+fmtN0(t.like)+'</div></div><div class="fb-v15-card"><div class="fb-v15-card-label">누적 댓글 수</div><div class="fb-v15-card-val">'+fmtN0(t.comment)+'</div></div><div class="fb-v15-card"><div class="fb-v15-card-label">링크 클릭</div><div class="fb-v15-card-val">'+fmtN0(t.click)+'</div></div><div class="fb-v15-card"><div class="fb-v15-card-label">판매 수량</div><div class="fb-v15-card-val">'+fmtN0(t.sales)+'</div></div><div class="fb-v15-card"><div class="fb-v15-card-label">매출</div><div class="fb-v15-card-val">'+fmtW(t.revenue)+'</div></div><div class="fb-v15-card"><div class="fb-v15-card-label">ROAS</div><div class="fb-v15-card-val">'+fmtP(t.roas,0)+'</div></div></div><div class="fb-v15-panel"><div class="fb-v15-panel-title">기준일별 성과 요약</div><table class="fb-v15-mini"><thead><tr><th>기준일</th><th>조회수</th><th>좋아요</th><th>댓글</th><th>링크 클릭</th><th>CTR</th><th>상품 좋아요</th><th>판매</th><th>매출</th><th>매출 증감</th><th>CVR</th><th>총매출</th><th>매출 비중</th><th>ROAS</th></tr></thead><tbody>'+rows+'</tbody></table></div>'; }
+  function renderSummary(r,ci){
+    var t=creatorTotals(r,ci);
+    var ttl={view:0,like:0,comment:0,productLike:0,click:0,sales:0,revenue:0,total:0};
+    DAYS.forEach(function(d){
+      var m=dayMetrics(r,ci,d);
+      ttl.view=Math.max(ttl.view,num(m.view));
+      ttl.like=Math.max(ttl.like,num(m.like));
+      ttl.comment=Math.max(ttl.comment,num(m.comment));
+      ttl.productLike=Math.max(ttl.productLike,num(m.productLike));
+      if(d!==-1){
+        ttl.click+=num(m.click);
+        ttl.sales+=num(m.sales);
+        ttl.revenue+=num(m.revenue);
+        ttl.total+=num(m.total);
+      }
+    });
+    ttl.ctr=ttl.view?ttl.click/ttl.view*100:0;
+    ttl.cvr=ttl.click?ttl.sales/ttl.click*100:0;
+    ttl.share=ttl.total?ttl.revenue/ttl.total*100:0;
+    var ttlCost=costOf(r);
+    ttl.roas=ttlCost?ttl.revenue/ttlCost*100:0;
+
+    var rows=DAYS.map(function(d){
+      var m=dayMetrics(r,ci,d);
+      var open=!!(window._fbV15.expanded||{})[d];
+      var row='<tr class="fb-v15-summary-day" onclick="fbV15ToggleSummaryDay('+d+')"><td><span class="fb-v15-toggle">'+(open?'−':'+')+'</span><span class="fb-v15-date-chip">'+esc(dayLabel(r,d))+'</span></td><td>'+fmtN0(m.view)+'</td><td>'+fmtN0(m.like)+'</td><td>'+fmtN0(m.comment)+'</td><td>'+fmtN0(m.click)+'</td><td>'+fmtP(m.ctr,1)+'</td><td>'+fmtN0(m.productLike)+'</td><td>'+fmtN0(m.sales)+'</td><td>'+fmtW(m.revenue)+'</td><td>'+deltaHtml(r,ci,d)+'</td><td>'+fmtP(m.cvr,1)+'</td><td>'+fmtW(m.total)+'</td><td>'+fmtP(m.share,1)+'</td><td>'+fmtP(m.roas,0)+'</td></tr>';
+      return row+(open?detailRows(r,ci,d,14):'');
+    }).join('');
+    rows+='<tr class="fb-v15-summary-ttl"><td>TTL</td><td>'+fmtN0(ttl.view)+'</td><td>'+fmtN0(ttl.like)+'</td><td>'+fmtN0(ttl.comment)+'</td><td>'+fmtN0(ttl.click)+'</td><td>'+fmtP(ttl.ctr,1)+'</td><td>'+fmtN0(ttl.productLike)+'</td><td>'+fmtN0(ttl.sales)+'</td><td>'+fmtW(ttl.revenue)+'</td><td>-</td><td>'+fmtP(ttl.cvr,1)+'</td><td>'+fmtW(ttl.total)+'</td><td>'+fmtP(ttl.share,1)+'</td><td>'+fmtP(ttl.roas,0)+'</td></tr>';
+
+    var productItems=itemsOf(r);
+    var productDays=activeDays(r);
+    var individual=isIndividualLink(r);
+    var creatorClickTotal=0;
+    productDays.forEach(function(d){
+      if(d!==-1) creatorClickTotal+=num(dayMetrics(r,ci,d).click);
+    });
+
+    var productData=productItems.map(function(it){
+      var out={item:it,click:0,productLike:0,sales:0,revenue:0};
+      productDays.forEach(function(d){
+        var m=dayMetrics(r,ci,d);
+        var data=getItemData(m.day,it,r.platform)||{};
+        var hasLike=Object.prototype.hasOwnProperty.call(data,'productLike')&&String(data.productLike==null?'':data.productLike).trim()!=='';
+        if(hasLike) out.productLike=num(data.productLike);
+        if(d!==-1){
+          out.sales+=num(data.sales);
+          out.revenue+=num(data.revenue);
+          if(individual) out.click+=num(data.click);
+        }
+      });
+      if(productItems.length===1){
+        productDays.forEach(function(d){
+          var m=dayMetrics(r,ci,d);
+          var data=getItemData(m.day,it,r.platform)||{};
+          if(!Object.prototype.hasOwnProperty.call(data,'productLike')&&num(m.productLike)) out.productLike=num(m.productLike);
+          if(d!==-1){
+            if(!Object.prototype.hasOwnProperty.call(data,'sales')&&num(m.sales)) out.sales=num(m.sales);
+            if(!Object.prototype.hasOwnProperty.call(data,'revenue')&&num(m.revenue)) out.revenue=num(m.revenue);
+          }
+        });
+      }
+      if(!individual) out.click=creatorClickTotal;
+      return out;
+    });
+
+    var productRevenueTotal=productData.reduce(function(s,x){return s+num(x.revenue);},0);
+    var productSalesTotal=productData.reduce(function(s,x){return s+num(x.sales);},0);
+    var productLikeTotal=productData.reduce(function(s,x){return s+num(x.productLike);},0);
+    var productClickTotal=individual?productData.reduce(function(s,x){return s+num(x.click);},0):creatorClickTotal;
+
+    var productRows=productData.map(function(x){
+      var cvr=x.click?x.sales/x.click*100:0;
+      var share=productRevenueTotal?x.revenue/productRevenueTotal*100:0;
+      return '<tr><td>'+esc(itemUid(x.item,r.platform)||'-')+'</td><td>'+esc(itemCode(x.item)||'-')+'</td><td class="fb-v15-product-name">'+esc(itemName(x.item)||'-')+'</td><td>'+esc(itemColor(x.item)||'-')+'</td><td>'+fmtN0(x.click)+'</td><td>'+fmtN0(x.productLike)+'</td><td>'+fmtN0(x.sales)+'</td><td>'+fmtW(x.revenue)+'</td><td>'+fmtP(cvr,1)+'</td><td>'+fmtP(share,1)+'</td></tr>';
+    }).join('');
+    if(!productRows){
+      productRows='<tr><td colspan="10" style="padding:18px;text-align:center;color:var(--color-text-tertiary);">List 탭에 연결된 노출 상품이 없습니다.</td></tr>';
+    }
+    var productCvr=productClickTotal?productSalesTotal/productClickTotal*100:0;
+    productRows+='<tr class="fb-v15-summary-ttl"><td colspan="4">TTL</td><td>'+fmtN0(productClickTotal)+'</td><td>'+fmtN0(productLikeTotal)+'</td><td>'+fmtN0(productSalesTotal)+'</td><td>'+fmtW(productRevenueTotal)+'</td><td>'+fmtP(productCvr,1)+'</td><td>'+(productRevenueTotal?fmtP(100,1):'-')+'</td></tr>';
+
+    $('fb-v15-body').innerHTML='<div class="fb-v15-summary-grid"><div class="fb-v15-card"><div class="fb-v15-card-label">누적 조회수</div><div class="fb-v15-card-val">'+fmtN0(t.view)+'</div></div><div class="fb-v15-card"><div class="fb-v15-card-label">누적 좋아요</div><div class="fb-v15-card-val">'+fmtN0(t.like)+'</div></div><div class="fb-v15-card"><div class="fb-v15-card-label">누적 댓글 수</div><div class="fb-v15-card-val">'+fmtN0(t.comment)+'</div></div><div class="fb-v15-card"><div class="fb-v15-card-label">링크 클릭</div><div class="fb-v15-card-val">'+fmtN0(t.click)+'</div></div><div class="fb-v15-card"><div class="fb-v15-card-label">판매 수량</div><div class="fb-v15-card-val">'+fmtN0(t.sales)+'</div></div><div class="fb-v15-card"><div class="fb-v15-card-label">매출</div><div class="fb-v15-card-val">'+fmtW(t.revenue)+'</div></div><div class="fb-v15-card"><div class="fb-v15-card-label">ROAS</div><div class="fb-v15-card-val">'+fmtP(t.roas,0)+'</div></div></div>'+
+      '<div class="fb-v15-panel"><div class="fb-v15-panel-title">기준일별 성과 요약</div><table class="fb-v15-mini"><thead><tr><th>기준일</th><th>조회수</th><th>좋아요</th><th>댓글</th><th>링크 클릭</th><th>CTR</th><th>상품 좋아요</th><th>판매</th><th>매출</th><th>매출 증감</th><th>CVR</th><th>총매출</th><th>매출 비중</th><th>ROAS</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+      '<div class="fb-v15-panel"><div class="fb-v15-panel-title">상품 별 성과 요약</div><div class="tbl-wrap" style="border:none;padding:0;"><table class="fb-v15-mini"><thead><tr><th>UID</th><th>상품 코드</th><th>브랜드숍</th><th>컬러</th><th>링크 클릭</th><th>상품 좋아요</th><th>판매 수량</th><th>매출</th><th>CVR</th><th>매출 비중</th></tr></thead><tbody>'+productRows+'</tbody></table></div></div>';
+  }
   function directCell(r,ci,d,field,readonly){ var m=dayMetrics(r,ci,d); var val=m.day[field]||0; if(readonly) return '<td><span class="fb-v15-readonly">-</span></td>'; return '<td><span class="fb-v15-editable" ondblclick="fbV15StartEdit(this,'+ci+','+d+',\''+field+'\')">'+fmtN0(val)+'</span></td>'; }
   window.fbV15StartEdit=function(el,ci,d,field){ if(!el || el.querySelector('input')) return; var r=(window.creators||[])[ci]; var day=ensureDay(r,ci,d); var input=document.createElement('input'); input.className='fb-v15-input'; input.type='text'; input.value=String(num(day[field])); el.textContent=''; el.appendChild(input); input.focus(); input.select(); function commit(){ day[field]=num(input.value); if(field==='click'&&typeof window.fbCaptureLinkClicks==='function') window.fbCaptureLinkClicks(); if(typeof window.fbSaveCreators==='function') window.fbSaveCreators(); renderModalBody(); window.applyFeedbackFilter&&window.applyFeedbackFilter(); } input.addEventListener('blur',commit,{once:true}); input.addEventListener('keydown',function(e){ if(e.key==='Enter') input.blur(); if(e.key==='Escape') renderModalBody(); }); };
   window.fbV15StartItemClick=function(el,ci,d,itemIndex){ if(!el || el.querySelector('input')) return; var r=(window.creators||[])[ci]; var it=itemsOf(r)[itemIndex]; if(!r||!it) return; var day=ensureDay(r,ci,d); var data=ensureItemData(day,it,r.platform); var input=document.createElement('input'); input.className='fb-v15-input'; input.type='text'; input.value=String(num(data.click)); el.textContent=''; el.appendChild(input); input.focus(); input.select(); function commit(){ data.click=num(input.value); if(typeof window.fbCaptureLinkClicks==='function') window.fbCaptureLinkClicks(); if(typeof window.fbSaveCreators==='function') window.fbSaveCreators(); renderModalBody(); window.applyFeedbackFilter&&window.applyFeedbackFilter(); } input.addEventListener('blur',commit,{once:true}); input.addEventListener('keydown',function(e){ if(e.key==='Enter') input.blur(); if(e.key==='Escape') renderModalBody(); }); };
@@ -24939,5 +25029,186 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
   normalizeRows(window.creators||[]);
 })();
 </script>
+
+
+<!-- CHOI PATCH: Seeding flow hidden + upload date picker + channel ID links only -->
+<style id="seeding-date-id-link-fix-style">
+#pg-seeding .seed-account-link{
+  color:#185FA5!important;
+  text-decoration:underline!important;
+  text-underline-offset:2px;
+  cursor:pointer;
+  font-weight:500;
+}
+#pg-seeding .seed-account-link:hover{color:#0f477d!important;}
+</style>
+<script id="seeding-date-id-link-fix-script">
+(function(){
+  'use strict';
+
+  function hideFlowCard(){
+    var flow=document.getElementById('seed-flow');
+    if(flow&&flow.parentElement) flow.parentElement.style.display='none';
+  }
+
+  function cleanHandle(value){
+    return String(value==null?'':value).trim().replace(/^@+/, '');
+  }
+
+  function accountUrl(channel, handle){
+    var id=cleanHandle(handle);
+    if(!id) return '';
+    var ch=String(channel||'').trim().toLowerCase();
+    var encoded=encodeURIComponent(id);
+    if(ch==='instagram') return 'https://www.instagram.com/'+encoded;
+    if(ch==='youtube') return 'https://www.youtube.com/@'+encoded;
+    if(ch==='tiktok') return 'https://www.tiktok.com/@'+encoded;
+    if(ch==='x') return 'https://x.com/'+encoded;
+    if(ch==='blog') return 'https://blog.naver.com/'+encoded;
+    return '';
+  }
+
+  function rowIndex(row){
+    if(!row) return -1;
+    if(row.dataset&&row.dataset.seedLinkIndex){
+      var stored=Number(row.dataset.seedLinkIndex);
+      if(Number.isInteger(stored)) return stored;
+    }
+    var idCell=row.cells&&row.cells[1];
+    var code=idCell?String(idCell.getAttribute('ondblclick')||''):'';
+    var match=code.match(/startEdit\(this,(\d+),'handle'\)/);
+    if(match){
+      var idx=Number(match[1]);
+      if(row.dataset) row.dataset.seedLinkIndex=String(idx);
+      return idx;
+    }
+    return -1;
+  }
+
+  function enhanceIdCell(row){
+    if(!row||!row.cells||row.cells.length<3) return;
+    var idx=rowIndex(row);
+    if(idx<0) return;
+    var records=window.seedData||[];
+    var record=records[idx]||{};
+    var td=row.cells[1];
+    var handle=String(record.handle||'').trim();
+    var url=accountUrl(record.channel,handle);
+
+    td.removeAttribute('onclick');
+    td.onclick=function(e){e.stopPropagation();};
+    td.ondblclick=function(e){
+      e.preventDefault();e.stopPropagation();
+      if(window.seedV11&&typeof window.seedV11.startEdit==='function') window.seedV11.startEdit(td,idx,'handle');
+    };
+
+    if(td.querySelector('input')) return;
+    if(url){
+      td.innerHTML='';
+      var a=document.createElement('a');
+      a.className='seed-account-link';
+      a.href=url;
+      a.target='_blank';
+      a.rel='noopener noreferrer';
+      a.textContent=handle||'-';
+      a.title='계정으로 이동';
+      a.onclick=function(e){e.stopPropagation();};
+      a.ondblclick=function(e){
+        e.preventDefault();e.stopPropagation();
+        if(window.seedV11&&typeof window.seedV11.startEdit==='function') window.seedV11.startEdit(td,idx,'handle');
+      };
+      td.appendChild(a);
+    }else{
+      td.innerHTML='<span class="seed-id">'+(handle||'-')+'</span>';
+    }
+  }
+
+  function enhanceRows(){
+    hideFlowCard();
+    var body=document.getElementById('seed-body');
+    if(!body) return;
+    Array.from(body.rows||[]).forEach(enhanceIdCell);
+  }
+
+  function installDatePickerOverride(){
+    if(!window.seedV11||typeof window.seedV11.updateField!=='function') return false;
+    if(window.seedV11.startDateEdit&&window.seedV11.startDateEdit.__seedExternalPicker) return true;
+
+    var picker=function(td,idx){
+      var old=document.getElementById('seed-external-date-picker');
+      if(old) old.remove();
+      var records=window.seedData||[];
+      var current=(records[idx]&&records[idx].uploadDate)||'';
+      var input=document.createElement('input');
+      input.id='seed-external-date-picker';
+      input.type='date';
+      input.value=current;
+      input.setAttribute('aria-label','업로드일 선택');
+      input.style.position='fixed';
+      input.style.left='-9999px';
+      input.style.top='0';
+      input.style.opacity='0';
+      input.style.pointerEvents='none';
+      document.body.appendChild(input);
+
+      var finished=false;
+      function finish(save){
+        if(finished) return;
+        finished=true;
+        if(save&&input.value!==current&&window.seedV11&&typeof window.seedV11.updateField==='function'){
+          window.seedV11.updateField(idx,'uploadDate',input.value);
+        }
+        setTimeout(function(){if(input&&input.parentNode)input.remove();},0);
+      }
+      input.addEventListener('change',function(){finish(true);},{once:true});
+      input.addEventListener('cancel',function(){finish(false);},{once:true});
+      input.addEventListener('blur',function(){setTimeout(function(){finish(input.value!==current);},150);},{once:true});
+      input.focus({preventScroll:true});
+      try{
+        if(typeof input.showPicker==='function') input.showPicker();
+        else input.click();
+      }catch(e){ input.click(); }
+    };
+    picker.__seedExternalPicker=true;
+    window.seedV11.startDateEdit=picker;
+    return true;
+  }
+
+  function wrapRender(){
+    if(!window.seedV11||typeof window.seedV11.renderList!=='function') return false;
+    var old=window.seedV11.renderList;
+    if(old.__seedIdLinkWrapped) return true;
+    var wrapped=function(){
+      var result=old.apply(this,arguments);
+      setTimeout(function(){installDatePickerOverride();enhanceRows();},0);
+      return result;
+    };
+    wrapped.__seedIdLinkWrapped=true;
+    window.seedV11.renderList=wrapped;
+    return true;
+  }
+
+  function install(){
+    hideFlowCard();
+    installDatePickerOverride();
+    wrapRender();
+    enhanceRows();
+    var body=document.getElementById('seed-body');
+    if(body&&!body.__seedIdLinkObserver){
+      body.__seedIdLinkObserver=true;
+      new MutationObserver(function(){setTimeout(enhanceRows,0);}).observe(body,{childList:true,subtree:true});
+    }
+    var tries=0;
+    var timer=setInterval(function(){
+      hideFlowCard();installDatePickerOverride();wrapRender();enhanceRows();
+      if(++tries>80) clearInterval(timer);
+    },250);
+  }
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',install);
+  else install();
+})();
+</script>
+
 </body>
 </html>
