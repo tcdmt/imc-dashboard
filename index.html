@@ -20840,7 +20840,7 @@ window.seedRender();
 <script id="seeding-v11-shadow-integration">
 (function(){
   function mountSeedingV11(){
-    const host=window.document.getElementById('seed-v11-host'); if(!host) return;
+    const host=document.getElementById('seed-v11-host'); if(!host) return;
     if(host.shadowRoot) return;
     const root=host.attachShadow({mode:'open'});
     root.innerHTML=`<style>
@@ -21556,18 +21556,18 @@ function seedHandleCell(r,i){
 }
 
 function initFilters(){
-  const monthRow=document.getElementById('seed-month-btns');
+  const monthRow=root.getElementById('seed-month-btns');
   const y = new Date().getFullYear();
   monthRow.innerHTML = `<div class="chip ${_seedMonth==='all'?'active':''}" onclick="seedV11.setMonth('all',this)">전체</div>` +
     Array.from({length:12},(_,i)=>`<div class="chip" onclick="seedV11.setMonth('${y}-${String(i+1).padStart(2,'0')}',this)">${i+1}월</div>`).join('');
-  const stRow=document.getElementById('seed-status-btns');
+  const stRow=root.getElementById('seed-status-btns');
   stRow.innerHTML = `<div class="chip active" onclick="seedV11.setStatus('all',this)">전체</div>` + STATUS_OPTS.map(s=>`<div class="chip" onclick="seedV11.setStatus('${s}',this)">${s}</div>`).join('');
-  const chRow=document.getElementById('seed-ch-btns');
+  const chRow=root.getElementById('seed-ch-btns');
   chRow.innerHTML = `<button class="ov-pbtn active" onclick="seedV11.setCh('all',this)">전체</button>` + CH_OPTS.map(c=>`<button class="ov-pbtn" onclick="seedV11.setCh('${c}',this)">${c}</button>`).join('');
 }
-function setMonth(m,el){ _seedMonth=m; document.querySelectorAll('#seed-month-btns .chip').forEach(x=>x.classList.remove('active')); el.classList.add('active'); renderList(); }
-function setStatus(s,el){ _seedStatus=s; document.querySelectorAll('#seed-status-btns .chip').forEach(x=>x.classList.remove('active')); el.classList.add('active'); renderList(); }
-function setCh(c,el){ _seedCh=c; document.querySelectorAll('#seed-ch-btns .ov-pbtn').forEach(x=>x.classList.remove('active')); el.classList.add('active'); renderList(); }
+function setMonth(m,el){ _seedMonth=m; root.querySelectorAll('#seed-month-btns .chip').forEach(x=>x.classList.remove('active')); el.classList.add('active'); renderList(); }
+function setStatus(s,el){ _seedStatus=s; root.querySelectorAll('#seed-status-btns .chip').forEach(x=>x.classList.remove('active')); el.classList.add('active'); renderList(); }
+function setCh(c,el){ _seedCh=c; root.querySelectorAll('#seed-ch-btns .ov-pbtn').forEach(x=>x.classList.remove('active')); el.classList.add('active'); renderList(); }
 function filteredRows(){
   return data.map((r,i)=>({r,i})).filter(({r})=>{
     if(_seedStatus!=='all' && r.status!==_seedStatus) return false;
@@ -21581,15 +21581,15 @@ function updateKPI(){
   const send=data.filter(r=>r.basic&&r.basic.tracking).length;
   const reuse=data.filter(r=>r.second==='진행').length;
   const snap=data.filter(r=>r.status==='스냅').length;
-  document.getElementById('seed-kpi-total').textContent=total+'명';
-  document.getElementById('seed-kpi-upload').textContent=upload+'명';
-  document.getElementById('seed-kpi-upload-rate').textContent=total?`달성률 ${Math.round(upload/total*100)}%`:'-';
-  document.getElementById('seed-kpi-send').textContent=send+'건';
-  document.getElementById('seed-kpi-reuse').textContent=reuse+'건';
-  document.getElementById('seed-kpi-snap').textContent=snap+'명';
+  root.getElementById('seed-kpi-total').textContent=total+'명';
+  root.getElementById('seed-kpi-upload').textContent=upload+'명';
+  root.getElementById('seed-kpi-upload-rate').textContent=total?`달성률 ${Math.round(upload/total*100)}%`:'-';
+  root.getElementById('seed-kpi-send').textContent=send+'건';
+  root.getElementById('seed-kpi-reuse').textContent=reuse+'건';
+  root.getElementById('seed-kpi-snap').textContent=snap+'명';
 }
 function updateFlow(){
-  const wrap=document.getElementById('seed-flow');
+  const wrap=root.getElementById('seed-flow');
   const counts={리스트업:0,컨택:0,회신:0,거절:0,취합:0,발송:0,업로드:0,스냅:0};
   data.forEach(r=>{ if(counts[r.status]!==undefined) counts[r.status]++; });
   const maxStatus=data.reduce((m,r)=>(STATUS_ORDER[r.status]||0)>(STATUS_ORDER[m]||0)?r.status:m,'리스트업');
@@ -21604,7 +21604,7 @@ function updateFlow(){
 }
 function renderList(){
   updateKPI(); updateFlow();
-  const body=document.getElementById('seed-body');
+  const body=root.getElementById('seed-body');
   const rows=filteredRows();
   body.innerHTML = rows.map(({r,i})=>{
     const txt=scoreText(r);
@@ -21664,36 +21664,36 @@ function seedDropdown(td,i,field,opts,colorMap){
     item.onclick=()=>{ updateField(i,field,opt); closeSeedDropdown(); };
     popup.appendChild(item);
   });
-  document.body.appendChild(popup);
+  root.appendChild(popup);
   const bottomSpace=window.innerHeight-rect.bottom, popupH=popup.offsetHeight||180;
   popup.style.left=Math.min(rect.left, window.innerWidth-popup.offsetWidth-8)+'px';
   popup.style.top=(bottomSpace<popupH+12 ? Math.max(8,rect.top-popupH-4) : rect.bottom+4)+'px';
-  setTimeout(()=>document.addEventListener('mousedown',ddOutsideClick),30);
+  setTimeout(()=>root.addEventListener('mousedown',ddOutsideClick),30);
 }
 function ddOutsideClick(e){ if(!e.target.closest('#dd-popup')) closeSeedDropdown(); }
-function closeSeedDropdown(){ const p=document.getElementById('dd-popup'); if(p) p.remove(); document.removeEventListener('mousedown',ddOutsideClick); }
+function closeSeedDropdown(){ const p=root.getElementById('dd-popup'); if(p) p.remove(); root.removeEventListener('mousedown',ddOutsideClick); }
 function updateField(i,key,val){
   data[i][key]=key==='followers' ? parseFollowerValue(val) : val;
   saveData(); renderList(); if(data[i]&&data[i].id===currentId) renderDetail();
 }
 function addRow(){
-  const modal=document.getElementById('seed-add-modal');
-  const nameInput=document.getElementById('seed-add-name');
-  const idInput=document.getElementById('seed-add-id');
+  const modal=root.getElementById('seed-add-modal');
+  const nameInput=root.getElementById('seed-add-name');
+  const idInput=root.getElementById('seed-add-id');
   if(nameInput) nameInput.value='';
   if(idInput) idInput.value='';
   if(modal){ modal.classList.add('open'); modal.setAttribute('aria-hidden','false'); }
   setTimeout(()=>{ if(nameInput) nameInput.focus(); },0);
 }
 function closeAddModal(){
-  const modal=document.getElementById('seed-add-modal');
+  const modal=root.getElementById('seed-add-modal');
   if(modal){ modal.classList.remove('open'); modal.setAttribute('aria-hidden','true'); }
 }
 function confirmAddRow(){
-  const name=String(document.getElementById('seed-add-name')?.value||'').trim();
-  const handle=String(document.getElementById('seed-add-id')?.value||'').trim();
-  if(!name){ alert('이름을 입력해주세요.'); document.getElementById('seed-add-name')?.focus(); return; }
-  if(!handle){ alert('ID를 입력해주세요.'); document.getElementById('seed-add-id')?.focus(); return; }
+  const name=String(root.getElementById('seed-add-name')?.value||'').trim();
+  const handle=String(root.getElementById('seed-add-id')?.value||'').trim();
+  if(!name){ alert('이름을 입력해주세요.'); root.getElementById('seed-add-name')?.focus(); return; }
+  if(!handle){ alert('ID를 입력해주세요.'); root.getElementById('seed-add-id')?.focus(); return; }
   const id='s'+Date.now();
   data.push({id, name, handle, channel:'', followers:'', fit:0, style:0, mood:0, relation:0, progress:'논의 필요', status:'리스트업', second:'선택', uploadDate:'', standard:'선택', recoop:'선택', longcoop:'선택', note:'', basic:{}, items:[], links:[], daily:[0,1,2,3].map(()=>({views:0,likes:0,comments:0,productLikes:0,sales:0,revenue:0,totalSales:0}))});
   saveData(); renderList(); closeAddModal();
@@ -21705,10 +21705,10 @@ function requestDelete(e,i){
   if(e){ e.preventDefault(); e.stopPropagation(); }
   pendingDeleteIndex = i;
   deleteConfirmStep = 1;
-  const modal=document.getElementById('delete-modal');
-  document.getElementById('delete-title').textContent='진짜 삭제하시겠습니까?';
-  document.getElementById('delete-text').textContent='삭제한 행은 되돌릴 수 없습니다.';
-  const btn=document.getElementById('delete-confirm-btn');
+  const modal=root.getElementById('delete-modal');
+  root.getElementById('delete-title').textContent='진짜 삭제하시겠습니까?';
+  root.getElementById('delete-text').textContent='삭제한 행은 되돌릴 수 없습니다.';
+  const btn=root.getElementById('delete-confirm-btn');
   btn.textContent='확인';
   btn.classList.remove('final');
   modal.classList.add('open');
@@ -21717,16 +21717,16 @@ function requestDelete(e,i){
 function cancelDelete(){
   pendingDeleteIndex = null;
   deleteConfirmStep = 0;
-  const modal=document.getElementById('delete-modal');
+  const modal=root.getElementById('delete-modal');
   if(modal){ modal.classList.remove('open'); modal.setAttribute('aria-hidden','true'); }
 }
 function confirmDeleteStep(){
   if(pendingDeleteIndex === null) return cancelDelete();
   if(deleteConfirmStep === 1){
     deleteConfirmStep = 2;
-    document.getElementById('delete-title').textContent='한 번 더 확인해주세요';
-    document.getElementById('delete-text').textContent='확인 버튼을 다시 누르면 최종 삭제됩니다.';
-    const btn=document.getElementById('delete-confirm-btn');
+    root.getElementById('delete-title').textContent='한 번 더 확인해주세요';
+    root.getElementById('delete-text').textContent='확인 버튼을 다시 누르면 최종 삭제됩니다.';
+    const btn=root.getElementById('delete-confirm-btn');
     btn.textContent='최종 삭제';
     btn.classList.add('final');
     return;
@@ -21740,26 +21740,26 @@ function confirmDeleteStep(){
 function deleteRow(i){ requestDelete(null,i); }
 
 function getCurrent(){ return data.find(r=>r.id===currentId); }
-function openDetail(id){ currentId=id; currentSummaryTab='summary'; expandedSummaryDays=new Set(); document.getElementById('detail-modal').classList.add('open'); renderDetail(); }
-function closeDetail(){ document.getElementById('detail-modal').classList.remove('open'); currentId=null; closeSubModal(); }
+function openDetail(id){ currentId=id; currentSummaryTab='summary'; expandedSummaryDays=new Set(); root.getElementById('detail-modal').classList.add('open'); renderDetail(); }
+function closeDetail(){ root.getElementById('detail-modal').classList.remove('open'); currentId=null; closeSubModal(); }
 function renderDetail(){
   const r=getCurrent(); if(!r) return;
-  document.getElementById('detail-name').textContent=r.name||'-';
-  document.getElementById('detail-sub').textContent=`${r.handle||'-'} · ${r.channel||'-'} · 업로드 기준 ${fmtDateLabel(r.uploadDate,0)} ~ ${fmtDateLabel(r.uploadDate,3)}`;
+  root.getElementById('detail-name').textContent=r.name||'-';
+  root.getElementById('detail-sub').textContent=`${r.handle||'-'} · ${r.channel||'-'} · 업로드 기준 ${fmtDateLabel(r.uploadDate,0)} ~ ${fmtDateLabel(r.uploadDate,3)}`;
   renderUploadButtons();
   renderSummaryTabs();
   renderSummaryContent();
 }
 function openSubModal(name){
   currentSub=name;
-  document.getElementById('sub-modal').classList.add('open');
-  document.getElementById('sub-title').textContent = name==='basic'?'기본 정보':(name==='items'?'아이템':'업로드 링크');
-  ['basic','items','links'].forEach(n=>document.getElementById('sub-'+n).style.display = n===name?'block':'none');
+  root.getElementById('sub-modal').classList.add('open');
+  root.getElementById('sub-title').textContent = name==='basic'?'기본 정보':(name==='items'?'아이템':'업로드 링크');
+  ['basic','items','links'].forEach(n=>root.getElementById('sub-'+n).style.display = n===name?'block':'none');
   if(name==='basic') renderBasic();
   if(name==='items') renderItems();
   if(name==='links') renderLinks();
 }
-function closeSubModal(){ document.getElementById('sub-modal').classList.remove('open'); currentSub=null; }
+function closeSubModal(){ root.getElementById('sub-modal').classList.remove('open'); currentSub=null; }
 function saveSubModal(){
   if(currentSub==='basic') saveCurrentBasic();
   saveData(); renderList(); renderDetail(); closeSubModal();
@@ -21767,24 +21767,24 @@ function saveSubModal(){
 function renderUploadButtons(){
   const r=getCurrent(); if(!r) return;
   const has=(r.links||[]).some(l=>l.url);
-  const main=document.getElementById('upload-main-btn');
-  const edit=document.getElementById('upload-edit-btn');
+  const main=root.getElementById('upload-main-btn');
+  const edit=root.getElementById('upload-edit-btn');
   main.textContent=has?'콘텐츠 보러 가기':'업로드 링크';
   main.classList.toggle('primary',has);
   edit.style.display=has?'inline-block':'none';
 }
 function renderBasic(){
   const r=getCurrent(); const b=r.basic||{};
-  ['height','weight','phone','post','address','tracking'].forEach(k=>{ const el=document.getElementById('basic-'+k); if(el) el.value=b[k]||''; });
+  ['height','weight','phone','post','address','tracking'].forEach(k=>{ const el=root.getElementById('basic-'+k); if(el) el.value=b[k]||''; });
 }
 function saveCurrentBasic(){
   const r=getCurrent(); if(!r) return;
-  r.basic={height:document.getElementById('basic-height').value, weight:document.getElementById('basic-weight').value, phone:document.getElementById('basic-phone').value, post:document.getElementById('basic-post').value, address:document.getElementById('basic-address').value, tracking:document.getElementById('basic-tracking').value};
+  r.basic={height:root.getElementById('basic-height').value, weight:root.getElementById('basic-weight').value, phone:root.getElementById('basic-phone').value, post:root.getElementById('basic-post').value, address:root.getElementById('basic-address').value, tracking:root.getElementById('basic-tracking').value};
   saveData();
 }
 function renderItems(){
   const r=getCurrent(); if(!r) return; r.items=r.items||[];
-  document.getElementById('item-body').innerHTML = r.items.map((it,idx)=>`
+  root.getElementById('item-body').innerHTML = r.items.map((it,idx)=>`
     <tr class="seed-item-row" data-seed-item-index="${idx}">
       <td class="seed-item-move-cell"><span class="seed-item-drag-handle" draggable="true" title="드래그해서 순서 이동">⋮⋮</span></td>
       <td><select onchange="seedV11.updateItem(${idx},'platform',this.value);seedV11.renderItems()">${['무신사','29CM','자사몰'].map(p=>`<option ${p===(it.platform||'무신사')?'selected':''}>${p}</option>`).join('')}</select></td>
@@ -21800,7 +21800,7 @@ function renderItems(){
 }
 function renderProductDatalist(idx){
   const r=getCurrent(); if(!r || !r.items[idx]) return;
-  const dl=document.getElementById('product-name-list-'+idx); if(!dl) return;
+  const dl=root.getElementById('product-name-list-'+idx); if(!dl) return;
   const platform=r.items[idx].platform||'무신사';
   dl.innerHTML=products.filter(p=>p.platform===platform).map(p=>`<option value="${esc(p.name)}"></option>`).join('');
 }
@@ -21816,8 +21816,8 @@ function matchItem(idx,key){
 }
 function renderLinks(){
   const r=getCurrent(); if(!r) return; r.links=r.links||[];
-  const list=document.getElementById('link-list');
-  document.getElementById('link-empty').style.display=r.links.length?'none':'block';
+  const list=root.getElementById('link-list');
+  root.getElementById('link-empty').style.display=r.links.length?'none':'block';
   list.innerHTML=r.links.map((l,idx)=>`
     <div class="link-row">
       <input placeholder="링크명" value="${esc(l.title||'')}" onchange="seedV11.updateLink(${idx},'title',this.value)">
@@ -21834,15 +21834,15 @@ function handleContentButton(){
   const links=(r.links||[]).filter(l=>l.url);
   if(!links.length){ openSubModal('links'); return; }
   if(links.length===1){ window.open(links[0].url,'_blank'); return; }
-  document.getElementById('pick-modal').classList.add('open');
-  document.getElementById('pick-list').innerHTML=links.map(l=>`<button class="pick-link" onclick="window.open('${seedV11.esc(l.url)}','_blank');seedV11.closePick()">${esc(l.title||l.url)}</button>`).join('');
+  root.getElementById('pick-modal').classList.add('open');
+  root.getElementById('pick-list').innerHTML=links.map(l=>`<button class="pick-link" onclick="window.open('${seedV11.esc(l.url)}','_blank');seedV11.closePick()">${esc(l.title||l.url)}</button>`).join('');
 }
-function closePick(){ document.getElementById('pick-modal').classList.remove('open'); }
+function closePick(){ root.getElementById('pick-modal').classList.remove('open'); }
 
 function renderSummaryTabs(){
   const r=getCurrent(); if(!r) return;
   const tabs=[{key:'summary',label:'요약'}, ...[0,1,2,3].map(i=>({key:'day'+i,label:fmtDateLabel(r.uploadDate,i)}))];
-  document.getElementById('summary-tabs').innerHTML=tabs.map(t=>`<button class="summary-tab ${currentSummaryTab===t.key?'active':''}" onclick="currentSummaryTab='${t.key}';seedV11.renderSummaryTabs();seedV11.renderSummaryContent()">${t.label}</button>`).join('');
+  root.getElementById('summary-tabs').innerHTML=tabs.map(t=>`<button class="summary-tab ${currentSummaryTab===t.key?'active':''}" onclick="currentSummaryTab='${t.key}';seedV11.renderSummaryTabs();seedV11.renderSummaryContent()">${t.label}</button>`).join('');
 }
 function dayRows(r,dayIdx){
   const base=r.daily&&r.daily[dayIdx]?r.daily[dayIdx]:{};
@@ -21896,7 +21896,7 @@ function productDetailTable(r,dayIdx){
 }
 function renderSummaryContent(){
   const r=getCurrent(); if(!r) return;
-  const box=document.getElementById('summary-content');
+  const box=root.getElementById('summary-content');
   if(currentSummaryTab==='summary'){
     const sum=metricSum(r);
     const totalDelta=[0,1,2,3].reduce((a,i)=>a+salesDelta(r,i),0);
@@ -21961,9 +21961,9 @@ function renderSummaryContent(){
 }
 function updateDaily(dayIdx,key,val){ const r=getCurrent(); r.daily=r.daily||[]; r.daily[dayIdx]=r.daily[dayIdx]||{}; r.daily[dayIdx][key]=Number(val)||0; saveData(); renderSummaryContent(); }
 
-document.getElementById('detail-modal').addEventListener('click', e=>{ if(e.target.id==='detail-modal') closeDetail(); });
-document.getElementById('sub-modal').addEventListener('click', e=>{ if(e.target.id==='sub-modal') closeSubModal(); });
-document.getElementById('pick-modal').addEventListener('click', e=>{ if(e.target.id==='pick-modal') closePick(); });
+root.getElementById('detail-modal').addEventListener('click', e=>{ if(e.target.id==='detail-modal') closeDetail(); });
+root.getElementById('sub-modal').addEventListener('click', e=>{ if(e.target.id==='sub-modal') closeSubModal(); });
+root.getElementById('pick-modal').addEventListener('click', e=>{ if(e.target.id==='pick-modal') closePick(); });
 initFilters();
 renderList();
 
@@ -22043,6 +22043,68 @@ renderList();
   if(window.document.readyState==='loading') window.document.addEventListener('DOMContentLoaded',mountSeedingV11); else mountSeedingV11();
 })();
 </script>
+
+<!-- CHOI PATCH: Seeding Shadow DOM runtime scope fix only -->
+<script id="seeding-shadow-runtime-scope-fix-v1">
+(function(){
+  'use strict';
+  if(window.__seedingShadowRuntimeScopeFixV1) return;
+  window.__seedingShadowRuntimeScopeFixV1 = true;
+
+  function getSeedPage(){ return document.getElementById('pg-seeding'); }
+  function getSeedRoot(){
+    var host = document.getElementById('seed-v11-host');
+    return host && host.shadowRoot ? host.shadowRoot : null;
+  }
+  function ensureSeedVisibleClass(){
+    var pg = getSeedPage();
+    if(!pg) return;
+    var active = pg.style.display !== 'none';
+    pg.classList.toggle('imc-main-tab-active', active);
+  }
+  function rerenderSeed(){
+    ensureSeedVisibleClass();
+    var root = getSeedRoot();
+    if(!root || !window.seedV11) return;
+    try{
+      if(typeof window.seedV11.loadData === 'function') window.seedV11.data = window.seedV11.loadData();
+      if(typeof window.seedV11.renderList === 'function') window.seedV11.renderList();
+    }catch(e){
+      console.warn('Seeding Shadow 렌더 보정 실패:', e);
+    }
+  }
+
+  var originalSwitchMain = window.switchMain;
+  if(typeof originalSwitchMain === 'function' && !originalSwitchMain.__seedingShadowWrapped){
+    var wrapped = function(t){
+      var result = originalSwitchMain.apply(this, arguments);
+      if(t === 'seeding') setTimeout(rerenderSeed, 0);
+      else setTimeout(ensureSeedVisibleClass, 0);
+      return result;
+    };
+    wrapped.__seedingShadowWrapped = true;
+    window.switchMain = wrapped;
+    try{ switchMain = wrapped; }catch(e){}
+  }
+
+  var originalSeedRender = window.seedRender;
+  window.seedRender = function(){
+    if(typeof originalSeedRender === 'function') {
+      try{ originalSeedRender.apply(this, arguments); }catch(e){ console.warn('기존 Seeding 렌더 실패:', e); }
+    }
+    rerenderSeed();
+  };
+  try{ seedRender = window.seedRender; }catch(e){}
+
+  var mo = new MutationObserver(function(){ setTimeout(ensureSeedVisibleClass, 0); });
+  var pg = getSeedPage();
+  if(pg) mo.observe(pg, { attributes:true, attributeFilter:['style','class'] });
+
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(rerenderSeed, 0); });
+  else setTimeout(rerenderSeed, 0);
+})();
+</script>
+
 
 
 <!-- PATCH V65: List 탭 고정 컬럼 및 행 잠금 기능 -->
@@ -25063,6 +25125,403 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
 })();
 </script>
 
+
+
+
+<!-- CHOI PATCH: Seeding Shadow DOM buttons visibility/binding fix only -->
+<script id="seeding-shadow-buttons-visible-fix-v1">
+(function(){
+  'use strict';
+  if(window.__seedingShadowButtonsVisibleFixV1) return;
+  window.__seedingShadowButtonsVisibleFixV1 = true;
+
+  function getRoot(){
+    var host = document.getElementById('seed-v11-host');
+    return host && host.shadowRoot ? host.shadowRoot : null;
+  }
+  function addStyle(root){
+    if(!root || root.getElementById('seeding-shadow-buttons-visible-style-v1')) return;
+    var style = document.createElement('style');
+    style.id = 'seeding-shadow-buttons-visible-style-v1';
+    style.textContent = `
+      /* Seeding 탭 내부 버튼/필터만 표시 보정 */
+      :host{display:block!important;width:100%!important;}
+      #seed-month-btns,
+      #seed-status-btns,
+      #seed-ch-btns{
+        display:flex!important;
+        flex-wrap:wrap!important;
+        gap:4px!important;
+        min-height:28px!important;
+        visibility:visible!important;
+        opacity:1!important;
+      }
+      #seed-month-btns .chip,
+      #seed-status-btns .chip{
+        display:inline-flex!important;
+        align-items:center!important;
+        justify-content:center!important;
+        visibility:visible!important;
+        opacity:1!important;
+        min-height:26px!important;
+        cursor:pointer!important;
+      }
+      #seed-ch-btns .ov-pbtn{
+        display:inline-flex!important;
+        align-items:center!important;
+        justify-content:center!important;
+        visibility:visible!important;
+        opacity:1!important;
+        min-height:28px!important;
+        cursor:pointer!important;
+      }
+      .table-card > div:first-child,
+      .table-card > div:first-child > div:last-child{
+        display:flex!important;
+        visibility:visible!important;
+        opacity:1!important;
+      }
+      .table-card > div:first-child > div:last-child{
+        align-items:center!important;
+        gap:6px!important;
+      }
+      .table-card > div:first-child > div:last-child .add-btn{
+        display:inline-flex!important;
+        align-items:center!important;
+        justify-content:center!important;
+        visibility:visible!important;
+        opacity:1!important;
+        min-height:30px!important;
+        cursor:pointer!important;
+        white-space:nowrap!important;
+      }
+      .detail-actions .content-btn,
+      #summary-tabs .summary-tab,
+      #sub-modal .content-btn,
+      #sub-modal .small-btn,
+      #sub-modal .ghost-btn,
+      #sub-modal .save-btn,
+      #sub-modal .del-btn,
+      #pick-modal .pick-link,
+      #delete-modal button{
+        visibility:visible!important;
+        opacity:1!important;
+      }
+    `;
+    root.appendChild(style);
+  }
+  function hasActionButton(root, label){
+    return Array.from(root.querySelectorAll('.table-card button')).some(function(btn){ return (btn.textContent||'').trim() === label; });
+  }
+  function ensureActionButtons(root){
+    var actionWrap = root.querySelector('.table-card > div:first-child > div:last-child');
+    if(!actionWrap) return;
+    if(!hasActionButton(root, '+ 추가')){
+      var add = document.createElement('button');
+      add.type = 'button';
+      add.className = 'add-btn';
+      add.textContent = '+ 추가';
+      add.style.marginBottom = '0';
+      add.addEventListener('click', function(e){
+        e.preventDefault(); e.stopPropagation();
+        if(window.seedV11 && typeof window.seedV11.addRow === 'function') window.seedV11.addRow();
+      });
+      actionWrap.insertBefore(add, actionWrap.firstChild);
+    }
+    if(!hasActionButton(root, '순서 정리')){
+      var sort = document.createElement('button');
+      sort.type = 'button';
+      sort.className = 'add-btn';
+      sort.textContent = '순서 정리';
+      sort.style.marginBottom = '0';
+      sort.addEventListener('click', function(e){
+        e.preventDefault(); e.stopPropagation();
+        if(window.seedV11 && typeof window.seedV11.sortRows === 'function') window.seedV11.sortRows();
+      });
+      actionWrap.appendChild(sort);
+    }
+  }
+  function bindShadowClicks(root){
+    if(root.__seedingShadowButtonsVisibleBound) return;
+    root.__seedingShadowButtonsVisibleBound = true;
+    root.addEventListener('click', function(e){
+      var btn = e.target && e.target.closest ? e.target.closest('button,.chip') : null;
+      if(!btn) return;
+      var text = (btn.textContent || '').trim();
+      if(btn.closest('.table-card') && text === '+ 추가'){
+        e.preventDefault(); e.stopPropagation();
+        if(window.seedV11 && typeof window.seedV11.addRow === 'function') window.seedV11.addRow();
+      }
+      if(btn.closest('.table-card') && text === '순서 정리'){
+        e.preventDefault(); e.stopPropagation();
+        if(window.seedV11 && typeof window.seedV11.sortRows === 'function') window.seedV11.sortRows();
+      }
+    }, true);
+  }
+  function ensureFilters(root){
+    if(!root || !window.seedV11) return;
+    var m = root.getElementById('seed-month-btns');
+    var s = root.getElementById('seed-status-btns');
+    var c = root.getElementById('seed-ch-btns');
+    if((m && !m.children.length) || (s && !s.children.length) || (c && !c.children.length)){
+      try{ if(typeof window.seedV11.initFilters === 'function') window.seedV11.initFilters(); }catch(e){}
+    }
+    // initFilters 이후에도 비어 있으면 화면 확인용 기본 필터 버튼을 직접 채움
+    var y = new Date().getFullYear();
+    if(m && !m.children.length){
+      m.innerHTML = '<div class="chip active">전체</div>' + Array.from({length:12}, function(_,i){ return '<div class="chip">'+(i+1)+'월</div>'; }).join('');
+    }
+    if(s && !s.children.length){
+      s.innerHTML = ['전체','리스트업','컨택','회신','거절','취합','발송','업로드','스냅'].map(function(v,i){ return '<div class="chip '+(i===0?'active':'')+'">'+v+'</div>'; }).join('');
+    }
+    if(c && !c.children.length){
+      c.innerHTML = ['전체','Instagram','YouTube','TikTok','X','Blog'].map(function(v,i){ return '<button type="button" class="ov-pbtn '+(i===0?'active':'')+'">'+v+'</button>'; }).join('');
+    }
+  }
+  function apply(){
+    var root = getRoot();
+    if(!root) return false;
+    addStyle(root);
+    ensureActionButtons(root);
+    ensureFilters(root);
+    bindShadowClicks(root);
+    return true;
+  }
+  function schedule(){
+    apply();
+    setTimeout(apply, 100);
+    setTimeout(apply, 400);
+    setTimeout(apply, 1000);
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', schedule);
+  else schedule();
+  document.addEventListener('click', function(e){
+    var tab = e.target && e.target.closest ? e.target.closest('.top-tab') : null;
+    if(tab && (tab.textContent || '').trim() === 'Seeding') setTimeout(schedule, 0);
+  }, true);
+  var prevSeedRender = window.seedRender;
+  window.seedRender = function(){
+    var ret;
+    if(typeof prevSeedRender === 'function') ret = prevSeedRender.apply(this, arguments);
+    setTimeout(apply, 0);
+    return ret;
+  };
+})();
+</script>
+
+
+<!-- PATCH: List tab sort/progress buttons only -->
+<style id="list-sort-progress-buttons-only-style">
+  #pg-list .list-card-stable-head{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:10px!important;}
+  #pg-list .list-card-stable-actions{display:flex!important;align-items:center!important;gap:6px!important;margin-left:auto!important;}
+  #pg-list .list-card-stable-actions .list-add-stable-btn,
+  #pg-list .list-card-stable-actions .list-control-stable-btn{
+    font-size:12px!important;
+    padding:6px 12px!important;
+    border-radius:var(--border-radius-md)!important;
+    border:0.5px solid var(--color-border-secondary)!important;
+    background:transparent!important;
+    color:var(--color-text-secondary)!important;
+    cursor:pointer!important;
+    margin:0!important;
+    font-family:inherit!important;
+    line-height:1.2!important;
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    white-space:nowrap!important;
+  }
+  #pg-list .list-card-stable-actions .list-add-stable-btn:hover,
+  #pg-list .list-card-stable-actions .list-control-stable-btn:hover{background:var(--color-background-secondary)!important;}
+  #pg-list .list-card-stable-actions .list-control-stable-btn.active{
+    background:var(--color-text-primary)!important;
+    color:var(--color-background-primary)!important;
+    border-color:var(--color-text-primary)!important;
+  }
+</style>
+<script id="list-sort-progress-buttons-only-script">
+(function(){
+  'use strict';
+  if(window.__listSortProgressButtonsOnlyPatch) return;
+  window.__listSortProgressButtonsOnlyPatch = true;
+  window.__listProgressOnly = !!window.__listProgressOnly;
+
+  function getPg(){ return document.getElementById('pg-list'); }
+  function parseDateValue(v){
+    if(!v) return Number.POSITIVE_INFINITY;
+    var s=String(v).trim();
+    var m=s.match(/^(\d{4})[.\/-]\s*(\d{1,2})[.\/-]\s*(\d{1,2})/);
+    if(m) return new Date(Number(m[1]), Number(m[2])-1, Number(m[3])).getTime();
+    var t=new Date(s).getTime();
+    return isNaN(t) ? Number.POSITIVE_INFINITY : t;
+  }
+  function canEdit(){
+    if(window.currentUserRole === 'viewer'){
+      alert('현재 계정은 보기 전용 권한입니다. 순서 정리는 수정 권한이 있는 담당자만 가능합니다.');
+      return false;
+    }
+    return true;
+  }
+  function sortCreatorsByUploadDate(){
+    if(!canEdit()) return false;
+    window.creators = Array.isArray(window.creators) ? window.creators : [];
+    window.creators.sort(function(a,b){
+      var ad=parseDateValue(a && a.uploadDate);
+      var bd=parseDateValue(b && b.uploadDate);
+      if(ad!==bd) return ad-bd;
+      return String((a&&a.name)||'').localeCompare(String((b&&b.name)||''),'ko');
+    });
+    window.creators.forEach(function(row,i){ if(row) row._order=i; });
+    if(typeof window.fbSaveCreators === 'function') window.fbSaveCreators();
+    if(typeof window.applyListFilter === 'function') window.applyListFilter();
+    if(typeof window.buildCal === 'function') window.buildCal();
+    if(typeof window.updateSummary === 'function') window.updateSummary();
+    return false;
+  }
+  window.sortListByUploadDate = sortCreatorsByUploadDate;
+
+  function getFilterValue(id){
+    var el=document.getElementById(id);
+    return el ? String(el.value || '') : '';
+  }
+  function getMonth(dateStr){
+    if(typeof window.dMonth === 'function') return window.dMonth(dateStr);
+    var t=parseDateValue(dateStr);
+    return isFinite(t) ? new Date(t).getMonth()+1 : 0;
+  }
+  function applyListFilterWithProgressOnly(){
+    var body=document.getElementById('creator-body');
+    var rows=Array.isArray(window.creators) ? window.creators : [];
+    if(!window.__listProgressOnly){
+      return null;
+    }
+    var m=parseInt(getFilterValue('lf-month') || '0',10) || 0;
+    var ch=getFilterValue('lf-ch');
+    var tp=getFilterValue('lf-type');
+    var pl=getFilterValue('lf-plt');
+    var nm=getFilterValue('lf-name').toLowerCase();
+    var filtered=rows.filter(function(r){
+      r=r||{};
+      if(m!==0 && getMonth(r.uploadDate)!==m) return false;
+      if(ch && ch!=='0' && r.ch!==ch) return false;
+      if(tp && tp!=='0' && r.contentType!==tp) return false;
+      if(pl && pl!=='0' && r.platform!==pl) return false;
+      if(nm && !String(r.name||'').toLowerCase().includes(nm)) return false;
+      if(!r.checked) return false;
+      return true;
+    });
+    if(!rows.length && body){
+      body.innerHTML='<tr><td colspan="22" style="text-align:center;padding:24px;color:var(--color-text-tertiary);font-size:12px;">+ 크리에이터 추가 버튼을 눌러 추가해주세요</td></tr>';
+      return true;
+    }
+    if(!filtered.length && body){
+      body.innerHTML='<tr><td colspan="22" style="text-align:center;padding:24px;color:var(--color-text-tertiary);font-size:12px;">진행 체크된 리스트가 없습니다.</td></tr>';
+      return true;
+    }
+    if(typeof window.renderCreatorRows === 'function') window.renderCreatorRows(filtered);
+    return true;
+  }
+
+  function patchApplyListFilter(){
+    if(typeof window.applyListFilter !== 'function' || window.applyListFilter.__progressOnlyPatched) return;
+    var prev=window.applyListFilter;
+    window.applyListFilter=function(){
+      if(window.__listProgressOnly){
+        var handled=applyListFilterWithProgressOnly();
+        if(handled) { ensureButtons(); return; }
+      }
+      var ret=prev.apply(this, arguments);
+      ensureButtons();
+      return ret;
+    };
+    window.applyListFilter.__progressOnlyPatched=true;
+  }
+
+  function setProgressBtnState(btn){
+    if(!btn) return;
+    btn.classList.toggle('active', !!window.__listProgressOnly);
+  }
+  function toggleProgressOnly(){
+    window.__listProgressOnly = !window.__listProgressOnly;
+    setProgressBtnState(document.getElementById('list-progress-filter-btn'));
+    if(typeof window.applyListFilter === 'function') window.applyListFilter();
+    return false;
+  }
+  window.toggleListProgressOnly = toggleProgressOnly;
+
+  function ensureButtons(){
+    var pg=getPg();
+    if(!pg) return;
+    var head=pg.querySelector('.list-card-stable-head, #list-v36-card .list-card-stable-head, #list-v34-card .list-card-stable-head, .list-v13-head');
+    if(!head) return;
+    var title=head.querySelector('.list-card-stable-title, .list-v13-title') || head.firstElementChild;
+    var actions=head.querySelector('.list-card-stable-actions');
+    if(!actions){
+      actions=document.createElement('div');
+      actions.className='list-card-stable-actions';
+      head.appendChild(actions);
+    }
+    var add=document.getElementById('list-add-stable-btn') || document.getElementById('creator-add-btn-v36') || head.querySelector('.list-add-stable-btn, .creator-add-btn-v36, button');
+    if(add && !actions.contains(add)) actions.appendChild(add);
+    if(add){
+      add.classList.add('list-add-stable-btn');
+      add.style.marginBottom='0';
+    }
+    var sort=document.getElementById('list-upload-sort-btn');
+    if(!sort){
+      sort=document.createElement('button');
+      sort.type='button';
+      sort.id='list-upload-sort-btn';
+      sort.className='list-control-stable-btn';
+      sort.textContent='순서 정리';
+    }
+    if(!actions.contains(sort)) actions.appendChild(sort);
+    sort.onclick=function(e){ e.preventDefault(); e.stopPropagation(); return sortCreatorsByUploadDate(); };
+
+    var prog=document.getElementById('list-progress-filter-btn');
+    if(!prog){
+      prog=document.createElement('button');
+      prog.type='button';
+      prog.id='list-progress-filter-btn';
+      prog.className='list-control-stable-btn';
+      prog.textContent='진행';
+    }
+    if(!actions.contains(prog)) actions.appendChild(prog);
+    prog.onclick=function(e){ e.preventDefault(); e.stopPropagation(); return toggleProgressOnly(); };
+    setProgressBtnState(prog);
+    if(title && title !== actions && title.parentElement !== head){ head.insertBefore(title, actions); }
+  }
+
+  function schedule(){
+    patchApplyListFilter();
+    ensureButtons();
+    setTimeout(function(){ patchApplyListFilter(); ensureButtons(); },120);
+    setTimeout(function(){ patchApplyListFilter(); ensureButtons(); },500);
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', schedule);
+  else schedule();
+  window.addEventListener('load', schedule);
+  document.addEventListener('click', function(e){
+    var tab=e.target && e.target.closest ? e.target.closest('.top-tab') : null;
+    if(tab && (tab.textContent||'').trim()==='List') setTimeout(schedule,0);
+  }, true);
+  document.addEventListener('change', function(e){
+    if(window.__listProgressOnly && e.target && e.target.matches && e.target.matches('#pg-list input[type="checkbox"]')){
+      setTimeout(function(){ if(typeof window.applyListFilter==='function') window.applyListFilter(); },0);
+    }
+  }, true);
+  var observerStarted=false;
+  function startObserver(){
+    if(observerStarted) return;
+    var pg=getPg();
+    if(!pg) return;
+    observerStarted=true;
+    new MutationObserver(function(){ ensureButtons(); }).observe(pg,{childList:true,subtree:true});
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startObserver);
+  else startObserver();
+})();
+</script>
 
 </body>
 </html>
