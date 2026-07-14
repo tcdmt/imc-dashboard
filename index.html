@@ -1791,6 +1791,12 @@ html[data-user-role="viewer"] [data-delete]{opacity:.35!important;cursor:not-all
 #fb-v15-modal .fb-v15-panel .fb-v15-product-name{min-width:190px;text-align:center!important;}
 </style>
 
+
+
+<!-- CHOI PATCH: Overview / Item tabs removed version visibility guard -->
+<style id="overview-item-tab-removed-guard">
+#pg-overview,#pg-item{display:none!important;}
+</style>
 </head>
 <body>
 <div class="page">
@@ -4035,8 +4041,8 @@ function toggleSetupPanel(){
 }
 
 /* ══ 공통 상수 ══ */
-const TABS=['overview','monthly','promotion','meta','list','feedback','crm','seeding','celeb','organic','budget','item'];
-const TAB_LABELS=['Overview','Monthly','Promotion','Meta','List','Feedback','CRM','Seeding','Celeb','Organic','Budget','Item'];
+const TABS=['monthly','promotion','meta','list','feedback','crm','seeding','celeb','organic','budget'];
+const TAB_LABELS=['Monthly','Promotion','Meta','List','Feedback','CRM','Seeding','Celeb','Organic','Budget'];
 const CT=['YT 브랜디드','YT PPL','YT 쇼츠','YT 쇼츠 PPL','IG 릴스 브랜디드','IG 릴스 PPL','IG 피드 브랜디드','IG 스토리','X 브랜디드','TT 브랜디드','YT 쇼츠+IG 릴스','YT 쇼츠+IG 릴스+TT 브랜디드'];
 const PST=['상품 셀렉','상품 출고','혜택 정리','혜택 전달','가편 전달','업로드'];
 const SST=['정산 안내','자료 수급','결재 상신','입금 완료'];
@@ -9919,7 +9925,7 @@ window.dcBudgetCell=dcBudgetCell;
 buildTabs();buildFilters();buildBudgetHeader();
 applyPromoFilter();applyListFilter();renderBudget();renderProducts();buildMonthQuickBtns();buildCal();
 initCreatorPopupListener();
-ovCommonDateInit(); switchMain('overview');
+if(typeof ovCommonDateInit==='function') ovCommonDateInit(); switchMain('monthly');
 // 테스트 데이터 주입 (Firebase 미연결 시에만)
 if(window._injectTestData && typeof isFirebaseReady === 'undefined'){
   setTimeout(window._injectTestData, 300);
@@ -25520,6 +25526,139 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
   }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startObserver);
   else startObserver();
+})();
+</script>
+
+
+
+<!-- CHOI PATCH: List ID hyperlink by channel only -->
+<style id="list-id-hyperlink-style">
+  #pg-list #creator-body .list-id-profile-link{
+    color:#185FA5!important;
+    text-decoration:underline!important;
+    text-underline-offset:2px!important;
+    font-weight:600!important;
+    cursor:pointer!important;
+  }
+  #pg-list #creator-body .list-id-profile-link:hover{opacity:.72!important;}
+</style>
+<script id="list-id-hyperlink-patch">
+(function(){
+  'use strict';
+  if(window.__listIdHyperlinkPatchApplied) return;
+  window.__listIdHyperlinkPatchApplied = true;
+
+  function escHtml(v){
+    return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+  function cleanId(id){
+    return String(id || '').trim().replace(/^@+/, '').replace(/^\/+/, '');
+  }
+  function profileUrl(ch, id){
+    var clean = cleanId(id);
+    if(!clean) return '';
+    var enc = encodeURIComponent(clean);
+    if(ch === 'Instagram') return 'https://www.instagram.com/' + enc;
+    if(ch === 'Youtube' || ch === 'YouTube') return 'https://www.youtube.com/@' + enc;
+    if(ch === 'Tiktok' || ch === 'TikTok') return 'https://www.tiktok.com/@' + enc;
+    if(ch === 'X') return 'https://x.com/' + enc;
+    if(ch === 'Blog') return 'https://blog.naver.com/' + enc;
+    return '';
+  }
+  function rowIndexFromIdCell(span){
+    var raw = span && (span.getAttribute('data-id-edit') || span.getAttribute('ondblclick') || '');
+    var m = raw.match(/window\.creators\[(\d+)\]\.id\s*=/);
+    return m ? parseInt(m[1],10) : -1;
+  }
+  function decorateIdLinks(){
+    var body = document.getElementById('creator-body');
+    if(!body || !window.creators) return;
+    Array.prototype.forEach.call(body.querySelectorAll(':scope > tr'), function(tr){
+      var cells = tr.children;
+      if(!cells || cells.length < 2) return;
+      var idCell = cells[1];
+      var span = idCell && idCell.querySelector('.dc-cell');
+      if(!span) return;
+      var originalEdit = span.getAttribute('data-id-edit') || span.getAttribute('ondblclick') || '';
+      if(originalEdit) span.setAttribute('data-id-edit', originalEdit);
+      var ri = rowIndexFromIdCell(span);
+      if(ri < 0 || !window.creators[ri]) return;
+      var row = window.creators[ri];
+      var id = row.id || span.textContent || '';
+      var url = profileUrl(row.ch, id);
+      if(!url) return;
+      var currentLink = span.querySelector('a.list-id-profile-link');
+      if(currentLink && currentLink.getAttribute('href') === url && currentLink.textContent === String(id)) return;
+      span.removeAttribute('ondblclick');
+      span.innerHTML = '<a class="list-id-profile-link" href="'+escHtml(url)+'" target="_blank" rel="noopener noreferrer" title="클릭하면 프로필을 새 창으로 열고, 더블클릭하면 ID를 편집합니다">'+escHtml(id)+'</a>';
+    });
+  }
+
+  window.listIdLinkClick = function(e, a){
+    if(e){e.preventDefault();e.stopPropagation();}
+    if(!a) return false;
+    clearTimeout(a.__listIdClickTimer);
+    a.__listIdClickTimer = setTimeout(function(){
+      try{ window.open(a.href, '_blank', 'noopener'); }catch(err){ location.href = a.href; }
+    }, 180);
+    return false;
+  };
+  window.listIdLinkDblClick = function(e, a){
+    if(e){e.preventDefault();e.stopPropagation();}
+    if(!a) return false;
+    clearTimeout(a.__listIdClickTimer);
+    var span = a.closest && a.closest('.dc-cell');
+    if(span){
+      var code = span.getAttribute('data-id-edit') || '';
+      if(code){
+        try{ (new Function(code)).call(span); }
+        catch(err){ console.error('ID 편집 시작 오류:', err); }
+      }
+    }
+    return false;
+  };
+
+  var prevRender = window.renderCreatorRows;
+  if(typeof prevRender === 'function' && !prevRender.__listIdHyperlink){
+    var wrappedRender = function(){
+      var ret = prevRender.apply(this, arguments);
+      setTimeout(decorateIdLinks, 0);
+      return ret;
+    };
+    wrappedRender.__listIdHyperlink = true;
+    window.renderCreatorRows = wrappedRender;
+  }
+  var prevApply = window.applyListFilter;
+  if(typeof prevApply === 'function' && !prevApply.__listIdHyperlink){
+    var wrappedApply = function(){
+      var ret = prevApply.apply(this, arguments);
+      setTimeout(decorateIdLinks, 0);
+      return ret;
+    };
+    wrappedApply.__listIdHyperlink = true;
+    window.applyListFilter = wrappedApply;
+  }
+
+  document.addEventListener('click', function(e){
+    var a = e.target && e.target.closest && e.target.closest('#pg-list #creator-body a.list-id-profile-link');
+    if(a) window.listIdLinkClick(e, a);
+  }, true);
+  document.addEventListener('dblclick', function(e){
+    var a = e.target && e.target.closest && e.target.closest('#pg-list #creator-body a.list-id-profile-link');
+    if(a) window.listIdLinkDblClick(e, a);
+  }, true);
+
+  function boot(){ decorateIdLinks(); setTimeout(decorateIdLinks, 300); }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+  window.addEventListener('load', function(){ setTimeout(boot, 500); });
+  try{
+    var body = document.getElementById('creator-body');
+    if(body && typeof MutationObserver !== 'undefined'){
+      var mo = new MutationObserver(function(){ clearTimeout(window.__listIdLinkMoTimer); window.__listIdLinkMoTimer = setTimeout(decorateIdLinks, 80); });
+      mo.observe(body, {childList:true, subtree:true, characterData:true});
+    }
+  }catch(e){}
 })();
 </script>
 
