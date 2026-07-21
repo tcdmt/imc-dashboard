@@ -7747,6 +7747,20 @@ window.addEventListener('beforeunload', function() {
   } catch(e) {}
 })();
 
+
+/* CHOI PATCH: Complete removal init compatibility only */
+function addProduct(){
+  window.products = Array.isArray(window.products) ? window.products : [];
+  if(typeof window.fbSaveProducts === 'function') window.fbSaveProducts();
+}
+function ovCommonDateInit(){}
+if(typeof window.renderProducts !== 'function'){
+  window.renderProducts = function(){};
+}
+if(typeof window.ovRender !== 'function'){
+  window.ovRender = function(){};
+}
+
 function runInit(){
 window.addPromo=addPromo;
 window.addCreator=addCreator;
@@ -23226,8 +23240,8 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
 </script>
 
 
-<!-- CHOI PATCH: Seeding tab light visibility fix only -->
-<style id="seeding-light-visible-fix-style">
+<!-- CHOI PATCH: Seeding tab visibility init fix only -->
+<style id="seeding-tab-init-visible-fix-style">
   #pg-seeding.imc-main-tab-active,
   #pg-seeding[data-seeding-active="1"]{
     display:block!important;
@@ -23240,26 +23254,24 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
     min-height:360px!important;
   }
 </style>
-<script id="seeding-light-visible-fix-script">
+<script id="seeding-tab-init-visible-fix-script">
 (function(){
   'use strict';
-  if(window.__seedingLightVisibleFix) return;
-  window.__seedingLightVisibleFix = true;
+  if(window.__seedingTabInitVisibleFix) return;
+  window.__seedingTabInitVisibleFix = true;
 
-  function ids(){
-    return (window.TABS && Array.isArray(window.TABS))
-      ? window.TABS
-      : ['overview','monthly','promotion','meta','list','feedback','crm','seeding','celeb','organic','budget','item'];
+  function pageIds(){
+    return ['overview','monthly','promotion','meta','list','feedback','crm','seeding','celeb','organic','budget','item'];
   }
 
   function activateSeeding(){
-    ids().forEach(function(id){
+    pageIds().forEach(function(id){
       var el = document.getElementById('pg-' + id);
       if(!el) return;
       var on = id === 'seeding';
       el.style.display = on ? 'block' : 'none';
       el.classList.toggle('imc-main-tab-active', on);
-      if(id === 'seeding') el.setAttribute('data-seeding-active','1');
+      if(on) el.setAttribute('data-seeding-active','1');
       else el.removeAttribute('data-seeding-active');
     });
 
@@ -23278,29 +23290,24 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
 
     setTimeout(function(){
       try{
-        if(window.seedV11 && typeof window.seedV11.renderList === 'function'){
-          window.seedV11.renderList();
-        }
+        if(window.seedV11 && typeof window.seedV11.initFilters === 'function') window.seedV11.initFilters();
+        if(window.seedV11 && typeof window.seedV11.renderList === 'function') window.seedV11.renderList();
       }catch(e){ console.warn('Seeding render 보정 실패:', e); }
     }, 50);
   }
 
   var prev = window.switchMain;
-  if(typeof prev === 'function' && !prev.__seedingLightVisibleWrapped){
+  if(typeof prev === 'function' && !prev.__seedingTabInitVisibleWrapped){
     var wrapped = function(t){
-      var result;
-      if(t === 'seeding'){
-        try{ result = prev.apply(this, arguments); }
-        catch(e){ console.warn('Seeding 탭 전환 오류를 표시 보정으로 처리했습니다:', e); }
-        activateSeeding();
-        return result;
+      var result = prev.apply(this, arguments);
+      if(t === 'seeding') activateSeeding();
+      else {
+        var seed = document.getElementById('pg-seeding');
+        if(seed) seed.removeAttribute('data-seeding-active');
       }
-      result = prev.apply(this, arguments);
-      var seed = document.getElementById('pg-seeding');
-      if(seed) seed.removeAttribute('data-seeding-active');
       return result;
     };
-    wrapped.__seedingLightVisibleWrapped = true;
+    wrapped.__seedingTabInitVisibleWrapped = true;
     window.switchMain = wrapped;
     try{ switchMain = wrapped; }catch(e){}
   }
@@ -23308,7 +23315,7 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
   document.addEventListener('click', function(e){
     var tab = e.target && e.target.closest ? e.target.closest('.top-tab') : null;
     if(tab && (tab.textContent || '').trim() === 'Seeding'){
-      setTimeout(activateSeeding, 30);
+      setTimeout(activateSeeding, 40);
     }
   }, false);
 })();
