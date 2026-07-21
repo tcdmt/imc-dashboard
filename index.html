@@ -23224,5 +23224,107 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
 })();
 </script>
 
+
+<!-- CHOI PATCH: Seeding tab visibility recovery only -->
+<style id="seeding-tab-visibility-recovery-style">
+  #pg-seeding.imc-main-tab-active{
+    display:block!important;
+    visibility:visible!important;
+  }
+  #pg-seeding.imc-main-tab-active #seed-v11-host{
+    display:block!important;
+    visibility:visible!important;
+    min-height:420px!important;
+  }
+</style>
+<script id="seeding-tab-visibility-recovery-script">
+(function(){
+  'use strict';
+  if(window.__seedingTabVisibilityRecoveryPatch) return;
+  window.__seedingTabVisibilityRecoveryPatch = true;
+
+  var PAGE_IDS = ['overview','monthly','promotion','meta','list','feedback','crm','seeding','celeb','organic','budget','item'];
+
+  function forceShowSeeding(){
+    PAGE_IDS.forEach(function(id){
+      var el = document.getElementById('pg-' + id);
+      if(!el) return;
+      var active = id === 'seeding';
+      el.style.display = active ? 'block' : 'none';
+      el.classList.toggle('imc-main-tab-active', active);
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll('.top-tab'), function(btn){
+      btn.classList.toggle('on', (btn.textContent || '').trim() === 'Seeding');
+    });
+
+    var pg = document.getElementById('pg-seeding');
+    var host = document.getElementById('seed-v11-host');
+    if(pg){
+      pg.style.display = 'block';
+      pg.classList.add('imc-main-tab-active');
+    }
+    if(host){
+      host.style.display = 'block';
+      host.style.visibility = 'visible';
+      host.style.minHeight = host.style.minHeight || '420px';
+    }
+
+    setTimeout(function(){
+      try{
+        if(window.seedV11 && typeof window.seedV11.renderList === 'function'){
+          if(typeof window.seedV11.loadData === 'function') window.seedV11.loadData();
+          if(typeof window.seedV11.initFilters === 'function') window.seedV11.initFilters();
+          window.seedV11.renderList();
+        } else if(typeof window.seedRender === 'function'){
+          window.seedRender();
+        }
+      }catch(e){
+        console.warn('Seeding 탭 표시 보정 중 렌더 오류:', e);
+      }
+    }, 0);
+  }
+
+  var prevSwitchMain = window.switchMain;
+  if(typeof prevSwitchMain === 'function' && !prevSwitchMain.__seedingVisibilityRecovered){
+    var wrappedSwitchMain = function(t){
+      if(t === 'seeding'){
+        try{ prevSwitchMain.apply(this, arguments); }
+        catch(e){ console.warn('기존 Seeding 탭 전환 오류를 보정했습니다:', e); }
+        forceShowSeeding();
+        return false;
+      }
+      return prevSwitchMain.apply(this, arguments);
+    };
+    wrappedSwitchMain.__seedingVisibilityRecovered = true;
+    window.switchMain = wrappedSwitchMain;
+    try{ switchMain = wrappedSwitchMain; }catch(e){}
+  }
+
+  document.addEventListener('click', function(e){
+    var tab = e.target && e.target.closest ? e.target.closest('.top-tab') : null;
+    if(!tab) return;
+    if((tab.textContent || '').trim() !== 'Seeding') return;
+    e.preventDefault();
+    e.stopPropagation();
+    if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+    forceShowSeeding();
+  }, true);
+
+  function bootIfAlreadySelected(){
+    var active = Array.prototype.find.call(document.querySelectorAll('.top-tab'), function(btn){
+      return (btn.textContent || '').trim() === 'Seeding' && btn.classList.contains('on');
+    });
+    var pg = document.getElementById('pg-seeding');
+    if(active || (pg && pg.style.display !== 'none')){
+      forceShowSeeding();
+    }
+  }
+
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootIfAlreadySelected);
+  else bootIfAlreadySelected();
+})();
+</script>
+
 </body>
 </html>
