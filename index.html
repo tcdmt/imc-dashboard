@@ -19812,6 +19812,7 @@ renderList();
     window.seedV11=api;
     window.seedRender=function(){ products=buildProducts(); data=loadData(); initFilters(); renderList(); };
   }
+  window.mountSeedingV11 = mountSeedingV11;
   if(window.document.readyState==='loading') window.document.addEventListener('DOMContentLoaded',mountSeedingV11); else mountSeedingV11();
 })();
 </script>
@@ -23225,104 +23226,91 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
 </script>
 
 
-<!-- CHOI PATCH: Seeding tab visibility recovery only -->
-<style id="seeding-tab-visibility-recovery-style">
-  #pg-seeding.imc-main-tab-active{
+<!-- CHOI PATCH: Seeding tab light visibility fix only -->
+<style id="seeding-light-visible-fix-style">
+  #pg-seeding.imc-main-tab-active,
+  #pg-seeding[data-seeding-active="1"]{
     display:block!important;
     visibility:visible!important;
   }
-  #pg-seeding.imc-main-tab-active #seed-v11-host{
+  #pg-seeding.imc-main-tab-active #seed-v11-host,
+  #pg-seeding[data-seeding-active="1"] #seed-v11-host{
     display:block!important;
     visibility:visible!important;
-    min-height:420px!important;
+    min-height:360px!important;
   }
 </style>
-<script id="seeding-tab-visibility-recovery-script">
+<script id="seeding-light-visible-fix-script">
 (function(){
   'use strict';
-  if(window.__seedingTabVisibilityRecoveryPatch) return;
-  window.__seedingTabVisibilityRecoveryPatch = true;
+  if(window.__seedingLightVisibleFix) return;
+  window.__seedingLightVisibleFix = true;
 
-  var PAGE_IDS = ['overview','monthly','promotion','meta','list','feedback','crm','seeding','celeb','organic','budget','item'];
+  function ids(){
+    return (window.TABS && Array.isArray(window.TABS))
+      ? window.TABS
+      : ['overview','monthly','promotion','meta','list','feedback','crm','seeding','celeb','organic','budget','item'];
+  }
 
-  function forceShowSeeding(){
-    PAGE_IDS.forEach(function(id){
+  function activateSeeding(){
+    ids().forEach(function(id){
       var el = document.getElementById('pg-' + id);
       if(!el) return;
-      var active = id === 'seeding';
-      el.style.display = active ? 'block' : 'none';
-      el.classList.toggle('imc-main-tab-active', active);
+      var on = id === 'seeding';
+      el.style.display = on ? 'block' : 'none';
+      el.classList.toggle('imc-main-tab-active', on);
+      if(id === 'seeding') el.setAttribute('data-seeding-active','1');
+      else el.removeAttribute('data-seeding-active');
     });
 
     Array.prototype.forEach.call(document.querySelectorAll('.top-tab'), function(btn){
       btn.classList.toggle('on', (btn.textContent || '').trim() === 'Seeding');
     });
 
-    var pg = document.getElementById('pg-seeding');
     var host = document.getElementById('seed-v11-host');
-    if(pg){
-      pg.style.display = 'block';
-      pg.classList.add('imc-main-tab-active');
-    }
     if(host){
       host.style.display = 'block';
       host.style.visibility = 'visible';
-      host.style.minHeight = host.style.minHeight || '420px';
+      if(!host.shadowRoot && typeof window.mountSeedingV11 === 'function'){
+        try{ window.mountSeedingV11(); }catch(e){ console.warn('Seeding mount 보정 실패:', e); }
+      }
     }
 
     setTimeout(function(){
       try{
         if(window.seedV11 && typeof window.seedV11.renderList === 'function'){
-          if(typeof window.seedV11.loadData === 'function') window.seedV11.loadData();
-          if(typeof window.seedV11.initFilters === 'function') window.seedV11.initFilters();
           window.seedV11.renderList();
-        } else if(typeof window.seedRender === 'function'){
-          window.seedRender();
         }
-      }catch(e){
-        console.warn('Seeding 탭 표시 보정 중 렌더 오류:', e);
-      }
-    }, 0);
+      }catch(e){ console.warn('Seeding render 보정 실패:', e); }
+    }, 50);
   }
 
-  var prevSwitchMain = window.switchMain;
-  if(typeof prevSwitchMain === 'function' && !prevSwitchMain.__seedingVisibilityRecovered){
-    var wrappedSwitchMain = function(t){
+  var prev = window.switchMain;
+  if(typeof prev === 'function' && !prev.__seedingLightVisibleWrapped){
+    var wrapped = function(t){
+      var result;
       if(t === 'seeding'){
-        try{ prevSwitchMain.apply(this, arguments); }
-        catch(e){ console.warn('기존 Seeding 탭 전환 오류를 보정했습니다:', e); }
-        forceShowSeeding();
-        return false;
+        try{ result = prev.apply(this, arguments); }
+        catch(e){ console.warn('Seeding 탭 전환 오류를 표시 보정으로 처리했습니다:', e); }
+        activateSeeding();
+        return result;
       }
-      return prevSwitchMain.apply(this, arguments);
+      result = prev.apply(this, arguments);
+      var seed = document.getElementById('pg-seeding');
+      if(seed) seed.removeAttribute('data-seeding-active');
+      return result;
     };
-    wrappedSwitchMain.__seedingVisibilityRecovered = true;
-    window.switchMain = wrappedSwitchMain;
-    try{ switchMain = wrappedSwitchMain; }catch(e){}
+    wrapped.__seedingLightVisibleWrapped = true;
+    window.switchMain = wrapped;
+    try{ switchMain = wrapped; }catch(e){}
   }
 
   document.addEventListener('click', function(e){
     var tab = e.target && e.target.closest ? e.target.closest('.top-tab') : null;
-    if(!tab) return;
-    if((tab.textContent || '').trim() !== 'Seeding') return;
-    e.preventDefault();
-    e.stopPropagation();
-    if(e.stopImmediatePropagation) e.stopImmediatePropagation();
-    forceShowSeeding();
-  }, true);
-
-  function bootIfAlreadySelected(){
-    var active = Array.prototype.find.call(document.querySelectorAll('.top-tab'), function(btn){
-      return (btn.textContent || '').trim() === 'Seeding' && btn.classList.contains('on');
-    });
-    var pg = document.getElementById('pg-seeding');
-    if(active || (pg && pg.style.display !== 'none')){
-      forceShowSeeding();
+    if(tab && (tab.textContent || '').trim() === 'Seeding'){
+      setTimeout(activateSeeding, 30);
     }
-  }
-
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootIfAlreadySelected);
-  else bootIfAlreadySelected();
+  }, false);
 })();
 </script>
 
