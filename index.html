@@ -10620,7 +10620,7 @@ if(document.readyState==='loading'){
     if(tbl&&!document.getElementById('list-v34-card')){
       const old=document.getElementById('list-v13-card')||document.querySelector('#pg-list .list-card-stable');
       if(old&&old.contains(tbl)){old.id='list-v34-card';}
-      else{const card=document.createElement('div');card.id='list-v34-card';card.className='list-v13-card list-card-stable';const head=document.createElement('div');head.className='list-v13-head list-card-stable-head';head.innerHTML='<div class="list-v13-title list-card-stable-title">크리에이터 목록</div><button class="add-btn list-add-stable-btn" onclick="addCreator()" style="margin-bottom:0;">+ 추가</button>';tbl.parentNode.insertBefore(card,tbl);card.appendChild(head);card.appendChild(tbl);}
+      else{const card=document.createElement('div');card.id='list-v34-card';card.className='list-v13-card list-card-stable';const head=document.createElement('div');head.className='list-v13-head list-card-stable-head';head.innerHTML='<div class="list-v13-title list-card-stable-title">크리에이터 목록</div><div class="list-card-stable-actions"><button class="add-btn list-add-stable-btn" id="list-add-stable-btn" onclick="addCreator()" style="margin-bottom:0;">+ 추가</button><button type="button" id="list-upload-sort-btn" class="add-btn list-add-stable-btn list-control-stable-btn" style="margin-bottom:0;">순서 정리</button><button type="button" id="list-progress-filter-btn" class="add-btn list-add-stable-btn list-control-stable-btn" style="margin-bottom:0;">진행</button></div>';tbl.parentNode.insertBefore(card,tbl);card.appendChild(head);card.appendChild(tbl);}
     }
     const btn=document.getElementById('list-add-stable-btn')||document.querySelector('#list-v34-card button, #pg-list .list-add-stable-btn');if(btn){btn.onclick=function(e){e.preventDefault();e.stopPropagation();if(window.addCreator)window.addCreator();};}
   }
@@ -24668,218 +24668,7 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
   };
 })();
 </script>
-<!-- PATCH: List tab sort/progress buttons only -->
-<style id="list-sort-progress-buttons-only-style">
-  #pg-list .list-card-stable-head{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:10px!important;}
-  #pg-list .list-card-stable-actions{display:flex!important;align-items:center!important;gap:6px!important;margin-left:auto!important;}
-  #pg-list .list-card-stable-actions .list-add-stable-btn,
-  #pg-list .list-card-stable-actions .list-control-stable-btn{
-    font-size:12px!important;
-    padding:6px 12px!important;
-    border-radius:var(--border-radius-md)!important;
-    border:0.5px solid var(--color-border-secondary)!important;
-    background:transparent!important;
-    color:var(--color-text-secondary)!important;
-    cursor:pointer!important;
-    margin:0!important;
-    font-family:inherit!important;
-    line-height:1.2!important;
-    display:inline-flex!important;
-    align-items:center!important;
-    justify-content:center!important;
-    white-space:nowrap!important;
-  }
-  #pg-list .list-card-stable-actions .list-add-stable-btn:hover,
-  #pg-list .list-card-stable-actions .list-control-stable-btn:hover{background:var(--color-background-secondary)!important;}
-  #pg-list .list-card-stable-actions .list-control-stable-btn.active{
-    background:var(--color-text-primary)!important;
-    color:var(--color-background-primary)!important;
-    border-color:var(--color-text-primary)!important;
-  }
-</style>
-<script id="list-sort-progress-buttons-only-script">
-(function(){
-  'use strict';
-  if(window.__listSortProgressButtonsOnlyPatch) return;
-  window.__listSortProgressButtonsOnlyPatch = true;
-  window.__listProgressOnly = !!window.__listProgressOnly;
 
-  function getPg(){ return document.getElementById('pg-list'); }
-  function parseDateValue(v){
-    if(!v) return Number.POSITIVE_INFINITY;
-    var s=String(v).trim();
-    var m=s.match(/^(\d{4})[.\/-]\s*(\d{1,2})[.\/-]\s*(\d{1,2})/);
-    if(m) return new Date(Number(m[1]), Number(m[2])-1, Number(m[3])).getTime();
-    var t=new Date(s).getTime();
-    return isNaN(t) ? Number.POSITIVE_INFINITY : t;
-  }
-  function canEdit(){
-    if(window.currentUserRole === 'viewer'){
-      alert('현재 계정은 보기 전용 권한입니다. 순서 정리는 수정 권한이 있는 담당자만 가능합니다.');
-      return false;
-    }
-    return true;
-  }
-  function sortCreatorsByUploadDate(){
-    if(!canEdit()) return false;
-    window.creators = Array.isArray(window.creators) ? window.creators : [];
-    window.creators.sort(function(a,b){
-      var ad=parseDateValue(a && a.uploadDate);
-      var bd=parseDateValue(b && b.uploadDate);
-      if(ad!==bd) return ad-bd;
-      return String((a&&a.name)||'').localeCompare(String((b&&b.name)||''),'ko');
-    });
-    window.creators.forEach(function(row,i){ if(row) row._order=i; });
-    if(typeof window.fbSaveCreators === 'function') window.fbSaveCreators();
-    if(typeof window.applyListFilter === 'function') window.applyListFilter();
-    if(typeof window.buildCal === 'function') window.buildCal();
-    if(typeof window.updateSummary === 'function') window.updateSummary();
-    return false;
-  }
-  window.sortListByUploadDate = sortCreatorsByUploadDate;
-
-  function getFilterValue(id){
-    var el=document.getElementById(id);
-    return el ? String(el.value || '') : '';
-  }
-  function getMonth(dateStr){
-    if(typeof window.dMonth === 'function') return window.dMonth(dateStr);
-    var t=parseDateValue(dateStr);
-    return isFinite(t) ? new Date(t).getMonth()+1 : 0;
-  }
-  function applyListFilterWithProgressOnly(){
-    var body=document.getElementById('creator-body');
-    var rows=Array.isArray(window.creators) ? window.creators : [];
-    if(!window.__listProgressOnly){
-      return null;
-    }
-    var m=parseInt(getFilterValue('lf-month') || '0',10) || 0;
-    var ch=getFilterValue('lf-ch');
-    var tp=getFilterValue('lf-type');
-    var pl=getFilterValue('lf-plt');
-    var nm=getFilterValue('lf-name').toLowerCase();
-    var filtered=rows.filter(function(r){
-      r=r||{};
-      if(m!==0 && getMonth(r.uploadDate)!==m) return false;
-      if(ch && ch!=='0' && r.ch!==ch) return false;
-      if(tp && tp!=='0' && r.contentType!==tp) return false;
-      if(pl && pl!=='0' && r.platform!==pl) return false;
-      if(nm && !String(r.name||'').toLowerCase().includes(nm)) return false;
-      if(!r.checked) return false;
-      return true;
-    });
-    if(!rows.length && body){
-      body.innerHTML='<tr><td colspan="22" style="text-align:center;padding:24px;color:var(--color-text-tertiary);font-size:12px;">+ 크리에이터 추가 버튼을 눌러 추가해주세요</td></tr>';
-      return true;
-    }
-    if(!filtered.length && body){
-      body.innerHTML='<tr><td colspan="22" style="text-align:center;padding:24px;color:var(--color-text-tertiary);font-size:12px;">진행 체크된 리스트가 없습니다.</td></tr>';
-      return true;
-    }
-    if(typeof window.renderCreatorRows === 'function') window.renderCreatorRows(filtered);
-    return true;
-  }
-
-  function patchApplyListFilter(){
-    if(typeof window.applyListFilter !== 'function' || window.applyListFilter.__progressOnlyPatched) return;
-    var prev=window.applyListFilter;
-    window.applyListFilter=function(){
-      if(window.__listProgressOnly){
-        var handled=applyListFilterWithProgressOnly();
-        if(handled) { ensureButtons(); return; }
-      }
-      var ret=prev.apply(this, arguments);
-      ensureButtons();
-      return ret;
-    };
-    window.applyListFilter.__progressOnlyPatched=true;
-  }
-
-  function setProgressBtnState(btn){
-    if(!btn) return;
-    btn.classList.toggle('active', !!window.__listProgressOnly);
-  }
-  function toggleProgressOnly(){
-    window.__listProgressOnly = !window.__listProgressOnly;
-    setProgressBtnState(document.getElementById('list-progress-filter-btn'));
-    if(typeof window.applyListFilter === 'function') window.applyListFilter();
-    return false;
-  }
-  window.toggleListProgressOnly = toggleProgressOnly;
-
-  function ensureButtons(){
-    var pg=getPg();
-    if(!pg) return;
-    var head=pg.querySelector('.list-card-stable-head, #list-v36-card .list-card-stable-head, #list-v34-card .list-card-stable-head, .list-v13-head');
-    if(!head) return;
-    var title=head.querySelector('.list-card-stable-title, .list-v13-title') || head.firstElementChild;
-    var actions=head.querySelector('.list-card-stable-actions');
-    if(!actions){
-      actions=document.createElement('div');
-      actions.className='list-card-stable-actions';
-      head.appendChild(actions);
-    }
-    var add=document.getElementById('list-add-stable-btn') || document.getElementById('creator-add-btn-v36') || head.querySelector('.list-add-stable-btn, .creator-add-btn-v36, button');
-    if(add && !actions.contains(add)) actions.appendChild(add);
-    if(add){
-      add.classList.add('list-add-stable-btn');
-      add.style.marginBottom='0';
-    }
-    var sort=document.getElementById('list-upload-sort-btn');
-    if(!sort){
-      sort=document.createElement('button');
-      sort.type='button';
-      sort.id='list-upload-sort-btn';
-      sort.className='list-control-stable-btn';
-      sort.textContent='순서 정리';
-    }
-    if(!actions.contains(sort)) actions.appendChild(sort);
-    sort.onclick=function(e){ e.preventDefault(); e.stopPropagation(); return sortCreatorsByUploadDate(); };
-
-    var prog=document.getElementById('list-progress-filter-btn');
-    if(!prog){
-      prog=document.createElement('button');
-      prog.type='button';
-      prog.id='list-progress-filter-btn';
-      prog.className='list-control-stable-btn';
-      prog.textContent='진행';
-    }
-    if(!actions.contains(prog)) actions.appendChild(prog);
-    prog.onclick=function(e){ e.preventDefault(); e.stopPropagation(); return toggleProgressOnly(); };
-    setProgressBtnState(prog);
-    if(title && title !== actions && title.parentElement !== head){ head.insertBefore(title, actions); }
-  }
-
-  function schedule(){
-    patchApplyListFilter();
-    ensureButtons();
-    setTimeout(function(){ patchApplyListFilter(); ensureButtons(); },120);
-    setTimeout(function(){ patchApplyListFilter(); ensureButtons(); },500);
-  }
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', schedule);
-  else schedule();
-  window.addEventListener('load', schedule);
-  document.addEventListener('click', function(e){
-    var tab=e.target && e.target.closest ? e.target.closest('.top-tab') : null;
-    if(tab && (tab.textContent||'').trim()==='List') setTimeout(schedule,0);
-  }, true);
-  document.addEventListener('change', function(e){
-    if(window.__listProgressOnly && e.target && e.target.matches && e.target.matches('#pg-list input[type="checkbox"]')){
-      setTimeout(function(){ if(typeof window.applyListFilter==='function') window.applyListFilter(); },0);
-    }
-  }, true);
-  var observerStarted=false;
-  function startObserver(){
-    if(observerStarted) return;
-    var pg=getPg();
-    if(!pg) return;
-    observerStarted=true;
-    new MutationObserver(function(){ ensureButtons(); }).observe(pg,{childList:true,subtree:true});
-  }
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startObserver);
-  else startObserver();
-})();
-</script>
 <!-- CHOI PATCH: List ID hyperlink by channel only -->
 <style id="list-id-hyperlink-style">
   #pg-list #creator-body .list-id-profile-link{
@@ -25053,6 +24842,253 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
     var tab=e.target&&e.target.closest?e.target.closest('.top-tab'):null;
     if(tab && (tab.textContent||'').trim()==='Seeding') setTimeout(showSeedHost,60);
   },false);
+})();
+</script>
+
+
+<!-- CHOI PATCH: List sort/progress visible buttons only -->
+<style id="list-sort-progress-visible-style">
+  #pg-list .list-card-stable-head,
+  #pg-list .list-v13-head{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    gap:10px!important;
+    width:100%!important;
+  }
+  #pg-list .list-card-stable-actions{
+    display:flex!important;
+    align-items:center!important;
+    gap:6px!important;
+    margin-left:auto!important;
+    flex:none!important;
+  }
+  #pg-list .list-card-stable-actions .list-add-stable-btn,
+  #pg-list .list-card-stable-actions .list-control-stable-btn,
+  #pg-list #list-upload-sort-btn,
+  #pg-list #list-progress-filter-btn{
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    height:28px!important;
+    padding:0 13px!important;
+    border-radius:8px!important;
+    border:0.5px solid var(--color-border-secondary)!important;
+    background:var(--color-background-primary)!important;
+    color:var(--color-text-secondary)!important;
+    font-size:11px!important;
+    font-weight:500!important;
+    cursor:pointer!important;
+    white-space:nowrap!important;
+    margin:0!important;
+    font-family:inherit!important;
+    line-height:1.2!important;
+  }
+  #pg-list .list-card-stable-actions .list-add-stable-btn:hover,
+  #pg-list .list-card-stable-actions .list-control-stable-btn:hover,
+  #pg-list #list-upload-sort-btn:hover,
+  #pg-list #list-progress-filter-btn:hover{
+    background:var(--color-background-secondary)!important;
+  }
+  #pg-list #list-progress-filter-btn.active{
+    background:var(--color-text-primary)!important;
+    color:var(--color-background-primary)!important;
+    border-color:var(--color-text-primary)!important;
+  }
+</style>
+<script id="list-sort-progress-visible-script">
+(function(){
+  'use strict';
+  if(window.__listSortProgressVisiblePatch) return;
+  window.__listSortProgressVisiblePatch = true;
+  window.__listProgressOnly = !!window.__listProgressOnly;
+
+  function parseDateValue(v){
+    if(!v) return Number.POSITIVE_INFINITY;
+    var s=String(v).trim();
+    var m=s.match(/^(\d{4})[.\/-]\s*(\d{1,2})[.\/-]\s*(\d{1,2})/);
+    if(m) return new Date(Number(m[1]), Number(m[2])-1, Number(m[3])).getTime();
+    var t=new Date(s).getTime();
+    return isNaN(t) ? Number.POSITIVE_INFINITY : t;
+  }
+
+  function sortListByUploadDate(){
+    if(window.currentUserRole === 'viewer'){
+      alert('현재 계정은 보기 전용 권한입니다. 순서 정리는 수정 권한이 있는 담당자만 가능합니다.');
+      return false;
+    }
+    window.creators = Array.isArray(window.creators) ? window.creators : [];
+    window.creators.sort(function(a,b){
+      var av=parseDateValue(a && a.uploadDate);
+      var bv=parseDateValue(b && b.uploadDate);
+      if(av!==bv) return av-bv;
+      return String((a&&a.name)||'').localeCompare(String((b&&b.name)||''),'ko');
+    });
+    window.creators.forEach(function(row,i){ if(row) row._order=i; });
+    if(typeof window.fbSaveCreators==='function') window.fbSaveCreators();
+    if(typeof window.applyListFilter==='function') window.applyListFilter();
+    if(typeof window.buildCal==='function') window.buildCal();
+    if(typeof window.updateSummary==='function') window.updateSummary();
+    ensureListButtons();
+    return false;
+  }
+  window.sortListByUploadDate = sortListByUploadDate;
+
+  function getFilterValue(id){
+    var el=document.getElementById(id);
+    return el ? String(el.value || '') : '';
+  }
+  function getMonth(v){
+    if(typeof window.dMonth === 'function') return window.dMonth(v);
+    var t=parseDateValue(v);
+    return isFinite(t) ? new Date(t).getMonth()+1 : 0;
+  }
+  function renderProgressOnly(){
+    var body=document.getElementById('creator-body');
+    var rows=Array.isArray(window.creators) ? window.creators : [];
+    var m=parseInt(getFilterValue('lf-month') || '0',10) || 0;
+    var ch=getFilterValue('lf-ch');
+    var tp=getFilterValue('lf-type');
+    var pl=getFilterValue('lf-plt');
+    var nm=getFilterValue('lf-name').toLowerCase();
+    var filtered=rows.filter(function(r){
+      r=r||{};
+      if(m!==0 && getMonth(r.uploadDate)!==m) return false;
+      if(ch && ch!=='0' && r.ch!==ch) return false;
+      if(tp && tp!=='0' && r.contentType!==tp) return false;
+      if(pl && pl!=='0' && r.platform!==pl) return false;
+      if(nm && !String(r.name||'').toLowerCase().includes(nm)) return false;
+      if(!r.checked) return false;
+      return true;
+    });
+    if(!filtered.length && body){
+      body.innerHTML='<tr><td colspan="22" style="text-align:center;padding:24px;color:var(--color-text-tertiary);font-size:12px;">진행 체크된 리스트가 없습니다.</td></tr>';
+      return true;
+    }
+    if(typeof window.renderCreatorRows==='function') window.renderCreatorRows(filtered);
+    return true;
+  }
+
+  function patchApplyListFilter(){
+    if(typeof window.applyListFilter !== 'function' || window.applyListFilter.__listProgressVisiblePatched) return;
+    var prev=window.applyListFilter;
+    window.applyListFilter=function(){
+      if(window.__listProgressOnly){
+        renderProgressOnly();
+        ensureListButtons();
+        return;
+      }
+      var ret=prev.apply(this, arguments);
+      ensureListButtons();
+      return ret;
+    };
+    window.applyListFilter.__listProgressVisiblePatched = true;
+  }
+
+  function toggleListProgressOnly(){
+    window.__listProgressOnly = !window.__listProgressOnly;
+    var btn=document.getElementById('list-progress-filter-btn');
+    if(btn) btn.classList.toggle('active', !!window.__listProgressOnly);
+    if(typeof window.applyListFilter==='function') window.applyListFilter();
+    ensureListButtons();
+    return false;
+  }
+  window.toggleListProgressOnly = toggleListProgressOnly;
+
+  function makeButton(id, text){
+    var btn=document.getElementById(id);
+    if(!btn){
+      btn=document.createElement('button');
+      btn.type='button';
+      btn.id=id;
+      btn.textContent=text;
+    }
+    btn.className='list-add-stable-btn list-control-stable-btn' + (id==='list-progress-filter-btn' && window.__listProgressOnly ? ' active' : '');
+    btn.style.marginBottom='0';
+    return btn;
+  }
+
+  function ensureListButtons(){
+    var pg=document.getElementById('pg-list');
+    if(!pg) return;
+    var head=pg.querySelector('.list-card-stable-head, .list-v13-head');
+    if(!head) return;
+
+    var title=head.querySelector('.list-card-stable-title, .list-v13-title');
+    if(!title){
+      title=document.createElement('div');
+      title.className='list-card-stable-title';
+      title.textContent='크리에이터 목록';
+      head.insertBefore(title, head.firstChild);
+    }
+
+    var actions=head.querySelector('.list-card-stable-actions');
+    if(!actions){
+      actions=document.createElement('div');
+      actions.className='list-card-stable-actions';
+      head.appendChild(actions);
+    }
+
+    var add=document.getElementById('list-add-stable-btn') || head.querySelector('button');
+    if(!add){
+      add=document.createElement('button');
+      add.type='button';
+      add.id='list-add-stable-btn';
+      add.textContent='+ 추가';
+    }
+    add.className='list-add-stable-btn';
+    add.style.marginBottom='0';
+    add.onclick=function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      if(typeof window.addCreator==='function') window.addCreator();
+      setTimeout(ensureListButtons,0);
+      return false;
+    };
+
+    var sort=makeButton('list-upload-sort-btn','순서 정리');
+    sort.onclick=function(e){ e.preventDefault(); e.stopPropagation(); return sortListByUploadDate(); };
+
+    var progress=makeButton('list-progress-filter-btn','진행');
+    progress.onclick=function(e){ e.preventDefault(); e.stopPropagation(); return toggleListProgressOnly(); };
+
+    actions.appendChild(add);
+    actions.appendChild(sort);
+    actions.appendChild(progress);
+  }
+  window.ensureListButtons = ensureListButtons;
+
+  function boot(){
+    patchApplyListFilter();
+    ensureListButtons();
+  }
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+  window.addEventListener('load', function(){
+    boot();
+    setTimeout(boot,100);
+    setTimeout(boot,500);
+    setTimeout(boot,1200);
+  });
+  document.addEventListener('click', function(e){
+    var tab=e.target && e.target.closest ? e.target.closest('.top-tab') : null;
+    if(tab && (tab.textContent||'').trim()==='List'){
+      setTimeout(boot,50);
+      setTimeout(boot,300);
+    }
+  }, true);
+  document.addEventListener('change', function(e){
+    if(window.__listProgressOnly && e.target && e.target.matches && e.target.matches('#pg-list input[type="checkbox"]')){
+      setTimeout(function(){ if(typeof window.applyListFilter==='function') window.applyListFilter(); },0);
+    }
+  }, true);
+  try{
+    var pg=document.getElementById('pg-list');
+    if(pg && typeof MutationObserver!=='undefined'){
+      new MutationObserver(function(){ clearTimeout(window.__listButtonsVisibleTimer); window.__listButtonsVisibleTimer=setTimeout(ensureListButtons,60); }).observe(pg,{childList:true,subtree:true});
+    }
+  }catch(e){}
 })();
 </script>
 
