@@ -25866,5 +25866,360 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
 })();
 </script>
 
+
+<!-- CHOI PATCH: ITEM/BARTER popup design + column alignment only -->
+<style id="list-item-barter-popup-align-style">
+  #item-modal.modal-overlay,
+  #barter-modal.modal-overlay{
+    z-index:100000!important;
+  }
+  #item-modal .modal-box,
+  #barter-modal .modal-box{
+    width:min(900px,96vw)!important;
+    max-width:96vw!important;
+    max-height:82vh!important;
+    overflow:auto!important;
+  }
+  #item-modal .tbl-wrap,
+  #barter-modal .tbl-wrap{
+    max-height:58vh!important;
+    overflow:auto!important;
+    background:var(--color-background-primary)!important;
+  }
+  #item-modal th,#item-modal td,
+  #barter-modal th,#barter-modal td{
+    white-space:nowrap!important;
+  }
+  #item-modal input.list-popup-auto-input,
+  #barter-modal input.list-popup-auto-input{
+    width:auto!important;
+    min-width:72px!important;
+    max-width:none!important;
+    field-sizing:content;
+    border:.5px solid var(--color-border-secondary)!important;
+    border-radius:6px!important;
+    padding:4px 7px!important;
+    font-size:11px!important;
+    background:var(--color-background-primary)!important;
+    color:var(--color-text-primary)!important;
+  }
+  #item-modal input.list-popup-name-input,
+  #barter-modal input.list-popup-name-input{
+    min-width:180px!important;
+  }
+  #item-modal input.list-popup-color-input,
+  #barter-modal input.list-popup-color-input{
+    min-width:88px!important;
+  }
+  #item-modal input.list-popup-qty-input,
+  #barter-modal input.list-popup-qty-input{
+    min-width:54px!important;
+    width:54px!important;
+    text-align:right!important;
+  }
+  #item-modal .list-popup-move-handle,
+  #barter-modal .list-popup-move-handle{
+    cursor:grab!important;
+    font-size:14px!important;
+    letter-spacing:-2px!important;
+    color:var(--color-text-tertiary)!important;
+    user-select:none!important;
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    width:24px!important;
+    height:24px!important;
+    border-radius:6px!important;
+    border:.5px solid var(--color-border-secondary)!important;
+    background:var(--color-background-primary)!important;
+  }
+  #item-modal .list-popup-move-handle:active,
+  #barter-modal .list-popup-move-handle:active{
+    cursor:grabbing!important;
+  }
+  #item-modal tr.list-popup-dragging,
+  #barter-modal tr.list-popup-dragging{
+    opacity:.42!important;
+  }
+</style>
+<script id="list-item-barter-popup-align-script">
+(function(){
+  'use strict';
+  if(window.__listItemBarterPopupAlignPatch) return;
+  window.__listItemBarterPopupAlignPatch = true;
+
+  var itemDragIndex = null;
+  var barterDragIndex = null;
+  var barterIdx = -1;
+  var barterMode = 'replace';
+
+  function esc(v){
+    return String(v == null ? '' : v).replace(/[&<>"']/g,function(m){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];
+    });
+  }
+  function norm(v){ return String(v == null ? '' : v).trim().toLowerCase().replace(/\s+/g,''); }
+  function onlyNum(v){ return Number(String(v == null ? '' : v).replace(/[^0-9.-]/g,'')) || 0; }
+  function won(v){ var n=Math.round(Number(v)||0); return n ? '₩'+n.toLocaleString('ko-KR') : '-'; }
+  function colorFromName(name){ var m=String(name||'').match(/\(([^()]*)\)\s*$/); return m ? m[1].trim() : ''; }
+  function rowIndex(){ try{ if(typeof modalIdx === 'number') return modalIdx; }catch(e){} return typeof window.__listModalIdx === 'number' ? window.__listModalIdx : -1; }
+  function productCode(p){ return String((p&&p.code)||'').trim(); }
+  function productName(p){ return String((p&&p.name)||'').trim(); }
+  function productCost(p){ return onlyNum(p&&p.cost); }
+  function uidByPlatform(p, platform){
+    p=p||{};
+    if(platform==='무신사') return String(p.musinsaUid||p.uid||'').trim();
+    if(platform==='29CM') return String(p.cmUid||p.uid||'').trim();
+    if(platform==='자사몰') return String(p.storeUid||p.uid||'').trim();
+    return String(p.uid||p.musinsaUid||p.cmUid||p.storeUid||'').trim();
+  }
+  function findProduct(item,row,field,value){
+    item=item||{}; row=row||{};
+    var platform=item.platform||row.platform||'';
+    var q=norm(value != null ? value : (field==='uid'?item.uid:(field==='name'?item.name:item.code)));
+    if(!q) return null;
+    return (window.products||[]).find(function(p){
+      if(!p) return false;
+      if(field==='uid') return norm(uidByPlatform(p,platform))===q || norm(productCode(p))===q || norm(productName(p))===q;
+      if(field==='name') return norm(productName(p))===q || norm(productCode(p))===q || norm(uidByPlatform(p,platform))===q;
+      return norm(productCode(p))===q || norm(uidByPlatform(p,platform))===q || norm(productName(p))===q;
+    }) || null;
+  }
+  function applyProductToItem(item,row,product){
+    if(!item||!row||!product) return;
+    var platform=row.platform||item.platform||'';
+    var name=productName(product);
+    item.platform=platform;
+    item.uid=uidByPlatform(product,platform)||item.uid||'';
+    item.code=productCode(product)||item.code||'';
+    item.name=name||item.name||'';
+    item.color=colorFromName(name)||item.color||'';
+    item.cost=productCost(product)||onlyNum(item.cost);
+  }
+  function itemUnitCost(item,row){
+    var p=findProduct(item,row,'code',item&&item.code) || findProduct(item,row,'uid',item&&item.uid) || findProduct(item,row,'name',item&&item.name);
+    if(p) return productCost(p);
+    return onlyNum(item&&item.cost);
+  }
+  function listItemCost(row){
+    return (Array.isArray(row&&row.items)?row.items:[]).reduce(function(s,it){ return s+itemUnitCost(it,row); },0);
+  }
+  function normalizeBarter(row){
+    if(!row) return [];
+    if(!Array.isArray(row.barterItems)) row.barterItems=[];
+    row.barterItems.forEach(function(it){
+      if(!it.type) it.type='replace';
+      if(!it.platform) it.platform=row.platform||'';
+      if(it.qty==null || it.qty==='') it.qty=1;
+    });
+    return row.barterItems;
+  }
+  function listBarterCost(row,type){
+    return normalizeBarter(row).reduce(function(s,it){
+      if(type && it.type!==type) return s;
+      var qty=it.type==='event' ? (onlyNum(it.qty)||0) : 1;
+      return s + itemUnitCost(it,row)*qty;
+    },0);
+  }
+  window.listItemCost=listItemCost;
+  window.listBarterCost=listBarterCost;
+  window.listBarterTotalCost=function(row){ return listBarterCost(row); };
+  window.listBarterEventCost=function(row){ return listBarterCost(row,'event'); };
+  window.listBarterWon=won;
+
+  function datalistId(){
+    var id='list-popup-product-name-options';
+    var old=document.getElementById(id);
+    if(old) old.remove();
+    var dl=document.createElement('datalist');
+    dl.id=id;
+    var seen={};
+    (window.products||[]).forEach(function(p){
+      var name=productName(p);
+      if(!name || seen[name]) return;
+      seen[name]=true;
+      var opt=document.createElement('option');
+      opt.value=name;
+      if(productCode(p)) opt.label=productCode(p);
+      dl.appendChild(opt);
+    });
+    document.body.appendChild(dl);
+    return id;
+  }
+  function tableHeader(mode){
+    return '<th style="width:44px;text-align:center;">이동</th><th>플랫폼</th><th>UID</th><th>상품 코드</th><th>제품명</th><th>컬러</th>'+(mode==='event'?'<th>수량</th>':'')+'<th></th>';
+  }
+  function syncItemByField(listName, realIndex, field, value, renderFn){
+    var row = listName==='items' ? (window.creators||[])[rowIndex()] : (window.creators||[])[barterIdx];
+    if(!row || !row[listName] || !row[listName][realIndex]) return;
+    var item=row[listName][realIndex];
+    item[field]=value;
+    var p=findProduct(item,row,field,value);
+    if(p) applyProductToItem(item,row,p);
+    else if(field==='name' && !item.color) item.color=colorFromName(value);
+    renderFn();
+  }
+  function moveArrayItem(arr, from, to){
+    if(!Array.isArray(arr) || from===to || from<0 || to<0 || from>=arr.length || to>=arr.length) return;
+    var moved=arr.splice(from,1)[0];
+    arr.splice(to,0,moved);
+    arr.forEach(function(x,i){ if(x) x._order=i; });
+  }
+
+  function renderItemModal(){
+    var idx=rowIndex(), row=(window.creators||[])[idx], body=document.getElementById('modal-item-body');
+    if(!row || !body) return;
+    if(!Array.isArray(row.items)) row.items=[];
+    var table=body.closest('table'), head=table&&table.querySelector('thead tr');
+    if(head) head.innerHTML=tableHeader('item');
+    var dl=datalistId();
+    body.innerHTML=row.items.map(function(it,ii){
+      it=it||{};
+      it.platform=row.platform||it.platform||'';
+      if(!it.color) it.color=colorFromName(it.name);
+      return '<tr draggable="true" ondragstart="window.__itemPopupDragStart(event,'+ii+')" ondragover="event.preventDefault()" ondrop="window.__itemPopupDrop(event,'+ii+')">'+
+        '<td style="text-align:center;"><span class="list-popup-move-handle" title="드래그로 순서 변경">⋮⋮</span></td>'+
+        '<td>'+esc(it.platform||row.platform||'-')+'</td>'+
+        '<td><input class="list-popup-auto-input" type="text" value="'+esc(it.uid||'')+'" onblur="window.__itemPopupSync('+ii+',\'uid\',this.value)" onchange="window.__itemPopupSync('+ii+',\'uid\',this.value)"></td>'+
+        '<td><input class="list-popup-auto-input" type="text" value="'+esc(it.code||'')+'" onblur="window.__itemPopupSync('+ii+',\'code\',this.value)" onchange="window.__itemPopupSync('+ii+',\'code\',this.value)"></td>'+
+        '<td><input class="list-popup-auto-input list-popup-name-input" list="'+dl+'" type="text" value="'+esc(it.name||'')+'" oninput="window.creators['+idx+'].items['+ii+'].name=this.value" onblur="window.__itemPopupSync('+ii+',\'name\',this.value)" onchange="window.__itemPopupSync('+ii+',\'name\',this.value)"></td>'+
+        '<td><input class="list-popup-auto-input list-popup-color-input" type="text" value="'+esc(it.color||'')+'" onchange="window.creators['+idx+'].items['+ii+'].color=this.value"></td>'+
+        '<td><span class="del-btn" onclick="window.creators['+idx+'].items.splice('+ii+',1);window.renderModalItems();">×</span></td>'+
+      '</tr>';
+    }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--color-text-tertiary);padding:20px;">+ 아이템 추가 버튼을 눌러 등록해주세요.</td></tr>';
+    var total=document.getElementById('item-modal-total');
+    if(!total){
+      var actions=document.querySelector('#item-modal .modal-box > div:last-child');
+      if(actions){
+        actions.style.justifyContent='space-between';
+        actions.insertAdjacentHTML('afterbegin','<div style="font-size:12px;color:var(--color-text-secondary);">ITEM 원가 <b id="item-modal-total" style="color:var(--color-text-primary);">-</b></div>');
+        total=document.getElementById('item-modal-total');
+      }
+    }
+    if(total) total.textContent=won(listItemCost(row));
+  }
+  window.renderModalItems=renderItemModal;
+  window.__itemPopupSync=function(ii,field,value){ syncItemByField('items',ii,field,value,renderItemModal); };
+  window.__itemPopupDragStart=function(e,ii){ itemDragIndex=ii; if(e.currentTarget) e.currentTarget.classList.add('list-popup-dragging'); };
+  window.__itemPopupDrop=function(e,ii){ e.preventDefault(); var idx=rowIndex(), row=(window.creators||[])[idx]; if(row){ moveArrayItem(row.items,itemDragIndex,ii); renderItemModal(); } itemDragIndex=null; };
+  window.addModalItem=function(){
+    var idx=rowIndex(), row=(window.creators||[])[idx];
+    if(!row) return;
+    if(!Array.isArray(row.items)) row.items=[];
+    row.items.push({platform:row.platform||'',uid:'',code:'',name:'',color:'',cost:0});
+    renderItemModal();
+  };
+
+  function currentBarterItems(){
+    var row=(window.creators||[])[barterIdx];
+    return normalizeBarter(row).filter(function(it){ return it.type===barterMode; });
+  }
+  function currentBarterRealIndex(viewIndex){
+    var row=(window.creators||[])[barterIdx], count=-1;
+    return normalizeBarter(row).findIndex(function(it){ if(it.type!==barterMode) return false; count++; return count===viewIndex; });
+  }
+  function renderBarter(){
+    var row=(window.creators||[])[barterIdx];
+    if(!row) return;
+    var body=document.getElementById('barter-modal-body'), head=document.getElementById('barter-modal-head');
+    if(!body||!head) return;
+    document.querySelectorAll('#barter-mode-tabs .ov-pbtn').forEach(function(btn){ btn.classList.toggle('active',btn.getAttribute('data-mode')===barterMode); });
+    head.innerHTML=tableHeader(barterMode);
+    var dl=datalistId();
+    var items=currentBarterItems();
+    body.innerHTML=items.map(function(it,ii){
+      var realIndex=currentBarterRealIndex(ii);
+      it.platform=row.platform||it.platform||'';
+      if(!it.color) it.color=colorFromName(it.name);
+      return '<tr draggable="true" ondragstart="window.__barterPopupDragStart(event,'+realIndex+')" ondragover="event.preventDefault()" ondrop="window.__barterPopupDrop(event,'+realIndex+')">'+
+        '<td style="text-align:center;"><span class="list-popup-move-handle" title="드래그로 순서 변경">⋮⋮</span></td>'+
+        '<td>'+esc(it.platform||row.platform||'-')+'</td>'+
+        '<td><input class="list-popup-auto-input" type="text" value="'+esc(it.uid||'')+'" onblur="window.__barterPopupSync('+realIndex+',\'uid\',this.value)" onchange="window.__barterPopupSync('+realIndex+',\'uid\',this.value)"></td>'+
+        '<td><input class="list-popup-auto-input" type="text" value="'+esc(it.code||'')+'" onblur="window.__barterPopupSync('+realIndex+',\'code\',this.value)" onchange="window.__barterPopupSync('+realIndex+',\'code\',this.value)"></td>'+
+        '<td><input class="list-popup-auto-input list-popup-name-input" list="'+dl+'" type="text" value="'+esc(it.name||'')+'" oninput="window.creators['+barterIdx+'].barterItems['+realIndex+'].name=this.value" onblur="window.__barterPopupSync('+realIndex+',\'name\',this.value)" onchange="window.__barterPopupSync('+realIndex+',\'name\',this.value)"></td>'+
+        '<td><input class="list-popup-auto-input list-popup-color-input" type="text" value="'+esc(it.color||'')+'" onchange="window.creators['+barterIdx+'].barterItems['+realIndex+'].color=this.value"></td>'+
+        (barterMode==='event'?'<td><input class="list-popup-auto-input list-popup-qty-input" type="number" min="0" value="'+esc(it.qty||1)+'" onchange="window.creators['+barterIdx+'].barterItems['+realIndex+'].qty=Number(this.value)||0;window.renderBarterItems();"></td>':'')+
+        '<td><span class="del-btn" onclick="window.creators['+barterIdx+'].barterItems.splice('+realIndex+',1);window.renderBarterItems();">×</span></td>'+
+      '</tr>';
+    }).join('') || '<tr><td colspan="'+(barterMode==='event'?8:7)+'" style="text-align:center;color:var(--color-text-tertiary);padding:20px;">+ 아이템 추가 버튼을 눌러 등록해주세요.</td></tr>';
+    var total=document.getElementById('barter-modal-total');
+    if(total) total.textContent=won(listBarterCost(row));
+    if(typeof window.applyListFilter==='function') setTimeout(function(){ try{window.applyListFilter();}catch(e){} },0);
+  }
+  window.renderBarterItems=renderBarter;
+  window.__barterPopupSync=function(realIndex,field,value){
+    var row=(window.creators||[])[barterIdx];
+    if(!row || !row.barterItems || !row.barterItems[realIndex]) return;
+    var it=row.barterItems[realIndex];
+    it[field]=value;
+    var p=findProduct(it,row,field,value);
+    if(p) applyProductToItem(it,row,p);
+    else if(field==='name' && !it.color) it.color=colorFromName(value);
+    renderBarter();
+  };
+  window.__barterPopupDragStart=function(e,realIndex){ barterDragIndex=realIndex; if(e.currentTarget) e.currentTarget.classList.add('list-popup-dragging'); };
+  window.__barterPopupDrop=function(e,realIndex){ e.preventDefault(); var row=(window.creators||[])[barterIdx]; if(row){ moveArrayItem(row.barterItems,barterDragIndex,realIndex); renderBarter(); } barterDragIndex=null; };
+
+  window.openBarterModal=function(ri){
+    barterIdx=ri;
+    barterMode='replace';
+    var row=(window.creators||[])[ri];
+    if(!row) return;
+    normalizeBarter(row);
+    var title=document.getElementById('barter-modal-name');
+    if(title) title.textContent='BARTER - '+(row.name||'크리에이터');
+    renderBarter();
+    var modal=document.getElementById('barter-modal');
+    if(modal){
+      modal.classList.add('open');
+      modal.style.setProperty('display','flex','important');
+      modal.style.setProperty('visibility','visible','important');
+      modal.style.setProperty('opacity','1','important');
+      modal.style.setProperty('pointer-events','auto','important');
+      modal.setAttribute('aria-hidden','false');
+    }
+  };
+  window.closeBarterModal=function(){
+    var modal=document.getElementById('barter-modal');
+    if(modal){
+      modal.classList.remove('open');
+      modal.style.setProperty('display','none','important');
+      modal.style.setProperty('visibility','hidden','important');
+      modal.style.setProperty('opacity','0','important');
+      modal.style.setProperty('pointer-events','none','important');
+      modal.setAttribute('aria-hidden','true');
+    }
+    if(typeof window.applyListFilter==='function') window.applyListFilter();
+    return false;
+  };
+  window.saveBarterModal=function(){
+    if(typeof window.fbSaveCreators==='function') window.fbSaveCreators();
+    window.closeBarterModal();
+  };
+  window.setBarterMode=function(mode){ barterMode=mode==='event'?'event':'replace'; renderBarter(); };
+  window.addBarterItem=function(){
+    var row=(window.creators||[])[barterIdx];
+    if(!row) return;
+    normalizeBarter(row).push({type:barterMode,platform:row.platform||'',uid:'',code:'',name:'',color:'',qty:barterMode==='event'?1:1,cost:0});
+    renderBarter();
+  };
+
+  function ensureListHeaderStatic(){
+    var tr=document.querySelector('#pg-list thead tr');
+    if(!tr) return;
+    var labels=Array.from(tr.children).map(function(th){return (th.textContent||'').trim();}).join('|');
+    if(labels.indexOf('BARTER')===-1 && labels.indexOf('ITEM')>-1){
+      Array.from(tr.children).forEach(function(th){
+        if((th.textContent||'').trim()==='ITEM'){
+          th.insertAdjacentHTML('afterend','<th style="min-width:80px;text-align:right;">원가</th><th style="min-width:70px;">BARTER</th><th style="min-width:80px;text-align:right;">원가</th>');
+        }
+      });
+    }
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',ensureListHeaderStatic);
+  else ensureListHeaderStatic();
+})();
+</script>
+
 </body>
 </html>
