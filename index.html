@@ -2066,7 +2066,49 @@ html[data-user-role="viewer"] [data-delete]{opacity:.35!important;cursor:not-all
 </div>
 <!-- SEEDING -->
 <div id="pg-seeding" style="display:none;">
-<div id="seed-v11-host"></div>
+<div id="seed-v11-host" style="display:none!important;"></div>
+  <div id="seed-lightdom-fallback" class="seed-lightdom-fallback">
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px;" id="seed-kpi-wrap">
+      <div class="ov-card"><div class="ov-card-label">총 크리에이터</div><div class="ov-card-val" id="seed-kpi-total">-</div><div class="ov-card-sub">전체 리스트</div></div>
+      <div class="ov-card"><div class="ov-card-label">업로드 완료</div><div class="ov-card-val" id="seed-kpi-upload" style="color:#2d8c5a;">-</div><div class="ov-card-sub" id="seed-kpi-upload-rate">-</div></div>
+      <div class="ov-card"><div class="ov-card-label">상품 발송</div><div class="ov-card-val" id="seed-kpi-send">-</div><div class="ov-card-sub">송장 입력 기준</div></div>
+      <div class="ov-card"><div class="ov-card-label">2차 활용</div><div class="ov-card-val" id="seed-kpi-reuse">-</div><div class="ov-card-sub">진행 기준</div></div>
+      <div class="ov-card"><div class="ov-card-label">스냅 완료</div><div class="ov-card-val" id="seed-kpi-snap">-</div><div class="ov-card-sub">스냅 상태 기준</div></div>
+    </div>
+    <div class="slicer-box" style="margin-bottom:12px;">
+      <div class="slicer-group">
+        <div class="slicer-label">월 선택</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;" id="seed-month-btns"></div>
+      </div>
+      <div style="width:0.5px;background:var(--color-border-tertiary);align-self:stretch;margin:0 10px;"></div>
+      <div class="slicer-group">
+        <div class="slicer-label">상태</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;" id="seed-status-btns"></div>
+      </div>
+      <div style="width:0.5px;background:var(--color-border-tertiary);align-self:stretch;margin:0 10px;"></div>
+      <div class="slicer-group">
+        <div class="slicer-label">채널</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;" id="seed-ch-btns"></div>
+      </div>
+    </div>
+    <div id="seed-flow" style="display:flex;align-items:center;gap:8px;margin:0 0 12px 0;"></div>
+    <div style="background:var(--color-background-primary);border-radius:12px;border:0.5px solid var(--color-border-tertiary);padding:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="font-size:12px;font-weight:600;color:var(--color-text-primary);">시딩 크리에이터 목록</div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <button class="add-btn" onclick="seedAddRow()" style="margin-bottom:0;">+ 추가</button>
+          <button class="add-btn" onclick="sortSeedingByDate()" style="margin-bottom:0;">순서 정리</button>
+        </div>
+      </div>
+      <div id="seed-scroll-top"><div id="seed-scroll-inner"></div></div>
+      <div id="seed-table-wrap" style="overflow:auto;">
+        <table id="seed-main-table" style="width:100%;border-collapse:collapse;font-size:11px;white-space:nowrap;">
+          <thead><tr style="background:var(--color-background-secondary);"><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">이름</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">ID</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">채널</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">팔로워</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">적합도</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">스타일</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">무드</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">관계성</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">진행 여부</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">상태</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">2차 활용</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">업로드일</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">기준</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">프로모션</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">상품</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">컬러</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">사이즈</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">원가</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">조회</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">좋아요</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">댓글</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">실명</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">키</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">몸무게</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">연락처</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">우편번호</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">주소</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">송장</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">폴더명</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">이미지 경로</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">기준</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">재협업</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">장기 협업</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">비고</th><th style="padding:6px 8px;text-align:left;font-weight:500;color:var(--color-text-tertiary);font-size:10px;white-space:nowrap;">삭제</th></tr></thead>
+          <tbody id="seed-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 </div>
 <style id="seeding-v11-final-isolation-fix">
 /* Seeding 화면은 활성 메인 탭일 때만 표시 */
@@ -25052,94 +25094,364 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
 </script>
 
 
-<!-- CHOI PATCH: Seeding tab click/render fix only -->
-<style id="seeding-click-render-fix-style">
+
+<!-- CHOI PATCH: List creator header sort/progress buttons runtime fix only -->
+<style id="list-creator-header-buttons-runtime-fix-style">
+  #pg-list .list-card-stable-head,
+  #pg-list .list-v13-head{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    gap:10px!important;
+    width:100%!important;
+  }
+  #pg-list .list-card-stable-actions,
+  #pg-list .list-extra-action-wrap{
+    display:flex!important;
+    align-items:center!important;
+    gap:6px!important;
+    margin-left:auto!important;
+    flex:none!important;
+    visibility:visible!important;
+    opacity:1!important;
+  }
+  #pg-list .list-card-stable-actions button,
+  #pg-list .list-extra-action-wrap button,
+  #pg-list #list-add-stable-btn,
+  #pg-list #list-upload-sort-btn,
+  #pg-list #list-progress-filter-btn{
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    height:28px!important;
+    padding:0 13px!important;
+    border-radius:8px!important;
+    border:0.5px solid var(--color-border-secondary)!important;
+    background:var(--color-background-primary)!important;
+    color:var(--color-text-secondary)!important;
+    font-size:11px!important;
+    font-weight:500!important;
+    cursor:pointer!important;
+    white-space:nowrap!important;
+    margin:0!important;
+    font-family:inherit!important;
+    line-height:1.2!important;
+    visibility:visible!important;
+    opacity:1!important;
+  }
+  #pg-list .list-card-stable-actions button:hover,
+  #pg-list .list-extra-action-wrap button:hover,
+  #pg-list #list-upload-sort-btn:hover,
+  #pg-list #list-progress-filter-btn:hover{
+    background:var(--color-background-secondary)!important;
+  }
+  #pg-list #list-progress-filter-btn.active,
+  #pg-list .list-progress-filter-btn.active{
+    background:var(--color-text-primary)!important;
+    color:var(--color-background-primary)!important;
+    border-color:var(--color-text-primary)!important;
+  }
+</style>
+<script id="list-creator-header-buttons-runtime-fix-script">
+(function(){
+  'use strict';
+  if(window.__listCreatorHeaderButtonsRuntimeFix) return;
+  window.__listCreatorHeaderButtonsRuntimeFix = true;
+  window.__listProgressOnly = !!window.__listProgressOnly;
+
+  function parseDateValue(v){
+    if(!v) return Number.POSITIVE_INFINITY;
+    var s=String(v).trim();
+    var m=s.match(/^(\d{4})[.\/-]\s*(\d{1,2})[.\/-]\s*(\d{1,2})/);
+    if(m) return new Date(Number(m[1]), Number(m[2])-1, Number(m[3])).getTime();
+    var t=new Date(s).getTime();
+    return isNaN(t) ? Number.POSITIVE_INFINITY : t;
+  }
+
+  function getMonth(v){
+    if(typeof window.dMonth === 'function') return window.dMonth(v);
+    var t=parseDateValue(v);
+    return isFinite(t) ? new Date(t).getMonth()+1 : 0;
+  }
+
+  function getFilterValue(id){
+    var el=document.getElementById(id);
+    return el ? String(el.value || '') : '';
+  }
+
+  function renderProgressOnlyRows(){
+    var body=document.getElementById('creator-body');
+    var rows=Array.isArray(window.creators) ? window.creators : [];
+    var m=parseInt(getFilterValue('lf-month') || '0',10) || 0;
+    var ch=getFilterValue('lf-ch');
+    var tp=getFilterValue('lf-type');
+    var pl=getFilterValue('lf-plt');
+    var nm=getFilterValue('lf-name').toLowerCase();
+
+    var filtered=rows.filter(function(r){
+      r=r||{};
+      if(m!==0 && getMonth(r.uploadDate)!==m) return false;
+      if(ch && ch!=='0' && r.ch!==ch) return false;
+      if(tp && tp!=='0' && r.contentType!==tp) return false;
+      if(pl && pl!=='0' && r.platform!==pl) return false;
+      if(nm && !String(r.name||'').toLowerCase().includes(nm)) return false;
+      return !!r.checked;
+    });
+
+    if(!filtered.length && body){
+      body.innerHTML='<tr><td colspan="22" style="text-align:center;padding:24px;color:var(--color-text-tertiary);font-size:12px;">진행 체크된 리스트가 없습니다.</td></tr>';
+      return true;
+    }
+    if(typeof window.renderCreatorRows === 'function') window.renderCreatorRows(filtered);
+    return true;
+  }
+
+  function patchApplyListFilter(){
+    if(typeof window.applyListFilter !== 'function' || window.applyListFilter.__listCreatorProgressRuntimePatched) return;
+    var prev=window.applyListFilter;
+    window.applyListFilter=function(){
+      if(window.__listProgressOnly){
+        renderProgressOnlyRows();
+        setTimeout(ensureListCreatorButtons,0);
+        return;
+      }
+      var ret=prev.apply(this, arguments);
+      setTimeout(ensureListCreatorButtons,0);
+      return ret;
+    };
+    window.applyListFilter.__listCreatorProgressRuntimePatched = true;
+  }
+
+  function sortListByUploadDate(){
+    if(window.currentUserRole === 'viewer'){
+      alert('현재 계정은 보기 전용 권한입니다. 순서 정리는 수정 권한이 있는 담당자만 가능합니다.');
+      return false;
+    }
+    window.creators = Array.isArray(window.creators) ? window.creators : [];
+    window.creators.sort(function(a,b){
+      var av=parseDateValue(a && a.uploadDate);
+      var bv=parseDateValue(b && b.uploadDate);
+      if(av!==bv) return av-bv;
+      return String((a&&a.name)||'').localeCompare(String((b&&b.name)||''),'ko');
+    });
+    window.creators.forEach(function(row,i){ if(row) row._order=i; });
+    if(typeof window.fbSaveCreators === 'function') window.fbSaveCreators();
+    if(typeof window.applyListFilter === 'function') window.applyListFilter();
+    if(typeof window.buildCal === 'function') window.buildCal();
+    if(typeof window.updateSummary === 'function') window.updateSummary();
+    setTimeout(ensureListCreatorButtons,0);
+    return false;
+  }
+  window.sortListByUploadDate = sortListByUploadDate;
+
+  function toggleListProgressOnly(){
+    window.__listProgressOnly = !window.__listProgressOnly;
+    if(typeof window.applyListFilter === 'function') window.applyListFilter();
+    setTimeout(ensureListCreatorButtons,0);
+    return false;
+  }
+  window.toggleListProgressOnly = toggleListProgressOnly;
+
+  function makeBtn(id, text, cls){
+    var btn=document.getElementById(id);
+    if(!btn){
+      btn=document.createElement('button');
+      btn.type='button';
+      btn.id=id;
+    }
+    btn.textContent=text;
+    btn.className=cls || 'list-add-stable-btn';
+    btn.style.marginBottom='0';
+    btn.style.display='inline-flex';
+    return btn;
+  }
+
+  function ensureListCreatorButtons(){
+    patchApplyListFilter();
+
+    var pg=document.getElementById('pg-list');
+    if(!pg) return;
+
+    var head=pg.querySelector('.list-card-stable-head, .list-v13-head');
+    if(!head) return;
+
+    var title=head.querySelector('.list-card-stable-title, .list-v13-title');
+    if(!title){
+      title=document.createElement('div');
+      title.className='list-card-stable-title';
+      title.textContent='크리에이터 목록';
+      head.insertBefore(title, head.firstChild);
+    }
+
+    var actions=head.querySelector('.list-card-stable-actions, .list-extra-action-wrap');
+    if(!actions){
+      actions=document.createElement('div');
+      actions.className='list-card-stable-actions list-extra-action-wrap';
+      head.appendChild(actions);
+    }else{
+      actions.classList.add('list-card-stable-actions','list-extra-action-wrap');
+    }
+
+    var add=makeBtn('list-add-stable-btn','+ 추가','list-add-stable-btn');
+    add.onclick=function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      if(typeof window.addCreator === 'function') window.addCreator();
+      setTimeout(ensureListCreatorButtons,80);
+      return false;
+    };
+
+    var sort=makeBtn('list-upload-sort-btn','순서 정리','list-add-stable-btn list-control-stable-btn');
+    sort.onclick=function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      return sortListByUploadDate();
+    };
+
+    var progress=makeBtn('list-progress-filter-btn','진행','list-add-stable-btn list-control-stable-btn list-progress-filter-btn' + (window.__listProgressOnly ? ' active' : ''));
+    progress.onclick=function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      return toggleListProgressOnly();
+    };
+
+    actions.appendChild(add);
+    actions.appendChild(sort);
+    actions.appendChild(progress);
+  }
+
+  window.ensureListCreatorButtons = ensureListCreatorButtons;
+
+  function boot(){
+    patchApplyListFilter();
+    ensureListCreatorButtons();
+  }
+
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+
+  window.addEventListener('load', function(){
+    boot();
+    setTimeout(boot,100);
+    setTimeout(boot,400);
+    setTimeout(boot,1000);
+  });
+
+  document.addEventListener('click', function(e){
+    var tab=e.target && e.target.closest ? e.target.closest('.top-tab') : null;
+    if(tab && (tab.textContent || '').trim() === 'List'){
+      setTimeout(boot,40);
+      setTimeout(boot,200);
+      setTimeout(boot,700);
+    }
+  }, true);
+
+  document.addEventListener('change', function(e){
+    if(window.__listProgressOnly && e.target && e.target.matches && e.target.matches('#pg-list input[type="checkbox"]')){
+      setTimeout(function(){ if(typeof window.applyListFilter === 'function') window.applyListFilter(); },0);
+    }
+  }, true);
+
+  setInterval(function(){
+    var pg=document.getElementById('pg-list');
+    if(pg && pg.style.display !== 'none') ensureListCreatorButtons();
+  }, 800);
+
+  try{
+    var pg=document.getElementById('pg-list');
+    if(pg && typeof MutationObserver !== 'undefined'){
+      new MutationObserver(function(){
+        clearTimeout(window.__listCreatorButtonsRuntimeTimer);
+        window.__listCreatorButtonsRuntimeTimer=setTimeout(ensureListCreatorButtons,80);
+      }).observe(pg,{childList:true,subtree:true});
+    }
+  }catch(e){}
+})();
+</script>
+
+
+<!-- CHOI PATCH: Seeding light DOM load fix only -->
+<style id="seeding-lightdom-load-fix-style">
   #pg-seeding.imc-main-tab-active,
   #pg-seeding[data-seeding-active="1"]{
     display:block!important;
     visibility:visible!important;
   }
-  #pg-seeding.imc-main-tab-active #seed-v11-host,
-  #pg-seeding[data-seeding-active="1"] #seed-v11-host{
+  #pg-seeding #seed-v11-host{
+    display:none!important;
+  }
+  #pg-seeding #seed-lightdom-fallback{
     display:block!important;
     visibility:visible!important;
-    min-height:420px!important;
   }
 </style>
-<script id="seeding-click-render-fix-script">
+<script id="seeding-lightdom-load-fix-script">
 (function(){
   'use strict';
-  if(window.__seedingClickRenderFix) return;
-  window.__seedingClickRenderFix = true;
+  if(window.__seedingLightDomLoadFix) return;
+  window.__seedingLightDomLoadFix = true;
 
-  var PAGE_IDS = ['overview','monthly','promotion','meta','list','feedback','crm','seeding','celeb','organic','budget','item'];
+  function renderLightSeeding(){
+    try{
+      if(typeof window.seedInitMonthBtns === 'function') window.seedInitMonthBtns();
+      if(typeof window.seedRender === 'function') window.seedRender();
+    }catch(e){
+      console.warn('Seeding light DOM render 보정 실패:', e);
+    }
+  }
 
-  function showSeedingPage(){
-    PAGE_IDS.forEach(function(id){
-      var page = document.getElementById('pg-' + id);
+  function activateSeeding(){
+    ['overview','monthly','promotion','meta','list','feedback','crm','seeding','celeb','organic','budget','item'].forEach(function(id){
+      var page=document.getElementById('pg-'+id);
       if(!page) return;
-      var active = id === 'seeding';
-      page.style.display = active ? 'block' : 'none';
+      var active=id==='seeding';
+      page.style.display=active?'block':'none';
       page.classList.toggle('imc-main-tab-active', active);
       if(active) page.setAttribute('data-seeding-active','1');
       else page.removeAttribute('data-seeding-active');
     });
-
     Array.prototype.forEach.call(document.querySelectorAll('.top-tab'), function(btn){
-      btn.classList.toggle('on', (btn.textContent || '').trim() === 'Seeding');
+      btn.classList.toggle('on', (btn.textContent||'').trim()==='Seeding');
     });
-
-    var host = document.getElementById('seed-v11-host');
-    if(host){
-      host.style.display = 'block';
-      host.style.visibility = 'visible';
-      host.style.minHeight = host.style.minHeight || '420px';
-
-      if(!host.shadowRoot && typeof window.mountSeedingV11 === 'function'){
-        try{ window.mountSeedingV11(); }catch(err){ console.warn('Seeding mount 보정 실패:', err); }
-      }
+    var host=document.getElementById('seed-v11-host');
+    if(host) host.style.display='none';
+    var fallback=document.getElementById('seed-lightdom-fallback');
+    if(fallback){
+      fallback.style.display='block';
+      fallback.style.visibility='visible';
     }
-
-    setTimeout(function(){
-      try{
-        if(window.seedV11){
-          if(typeof window.seedV11.initFilters === 'function') window.seedV11.initFilters();
-          if(typeof window.seedV11.renderList === 'function') window.seedV11.renderList();
-        }else if(typeof window.seedRender === 'function'){
-          window.seedRender();
-        }
-      }catch(err){
-        console.warn('Seeding render 보정 실패:', err);
-      }
-    }, 60);
+    setTimeout(renderLightSeeding, 30);
+    setTimeout(renderLightSeeding, 250);
   }
 
-  var prevSwitch = window.switchMain;
-  if(typeof prevSwitch === 'function' && !prevSwitch.__seedingClickRenderFixed){
-    var fixedSwitch = function(t){
-      if(t === 'seeding'){
-        showSeedingPage();
+  var prev=window.switchMain;
+  if(typeof prev==='function' && !prev.__seedingLightDomLoadWrapped){
+    var wrapped=function(t){
+      if(t==='seeding'){
+        activateSeeding();
         return false;
       }
-      return prevSwitch.apply(this, arguments);
+      return prev.apply(this, arguments);
     };
-    fixedSwitch.__seedingClickRenderFixed = true;
-    window.switchMain = fixedSwitch;
-    try{ switchMain = fixedSwitch; }catch(e){}
+    wrapped.__seedingLightDomLoadWrapped=true;
+    window.switchMain=wrapped;
+    try{ switchMain=wrapped; }catch(e){}
   }
 
   document.addEventListener('click', function(e){
-    var tab = e.target && e.target.closest ? e.target.closest('.top-tab') : null;
-    if(!tab) return;
-    if((tab.textContent || '').trim() !== 'Seeding') return;
+    var tab=e.target && e.target.closest ? e.target.closest('.top-tab') : null;
+    if(!tab || (tab.textContent||'').trim()!=='Seeding') return;
     e.preventDefault();
     e.stopPropagation();
     if(e.stopImmediatePropagation) e.stopImmediatePropagation();
-    showSeedingPage();
+    activateSeeding();
     return false;
   }, true);
 
-  window.__showSeedingPageOnly = showSeedingPage;
+  document.addEventListener('DOMContentLoaded', function(){
+    var pg=document.getElementById('pg-seeding');
+    if(pg && pg.style.display !== 'none') activateSeeding();
+  });
 })();
 </script>
 
