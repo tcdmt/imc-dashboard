@@ -24803,47 +24803,6 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
 })();
 </script>
 
-<!-- CHOI PATCH: Seeding tab safe visibility only -->
-<style id="seeding-safe-visibility-style">
-  #pg-seeding.imc-main-tab-active{display:block!important;visibility:visible!important;}
-  #pg-seeding.imc-main-tab-active #seed-v11-host{display:block!important;visibility:visible!important;min-height:360px!important;}
-</style>
-<script id="seeding-safe-visibility-script">
-(function(){
-  'use strict';
-  if(window.__seedingSafeVisibilityPatch) return;
-  window.__seedingSafeVisibilityPatch = true;
-  function showSeedHost(){
-    var pg=document.getElementById('pg-seeding');
-    var host=document.getElementById('seed-v11-host');
-    if(pg && pg.style.display !== 'none') pg.classList.add('imc-main-tab-active');
-    if(host){ host.style.display='block'; host.style.visibility='visible'; }
-    if(host && !host.shadowRoot && typeof window.mountSeedingV11==='function'){
-      try{ window.mountSeedingV11(); }catch(e){ console.warn('Seeding mount 보정 실패:', e); }
-    }
-    setTimeout(function(){
-      try{
-        if(window.seedV11 && typeof window.seedV11.renderList==='function') window.seedV11.renderList();
-      }catch(e){ console.warn('Seeding render 보정 실패:', e); }
-    },50);
-  }
-  var prev=window.switchMain;
-  if(typeof prev==='function' && !prev.__seedingSafeVisibilityWrapped){
-    var wrapped=function(t){
-      var ret=prev.apply(this, arguments);
-      if(t==='seeding') showSeedHost();
-      return ret;
-    };
-    wrapped.__seedingSafeVisibilityWrapped=true;
-    window.switchMain=wrapped;
-    try{ switchMain=wrapped; }catch(e){}
-  }
-  document.addEventListener('click',function(e){
-    var tab=e.target&&e.target.closest?e.target.closest('.top-tab'):null;
-    if(tab && (tab.textContent||'').trim()==='Seeding') setTimeout(showSeedHost,60);
-  },false);
-})();
-</script>
 
 
 <!-- CHOI PATCH: List sort/progress visible buttons only -->
@@ -25089,6 +25048,98 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
       new MutationObserver(function(){ clearTimeout(window.__listButtonsVisibleTimer); window.__listButtonsVisibleTimer=setTimeout(ensureListButtons,60); }).observe(pg,{childList:true,subtree:true});
     }
   }catch(e){}
+})();
+</script>
+
+
+<!-- CHOI PATCH: Seeding tab click/render fix only -->
+<style id="seeding-click-render-fix-style">
+  #pg-seeding.imc-main-tab-active,
+  #pg-seeding[data-seeding-active="1"]{
+    display:block!important;
+    visibility:visible!important;
+  }
+  #pg-seeding.imc-main-tab-active #seed-v11-host,
+  #pg-seeding[data-seeding-active="1"] #seed-v11-host{
+    display:block!important;
+    visibility:visible!important;
+    min-height:420px!important;
+  }
+</style>
+<script id="seeding-click-render-fix-script">
+(function(){
+  'use strict';
+  if(window.__seedingClickRenderFix) return;
+  window.__seedingClickRenderFix = true;
+
+  var PAGE_IDS = ['overview','monthly','promotion','meta','list','feedback','crm','seeding','celeb','organic','budget','item'];
+
+  function showSeedingPage(){
+    PAGE_IDS.forEach(function(id){
+      var page = document.getElementById('pg-' + id);
+      if(!page) return;
+      var active = id === 'seeding';
+      page.style.display = active ? 'block' : 'none';
+      page.classList.toggle('imc-main-tab-active', active);
+      if(active) page.setAttribute('data-seeding-active','1');
+      else page.removeAttribute('data-seeding-active');
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll('.top-tab'), function(btn){
+      btn.classList.toggle('on', (btn.textContent || '').trim() === 'Seeding');
+    });
+
+    var host = document.getElementById('seed-v11-host');
+    if(host){
+      host.style.display = 'block';
+      host.style.visibility = 'visible';
+      host.style.minHeight = host.style.minHeight || '420px';
+
+      if(!host.shadowRoot && typeof window.mountSeedingV11 === 'function'){
+        try{ window.mountSeedingV11(); }catch(err){ console.warn('Seeding mount 보정 실패:', err); }
+      }
+    }
+
+    setTimeout(function(){
+      try{
+        if(window.seedV11){
+          if(typeof window.seedV11.initFilters === 'function') window.seedV11.initFilters();
+          if(typeof window.seedV11.renderList === 'function') window.seedV11.renderList();
+        }else if(typeof window.seedRender === 'function'){
+          window.seedRender();
+        }
+      }catch(err){
+        console.warn('Seeding render 보정 실패:', err);
+      }
+    }, 60);
+  }
+
+  var prevSwitch = window.switchMain;
+  if(typeof prevSwitch === 'function' && !prevSwitch.__seedingClickRenderFixed){
+    var fixedSwitch = function(t){
+      if(t === 'seeding'){
+        showSeedingPage();
+        return false;
+      }
+      return prevSwitch.apply(this, arguments);
+    };
+    fixedSwitch.__seedingClickRenderFixed = true;
+    window.switchMain = fixedSwitch;
+    try{ switchMain = fixedSwitch; }catch(e){}
+  }
+
+  document.addEventListener('click', function(e){
+    var tab = e.target && e.target.closest ? e.target.closest('.top-tab') : null;
+    if(!tab) return;
+    if((tab.textContent || '').trim() !== 'Seeding') return;
+    e.preventDefault();
+    e.stopPropagation();
+    if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+    showSeedingPage();
+    return false;
+  }, true);
+
+  window.__showSeedingPageOnly = showSeedingPage;
 })();
 </script>
 
