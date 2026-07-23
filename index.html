@@ -3660,7 +3660,7 @@ document.addEventListener('DOMContentLoaded',()=&gt;{
 </style>
 
 <!-- CHOI PATCH: List BARTER modal only -->
-<div id="barter-modal" class="modal-overlay">
+<div id="barter-modal" class="modal-overlay" style="display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;" aria-hidden="true">
   <div class="modal-box" style="width:min(900px,96vw);">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -25790,6 +25790,79 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
   }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', patchWeeklyReportData);
   else patchWeeklyReportData();
+})();
+</script>
+
+
+<!-- CHOI PATCH: BARTER popup click-only visibility fix -->
+<style id="barter-popup-click-only-style">
+  #barter-modal:not(.open){
+    display:none!important;
+    visibility:hidden!important;
+    opacity:0!important;
+    pointer-events:none!important;
+  }
+  #barter-modal.open{
+    display:flex!important;
+    visibility:visible!important;
+    opacity:1!important;
+    pointer-events:auto!important;
+  }
+</style>
+<script id="barter-popup-click-only-script">
+(function(){
+  'use strict';
+  if(window.__barterPopupClickOnlyFix) return;
+  window.__barterPopupClickOnlyFix = true;
+
+  function modal(){
+    return document.getElementById('barter-modal');
+  }
+  function forceHide(){
+    var m = modal();
+    if(!m) return;
+    m.classList.remove('open');
+    m.style.setProperty('display','none','important');
+    m.style.setProperty('visibility','hidden','important');
+    m.style.setProperty('opacity','0','important');
+    m.style.setProperty('pointer-events','none','important');
+    m.setAttribute('aria-hidden','true');
+  }
+  function forceShow(){
+    var m = modal();
+    if(!m) return;
+    m.classList.add('open');
+    m.style.setProperty('display','flex','important');
+    m.style.setProperty('visibility','visible','important');
+    m.style.setProperty('opacity','1','important');
+    m.style.setProperty('pointer-events','auto','important');
+    m.setAttribute('aria-hidden','false');
+  }
+
+  var oldOpen = window.openBarterModal;
+  window.openBarterModal = function(){
+    var result;
+    if(typeof oldOpen === 'function') result = oldOpen.apply(this, arguments);
+    forceShow();
+    return result;
+  };
+
+  var oldClose = window.closeBarterModal;
+  window.closeBarterModal = function(){
+    if(typeof oldClose === 'function') oldClose.apply(this, arguments);
+    forceHide();
+    if(typeof window.applyListFilter === 'function'){
+      try{ window.applyListFilter(); }catch(e){}
+    }
+    return false;
+  };
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', forceHide);
+  }else{
+    forceHide();
+  }
+  window.addEventListener('load', forceHide);
 })();
 </script>
 
