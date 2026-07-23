@@ -2130,7 +2130,7 @@ html[data-user-role="viewer"] [data-delete]{opacity:.35!important;cursor:not-all
     </div>
   </div>
 
-  <div id="seed-detail-modal-v11" class="modal seed-detail-modal-v11">
+  <div id="seed-detail-modal-v11" class="modal seed-detail-modal-v11" style="display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;" aria-hidden="true">
     <div class="detail-box">
       <div class="detail-head">
         <div>
@@ -2153,7 +2153,7 @@ html[data-user-role="viewer"] [data-delete]{opacity:.35!important;cursor:not-all
     </div>
   </div>
 
-  <div id="seed-sub-modal-v11" class="sub-modal">
+  <div id="seed-sub-modal-v11" class="sub-modal" style="display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;" aria-hidden="true">
     <div class="sub-box">
       <div class="sub-head">
         <div class="sub-title" id="seed-sub-title-v11">-</div>
@@ -26176,6 +26176,125 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot); else setTimeout(boot,0);
   window.addEventListener('load',boot);
+})();
+</script>
+
+
+<!-- CHOI PATCH: Seeding popup initial hidden fix only -->
+<style id="seeding-popup-initial-hidden-fix-style">
+  #pg-seeding #seed-detail-modal-v11:not(.open),
+  #pg-seeding #seed-sub-modal-v11:not(.open){
+    display:none!important;
+    visibility:hidden!important;
+    opacity:0!important;
+    pointer-events:none!important;
+  }
+  #pg-seeding #seed-detail-modal-v11.open,
+  #pg-seeding #seed-sub-modal-v11.open{
+    visibility:visible!important;
+    opacity:1!important;
+    pointer-events:auto!important;
+  }
+  #pg-seeding #seed-detail-modal-v11.open{display:flex!important;}
+  #pg-seeding #seed-sub-modal-v11.open{display:flex!important;}
+</style>
+<script id="seeding-popup-initial-hidden-fix-script">
+(function(){
+  'use strict';
+  if(window.__seedingPopupInitialHiddenFix) return;
+  window.__seedingPopupInitialHiddenFix = true;
+
+  function hideSeedPopups(){
+    ['seed-detail-modal-v11','seed-sub-modal-v11'].forEach(function(id){
+      var el = document.getElementById(id);
+      if(!el) return;
+      el.classList.remove('open');
+      el.style.setProperty('display','none','important');
+      el.style.setProperty('visibility','hidden','important');
+      el.style.setProperty('opacity','0','important');
+      el.style.setProperty('pointer-events','none','important');
+      el.setAttribute('aria-hidden','true');
+    });
+  }
+  function showSeedPopup(id, display){
+    var el = document.getElementById(id);
+    if(!el) return;
+    el.classList.add('open');
+    el.style.setProperty('display', display || 'flex', 'important');
+    el.style.setProperty('visibility','visible','important');
+    el.style.setProperty('opacity','1','important');
+    el.style.setProperty('pointer-events','auto','important');
+    el.setAttribute('aria-hidden','false');
+  }
+  function hideSeedPopup(id){
+    var el = document.getElementById(id);
+    if(!el) return;
+    el.classList.remove('open');
+    el.style.setProperty('display','none','important');
+    el.style.setProperty('visibility','hidden','important');
+    el.style.setProperty('opacity','0','important');
+    el.style.setProperty('pointer-events','none','important');
+    el.setAttribute('aria-hidden','true');
+  }
+
+  var oldOpenDetail = window.seedV11OpenDetail;
+  if(typeof oldOpenDetail === 'function' && !oldOpenDetail.__seedingPopupHiddenFixed){
+    window.seedV11OpenDetail = function(){
+      var ret = oldOpenDetail.apply(this, arguments);
+      showSeedPopup('seed-detail-modal-v11','flex');
+      return ret;
+    };
+    window.seedV11OpenDetail.__seedingPopupHiddenFixed = true;
+  }
+
+  var oldCloseDetail = window.seedV11CloseDetail;
+  if(typeof oldCloseDetail === 'function' && !oldCloseDetail.__seedingPopupHiddenFixed){
+    window.seedV11CloseDetail = function(){
+      var ret = oldCloseDetail.apply(this, arguments);
+      hideSeedPopup('seed-detail-modal-v11');
+      hideSeedPopup('seed-sub-modal-v11');
+      return ret;
+    };
+    window.seedV11CloseDetail.__seedingPopupHiddenFixed = true;
+  }
+
+  var oldOpenSub = window.seedV11OpenSubModal;
+  if(typeof oldOpenSub === 'function' && !oldOpenSub.__seedingPopupHiddenFixed){
+    window.seedV11OpenSubModal = function(){
+      var ret = oldOpenSub.apply(this, arguments);
+      showSeedPopup('seed-sub-modal-v11','flex');
+      return ret;
+    };
+    window.seedV11OpenSubModal.__seedingPopupHiddenFixed = true;
+  }
+
+  var oldCloseSub = window.seedV11CloseSubModal;
+  if(typeof oldCloseSub === 'function' && !oldCloseSub.__seedingPopupHiddenFixed){
+    window.seedV11CloseSubModal = function(){
+      var ret = oldCloseSub.apply(this, arguments);
+      hideSeedPopup('seed-sub-modal-v11');
+      return ret;
+    };
+    window.seedV11CloseSubModal.__seedingPopupHiddenFixed = true;
+  }
+
+  var oldSwitch = window.switchMain;
+  if(typeof oldSwitch === 'function' && !oldSwitch.__seedingPopupHiddenFixed){
+    window.switchMain = function(t){
+      var ret = oldSwitch.apply(this, arguments);
+      if(t === 'seeding') setTimeout(hideSeedPopups, 0);
+      return ret;
+    };
+    window.switchMain.__seedingPopupHiddenFixed = true;
+    try{ switchMain = window.switchMain; }catch(e){}
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', hideSeedPopups);
+  }else{
+    hideSeedPopups();
+  }
+  window.addEventListener('load', function(){ setTimeout(hideSeedPopups, 0); setTimeout(hideSeedPopups, 300); });
 })();
 </script>
 
