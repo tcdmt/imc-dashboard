@@ -3640,9 +3640,28 @@ document.addEventListener('DOMContentLoaded',()=&gt;{
 </div>
 </div>
 
+
+<!-- CHOI PATCH: BARTER modal initial hidden fix only -->
+<style id="barter-modal-hidden-fix-style">
+  #barter-modal.modal-overlay{
+    display:none!important;
+    z-index:100000!important;
+  }
+  #barter-modal.modal-overlay.open{
+    display:flex!important;
+  }
+  #barter-modal .modal-box{
+    position:relative!important;
+    z-index:100001!important;
+    width:min(900px,96vw)!important;
+    max-height:80vh!important;
+    overflow:auto!important;
+  }
+</style>
+
 <!-- CHOI PATCH: List BARTER modal only -->
-<div id="barter-modal" class="item-modal">
-  <div class="item-box" style="width:min(900px,96vw);">
+<div id="barter-modal" class="modal-overlay">
+  <div class="modal-box" style="width:min(900px,96vw);">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <div class="item-title" id="barter-modal-name">BARTER</div>
