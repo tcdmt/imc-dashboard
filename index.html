@@ -3639,6 +3639,43 @@ document.addEventListener('DOMContentLoaded',()=&gt;{
 </div>
 </div>
 </div>
+
+<!-- CHOI PATCH: List BARTER modal only -->
+<div id="barter-modal" class="item-modal">
+  <div class="item-box" style="width:min(900px,96vw);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div class="item-title" id="barter-modal-name">BARTER</div>
+        <div id="barter-mode-tabs" style="display:flex;gap:4px;">
+          <button type="button" class="ov-pbtn active" data-mode="replace" onclick="setBarterMode('replace')">제품 대체</button>
+          <button type="button" class="ov-pbtn" data-mode="event" onclick="setBarterMode('event')">이벤트</button>
+        </div>
+      </div>
+      <button class="modal-close" onclick="closeBarterModal()">×</button>
+    </div>
+    <div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:10px;">
+      제품 대체는 선택 아이템 원가를 단순 합산하고, 이벤트는 원가 × 수량으로 계산됩니다.
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr id="barter-modal-head"></tr>
+        </thead>
+        <tbody id="barter-modal-body"></tbody>
+      </table>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;">
+      <div style="font-size:12px;color:var(--color-text-secondary);">
+        BARTER 원가 <b id="barter-modal-total" style="color:var(--color-text-primary);">-</b>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="add-btn" style="margin:0;" onclick="addBarterItem()">+ 아이템 추가</button>
+        <button class="save-btn" onclick="saveBarterModal()">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 // Chart.js 로드 완료 후 앱 초기화 — DOMContentLoaded 이후 실행 보장
 function loadApp(){
@@ -3675,9 +3712,9 @@ function toggleSetupPanel(){
 /* ══ 공통 상수 ══ */
 const TABS=['monthly','promotion','meta','list','feedback','crm','seeding','celeb','organic','budget'];
 const TAB_LABELS=['Monthly','Promotion','Meta','List','Feedback','CRM','Seeding','Celeb','Organic','Budget'];
-const CT=['YT 브랜디드','YT PPL','YT 쇼츠','YT 쇼츠 PPL','IG 릴스 브랜디드','IG 릴스 PPL','IG 피드 브랜디드','IG 스토리','X 브랜디드','TT 브랜디드','YT 쇼츠+IG 릴스','YT 쇼츠+IG 릴스+TT 브랜디드'];
+const CT=['YT 브랜디드','YT PPL','YT 쇼츠','YT 쇼츠 PPL','IG 릴스 브랜디드','IG 릴스 PPL','IG 피드 브랜디드','IG 스토리','X 브랜디드','TT 브랜디드','BG 브랜디드','BG PPL','YT 쇼츠+IG 릴스','YT 쇼츠+IG 릴스+TT 브랜디드'];
 const PST=['상품 셀렉','상품 출고','혜택 정리','혜택 전달','가편 전달','업로드'];
-const SST=['정산 안내','자료 수급','결재 상신','입금 완료'];
+const SST=['정산 안내','자료 수급','결재 상신','입금 완료','미진행'];
 const PSHOW=['상품 셀렉','상품 출고','혜택 정리','혜택 전달','가편 전달'];
 const SSHOW=['정산 안내','자료 수급','결재 상신'];
 const ABB={Instagram:'IG',Youtube:'YT',Tiktok:'TT',X:'X'};
@@ -4411,11 +4448,11 @@ function renderCreatorRows(list){
       +'<td><button class="item-btn" onclick="openModal('+ri+')">+'+r.items.length+'</button></td>'
       +'<td class="dc-td">'+dcSel(CT,r.contentType,'window.creators['+ri+'].contentType=__VAL__;fbSaveCreators();window.buildCal();')+'</td>'
       +'<td class="dc-td">'+dcCostCell(r.cost1||0,ri,1)+'</td>'
-      +'<td class="dc-td">'+dcSel(['진행','포함','사용 권한 없음','-'],r.sec,'window.creators['+ri+'].sec=__VAL__;fbSaveCreators();')+'</td>'
+      +'<td class="dc-td">'+dcSel(['선택','진행','포함','미진행'],((r.sec==='-'||r.sec==='사용 권한 없음')?'선택':r.sec),'window.creators['+ri+'].sec=__VAL__;fbSaveCreators();')+'</td>'
       +'<td class="dc-td">'+dcCostCell(r.cost2||0,ri,2)+'</td>'
       +'<td class="dc-td">'+dcSel(PST,r.progress||'','window.creators['+ri+'].progress=__VAL__;fbSaveCreators();window.buildCal();',true)+'</td>'
-      +'<td class="dc-td">'+dcSel(['취합','개별'],r.linkType||'취합','window.creators['+ri+'].linkType=__VAL__;fbSaveCreators();')+'</td>'
-      +'<td class="dc-td">'+dcSel(['개인','사업자'],r.payType||'개인','window.creators['+ri+'].payType=__VAL__;fbSaveCreators();window.updateSummary();')+'</td>'
+      +'<td class="dc-td">'+dcSel(['취합','개별','미진행'],r.linkType||'취합','window.creators['+ri+'].linkType=__VAL__;fbSaveCreators();')+'</td>'
+      +'<td class="dc-td">'+dcSel(['개인','사업자','미진행'],r.payType||'개인','window.creators['+ri+'].payType=__VAL__;fbSaveCreators();window.updateSummary();')+'</td>'
       +'<td class="dc-td">'+dcSel(SST,r.settle||'','window.creators['+ri+'].settle=__VAL__;fbSaveCreators();window.buildCal();',true)+'</td>'
       +'<td class="dc-td">'+dcCell(r.note||'','window.creators['+ri+'].note=__VAL__;fbSaveCreators();',{placeholder:'비고',minW:'80px'})+'</td>'
       +'<td><span class="del-btn" onclick="window.creators.splice('+ri+',1);fbSaveCreators();applyListFilter();window.buildCal();window.updateSummary();">&#10005;</span></td>'
@@ -4447,9 +4484,9 @@ function addCreator(){
   window.creators.push({
     _id:genId(), name:'', id:'', collab:'유가', ch:'Instagram', followers:'',
     contact:'리스트업', checked:false, uploadDate:'', platform:'무신사',
-    campaign:'', contentType:'IG 릴스 브랜디드', cost1:0, sec:'-', cost2:0,
+    campaign:'', contentType:'IG 릴스 브랜디드', cost1:0, sec:'', cost2:0,
     progress:'', linkType:'취합', payType:'개인', settle:'', note:'',
-    items:[], _order:window.creators.length
+    items:[], barterItems:[], _order:window.creators.length
   });
   if(window.fbSaveCreators) window.fbSaveCreators();
   // 필터 없이 전체 렌더
@@ -4572,6 +4609,7 @@ function renderFeedbackRows(list){
     // 업로드 일자를 D+0으로 보고 D-1부터 D+6까지 노출
     const uploadD=r.uploadDate?new Date(r.uploadDate):null;
     const items=r.items&&r.items.length?r.items:[{uid:'-',code:'-',name:'-',color:'-'}];
+    const isLinkNotProceeding=r.linkType==='미진행';
     const isTakgap=r.linkType==='취합';
     const DAYS=8,totalRows=DAYS*items.length;
     const hasLink=r.uploadLink&&r.uploadLink.trim();
@@ -4626,7 +4664,13 @@ function renderFeedbackRows(list){
         };
         // 링크클릭 td (취합/개별)
         let linkTd='';
-        if(isTakgap){
+        if(isLinkNotProceeding){
+          if(isTakgap){
+            if(isFD) linkTd=`<td rowspan="${dayRs}" style="text-align:center;color:var(--color-text-tertiary);">-</td>`;
+          } else {
+            linkTd=`<td style="text-align:center;color:var(--color-text-tertiary);">-</td>`;
+          }
+        } else if(isTakgap){
           if(isFD){
             if(isUploadDay){
               linkTd=`<td rowspan="${dayRs}" style="text-align:center;color:var(--color-text-tertiary);">-</td>`;
@@ -10538,12 +10582,12 @@ if(document.readyState==='loading'){
     collab:['선택','유가','무가','선물'],
     platform:['선택','무신사','29CM','자사몰','Offline'],
     ch:['선택','Instagram','Youtube','Tiktok','X','Blog'],
-    contentType:['선택','YT 브랜디드','YT PPL','YT 쇼츠','YT 쇼츠 PPL','IG 릴스 브랜디드','IG 릴스 PPL','IG 피드 브랜디드','IG 스토리','X 브랜디드','TT 브랜디드','YT 쇼츠+IG 릴스','YT 쇼츠+IG 릴스+TT 브랜디드'],
-    sec:['선택','진행','포함','사용 권한 없음','-'],
+    contentType:['선택','YT 브랜디드','YT PPL','YT 쇼츠','YT 쇼츠 PPL','IG 릴스 브랜디드','IG 릴스 PPL','IG 피드 브랜디드','IG 스토리','X 브랜디드','TT 브랜디드','BG 브랜디드','BG PPL','YT 쇼츠+IG 릴스','YT 쇼츠+IG 릴스+TT 브랜디드'],
+    sec:['선택','진행','포함','미진행'],
     progress:['선택','상품 셀렉','상품 출고','혜택 정리','혜택 전달','가편 전달','업로드'],
-    linkType:['선택','취합','개별'],
-    payType:['선택','개인','사업자'],
-    settle:['선택','정산 안내','자료 수급','결재 상신','입금 완료'],
+    linkType:['선택','취합','개별','미진행'],
+    payType:['선택','개인','사업자','미진행'],
+    settle:['선택','정산 안내','자료 수급','결재 상신','입금 완료','미진행'],
     layer:['선택','비주얼','확산','핵심'],
     recolab:['선택','진행','미진행','논의 필요'],
     longterm:['선택','상','중','하']
@@ -10554,18 +10598,19 @@ if(document.readyState==='loading'){
     platform:{'선택':COLOR.neutral,'무신사':COLOR.blue,'29CM':COLOR.purple,'자사몰':COLOR.green,'Offline':COLOR.yellow},
     ch:{'선택':COLOR.neutral,Instagram:{bg:'#fce7f3',color:'#9d174d'},Youtube:{bg:'#fee2e2',color:'#991b1b'},Tiktok:{bg:'#d1d5db',color:'#111827'},X:{bg:'#dbeafe',color:'#1e40af'},Blog:{bg:'#d1fae5',color:'#065f46'}},
     contentType:{'선택':COLOR.neutral},
-    sec:{'선택':COLOR.neutral,'진행':COLOR.green,'포함':COLOR.blue,'사용 권한 없음':COLOR.red,'-':COLOR.neutral},
+    sec:{'선택':COLOR.neutral,'진행':COLOR.green,'포함':COLOR.blue,'미진행':COLOR.neutral},
     progress:{'선택':COLOR.neutral,'상품 셀렉':COLOR.neutral,'상품 출고':COLOR.blue,'혜택 정리':COLOR.yellow,'혜택 전달':COLOR.purple,'가편 전달':COLOR.pink,'업로드':COLOR.green},
-    linkType:{'선택':COLOR.neutral,'취합':COLOR.blue,'개별':COLOR.purple},
-    payType:{'선택':COLOR.neutral,'개인':COLOR.indigo,'사업자':COLOR.teal},
-    settle:{'선택':COLOR.neutral,'정산 안내':COLOR.yellow,'자료 수급':COLOR.blue,'결재 상신':COLOR.purple,'입금 완료':COLOR.green},
+    linkType:{'선택':COLOR.neutral,'취합':COLOR.blue,'개별':COLOR.purple,'미진행':COLOR.neutral},
+    payType:{'선택':COLOR.neutral,'개인':COLOR.indigo,'사업자':COLOR.teal,'미진행':COLOR.neutral},
+    settle:{'선택':COLOR.neutral,'정산 안내':COLOR.yellow,'자료 수급':COLOR.blue,'결재 상신':COLOR.purple,'입금 완료':COLOR.green,'미진행':COLOR.neutral},
     layer:{'선택':COLOR.neutral,'비주얼':COLOR.purple,'확산':COLOR.blue,'핵심':COLOR.green},
     recolab:{'선택':COLOR.neutral,'진행':COLOR.green,'미진행':COLOR.neutral,'논의 필요':COLOR.yellow},
     longterm:{'선택':COLOR.neutral,'상':COLOR.green,'중':COLOR.yellow,'하':COLOR.red}
   };
-  OPT.contentType.forEach(v=>{MAP.contentType[v]=v.includes('IG')?COLOR.pink:v.includes('YT')?COLOR.red:v.includes('X')?COLOR.blue:v.includes('TT')?COLOR.neutral:COLOR.purple;});
+  OPT.contentType.forEach(v=>{MAP.contentType[v]=v.includes('BG')?COLOR.green:v.includes('IG')?COLOR.pink:v.includes('YT')?COLOR.red:v.includes('X')?COLOR.blue:v.includes('TT')?COLOR.neutral:COLOR.purple;});
+  MAP.contentType['선택']=COLOR.neutral;
   function esc(v){return String(v??'').replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
-  function pill(txt,field){txt=txt||'선택';const c=(MAP[field]&&MAP[field][txt])||COLOR.neutral;return '<span class="v13-pill" style="background:'+c.bg+';color:'+c.color+';">'+esc(txt)+'</span>';}
+  function pill(txt,field){txt=(field==='sec'&&(txt==='-'||txt==='사용 권한 없음'))?'선택':(txt||'선택');const c=(MAP[field]&&MAP[field][txt])||COLOR.neutral;return '<span class="v13-pill" style="background:'+c.bg+';color:'+c.color+';">'+esc(txt)+'</span>';}
   function gen(){return (typeof genId==='function'?genId():('id_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)));}
   function fmtFollowersLocal(v){const x=parseInt(String(v||'').replace(/[^0-9]/g,''));if(!x)return v||'';return x>=1000000?(x/1000000).toFixed(1).replace('.0','')+'M':x>=1000?(x/1000).toFixed(1).replace('.0','')+'K':String(x);}
   function getListScrollLeft(fallback){
@@ -10599,7 +10644,7 @@ if(document.readyState==='loading'){
     if(existing){existing.remove();document.removeEventListener('mousedown',v34OutsideClick);}
 
     const row=(window.creators||[])[ri]; if(!row)return;
-    const opts=(OPT[field]||['선택']).filter(v=>v!=='선택');
+    const opts=(OPT[field]||['선택']).filter(v=>field==='sec'||v!=='선택');
 
     // 스크롤 위치 보존
     const tblWrap=anchor.closest('.tbl-wrap');
@@ -10673,7 +10718,7 @@ if(document.readyState==='loading'){
       th('크리에이터','left:0;min-width:110px;')+th('ID','left:110px;min-width:110px;')+th('컨택 상황','left:220px;min-width:90px;border-right:2px solid var(--color-border-primary)!important;')+
       th('진행 방식')+th('채널')+th('팔로워','text-align:right;')+th('컨택 포인트','min-width:110px;')+
       th('적합도','text-align:center;min-width:52px;')+th('스타일','text-align:center;min-width:52px;')+th('무드','text-align:center;min-width:52px;')+th('기여도','text-align:center;min-width:52px;')+
-      th('진행 여부','text-align:center;min-width:72px;')+th('진행','text-align:center;')+th('업로드 날짜','min-width:110px;')+th('플랫폼')+th('프로모션')+th('ITEM')+th('콘텐츠 유형','min-width:140px;')+
+      th('진행 여부','text-align:center;min-width:72px;')+th('진행','text-align:center;')+th('업로드 날짜','min-width:110px;')+th('플랫폼')+th('프로모션')+th('ITEM')+th('원가','text-align:right;')+th('BARTER')+th('원가','text-align:right;')+th('콘텐츠 유형','min-width:140px;')+
       th('광고 비용','text-align:right;')+th('2차 활용')+th('활용 비용','text-align:right;')+th('진행 상태')+th('링크 전달')+th('정산 방식')+th('정산 상태')+
       th('기준','text-align:center;min-width:78px;')+th('재협업','text-align:center;min-width:78px;')+th('장기 협업','text-align:center;min-width:90px;')+th('비고','min-width:100px;')+th('삭제 버튼','text-align:center;min-width:58px;');
     [0,1,2].forEach(i=>tr.children[i]&&tr.children[i].classList.add('seed-sticky-th'));
@@ -10698,7 +10743,10 @@ if(document.readyState==='loading'){
         '<td class="dc-td">'+dcCell(r.uploadDate,'window.creators['+ri+'].uploadDate=__VAL__;fbSaveCreators();window.buildCal();window.updateSummary();',{type:'date',minW:'110px'})+'</td>'+ 
         ddTd(ri,'platform')+
         '<td class="dc-td">'+dcCell(r.campaign||'','window.creators['+ri+'].campaign=__VAL__;fbSaveCreators();',{placeholder:'프로모션',minW:'80px'})+'</td>'+ 
-        '<td><button class="item-btn" onclick="openModal('+ri+')">+'+(r.items?r.items.length:0)+'</button></td>'+ddTd(ri,'contentType','cal')+
+        '<td><button class="item-btn" onclick="openModal('+ri+')">+'+(r.items?r.items.length:0)+'</button></td>'+
+        '<td style="text-align:right;font-family:monospace;color:var(--color-text-secondary);">'+(window.listBarterWon?window.listBarterWon(window.listItemCost?window.listItemCost(r):0):'-')+'</td>'+
+        '<td><button class="item-btn" onclick="openBarterModal('+ri+')">+'+((r.barterItems||[]).length||0)+'</button></td>'+
+        '<td style="text-align:right;font-family:monospace;color:var(--color-text-secondary);">'+(window.listBarterWon?window.listBarterWon(window.listBarterTotalCost?window.listBarterTotalCost(r):0):'-')+'</td>'+ddTd(ri,'contentType','cal')+
         '<td class="dc-td">'+dcCostCell(r.cost1||0,ri,1)+'</td>'+ddTd(ri,'sec')+'<td class="dc-td">'+dcCostCell(r.cost2||0,ri,2)+'</td>'+ddTd(ri,'progress','cal')+ddTd(ri,'linkType')+ddTd(ri,'payType','sum')+ddTd(ri,'settle','cal')+
         ddTd(ri,'layer')+ddTd(ri,'recolab')+ddTd(ri,'longterm')+
         '<td class="dc-td">'+dcCell(r.note||'','window.creators['+ri+'].note=__VAL__;fbSaveCreators();',{placeholder:'비고',minW:'90px'})+'</td>'+ 
@@ -10711,7 +10759,7 @@ if(document.readyState==='loading'){
   window.addCreator=function(){
     window.creators=window.creators||[];
     if(typeof oldAdd==='function' && oldAdd.__v34!==true){oldAdd();const r=window.creators[window.creators.length-1];if(r&&r.contribution==null)r.contribution=0;if(window.fbSaveCreators)fbSaveCreators();if(window.applyListFilter)applyListFilter();return;}
-    window.creators.push({_id:gen(),name:'',id:'',collab:'',ch:'',followers:'',contact:'',contactPoint:'',fit:0,style:0,mood:0,contribution:0,checked:false,uploadDate:'',platform:'',campaign:'',contentType:'',cost1:0,sec:'',cost2:0,progress:'',linkType:'',payType:'',settle:'',layer:'',recolab:'',longterm:'',note:'',items:[],_order:window.creators.length});
+    window.creators.push({_id:gen(),name:'',id:'',collab:'',ch:'',followers:'',contact:'',contactPoint:'',fit:0,style:0,mood:0,contribution:0,checked:false,uploadDate:'',platform:'',campaign:'',contentType:'',cost1:0,sec:'',cost2:0,progress:'',linkType:'',payType:'',settle:'',layer:'',recolab:'',longterm:'',note:'',items:[],barterItems:[],_order:window.creators.length});
     if(window.fbSaveCreators)fbSaveCreators();if(window.applyListFilter)applyListFilter();
   };
   window.addCreator.__v34=true;
@@ -12229,7 +12277,7 @@ if(document.readyState==='loading'){
       fit:0, style:0, mood:0, contribution:0,
       checked:false, uploadDate:'', platform:'', campaign:'', contentType:'',
       cost1:0, sec:'', cost2:0, progress:'', linkType:'', payType:'', settle:'',
-      layer:'', recolab:'', longterm:'', note:'', items:[], _order:window.creators.length
+      layer:'', recolab:'', longterm:'', note:'', items:[], barterItems:[], _order:window.creators.length
     });
     normalizeOrders();
     if(typeof window.fbSaveCreators === 'function') window.fbSaveCreators();
@@ -22023,7 +22071,15 @@ renderList();
   window.openWeeklyReport = function(){
     try {
       window.__TCM_WEEKLY_REPORT_DATA__ = {
-        creators: cloneSafe(window.creators),
+        creators: cloneSafe((window.creators||[]).map(function(r){
+          var c=Object.assign({},r);
+          var eventCost=0;
+          try{ eventCost=(typeof window.listBarterEventCost==='function')?window.listBarterEventCost(r):0; }catch(e){}
+          c._barterEventCost=eventCost;
+          c._barterTotalCost=(typeof window.listBarterTotalCost==='function')?window.listBarterTotalCost(r):eventCost;
+          c.cost2=(Number(c.cost2)||0)+eventCost;
+          return c;
+        })),
         crmData: cloneSafe(window.crmData),
         seedData: cloneSafe(window.seedData),
         celebData: cloneSafe(window.celebData),
@@ -25452,6 +25508,269 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
     var pg=document.getElementById('pg-seeding');
     if(pg && pg.style.display !== 'none') activateSeeding();
   });
+})();
+</script>
+
+
+<!-- CHOI PATCH: List column option/color safety only -->
+<script id="list-column-option-color-safety">
+(function(){
+  'use strict';
+  if(window.__listColumnOptionColorSafety) return;
+  window.__listColumnOptionColorSafety = true;
+  function normalizeListOptionValues(){
+    if(!Array.isArray(window.creators)) return;
+    window.creators.forEach(function(r){
+      if(!r) return;
+      if(r.sec === '-' || r.sec === '사용 권한 없음') r.sec = '';
+    });
+  }
+  var oldApply = window.applyListFilter;
+  if(typeof oldApply === 'function' && !oldApply.__listColumnOptionColorSafety){
+    var wrapped = function(){
+      normalizeListOptionValues();
+      return oldApply.apply(this, arguments);
+    };
+    wrapped.__listColumnOptionColorSafety = true;
+    window.applyListFilter = wrapped;
+    try{ applyListFilter = wrapped; }catch(e){}
+  }
+})();
+</script>
+
+
+<!-- CHOI PATCH: List BARTER columns/modal logic only -->
+<style id="list-barter-columns-style">
+  #barter-modal .ov-pbtn{
+    font-size:11px;
+    padding:5px 10px;
+    border-radius:7px;
+    border:.5px solid var(--color-border-secondary);
+    background:var(--color-background-primary);
+    color:var(--color-text-secondary);
+    cursor:pointer;
+  }
+  #barter-modal .ov-pbtn.active{
+    background:var(--color-text-primary);
+    color:var(--color-background-primary);
+    border-color:var(--color-text-primary);
+  }
+  #barter-modal input{
+    width:100%;
+    min-height:28px;
+    border:.5px solid var(--color-border-secondary);
+    border-radius:6px;
+    padding:4px 7px;
+    font-size:11px;
+    background:var(--color-background-primary);
+    color:var(--color-text-primary);
+  }
+  #barter-modal th{
+    padding:6px 8px;
+    font-size:10px;
+    color:var(--color-text-tertiary);
+    font-weight:500;
+    background:var(--color-background-secondary);
+    white-space:nowrap;
+    text-align:left;
+  }
+  #barter-modal td{
+    padding:5px 7px;
+    border-bottom:.5px solid var(--color-border-tertiary);
+    font-size:11px;
+    white-space:nowrap;
+  }
+</style>
+<script id="list-barter-columns-script">
+(function(){
+  'use strict';
+  if(window.__listBarterColumnsPatch) return;
+  window.__listBarterColumnsPatch = true;
+
+  var barterIdx = -1;
+  var barterMode = 'replace';
+
+  function onlyNum(v){ return Number(String(v == null ? '' : v).replace(/[^0-9.-]/g,'')) || 0; }
+  function won(v){ var n = Math.round(Number(v)||0); return n ? '₩' + n.toLocaleString('ko-KR') : '-'; }
+  function esc(v){ return String(v == null ? '' : v).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];}); }
+  function uidByPlatform(p, platform){
+    if(!p) return '';
+    if(platform === '무신사') return p.musinsaUid || p.uid || '';
+    if(platform === '29CM') return p.cmUid || p.uid || '';
+    if(platform === '자사몰') return p.storeUid || p.uid || '';
+    return p.uid || p.musinsaUid || p.cmUid || p.storeUid || '';
+  }
+  function findProductByItem(item, row){
+    var platform = (item && item.platform) || (row && row.platform) || '';
+    var code = String((item && item.code) || '').trim();
+    var name = String((item && item.name) || '').trim();
+    var uid = String((item && item.uid) || '').trim();
+    var best = null, score = 0;
+    (window.products || []).forEach(function(p){
+      if(!p) return;
+      var s = 0;
+      var pc = String(p.code || '').trim();
+      var pn = String(p.name || '').trim();
+      var pu = String(uidByPlatform(p, platform) || '').trim();
+      if(code && pc === code) s += 100;
+      if(uid && pu === uid) s += 95;
+      if(name && pn === name) s += 90;
+      if(code && pc && pc.indexOf(code) > -1) s += 30;
+      if(name && pn && pn.indexOf(name) > -1) s += 20;
+      if(uid && pu && pu.indexOf(uid) > -1) s += 20;
+      if(s > score){ score = s; best = p; }
+    });
+    return best;
+  }
+  function unitCost(item, row){
+    var p = findProductByItem(item, row);
+    if(p) return onlyNum(p.cost);
+    return onlyNum(item && item.cost);
+  }
+  function normalizeBarterItems(row){
+    if(!row) return [];
+    if(!Array.isArray(row.barterItems)) row.barterItems = [];
+    row.barterItems.forEach(function(it){
+      if(!it.type) it.type = 'replace';
+      if(!it.platform) it.platform = row.platform || '';
+      if(it.qty == null || it.qty === '') it.qty = 1;
+    });
+    return row.barterItems;
+  }
+  function listBarterCost(row, type){
+    var items = normalizeBarterItems(row);
+    return items.reduce(function(sum, it){
+      if(type && it.type !== type) return sum;
+      var qty = it.type === 'event' ? (onlyNum(it.qty) || 0) : 1;
+      return sum + unitCost(it, row) * qty;
+    }, 0);
+  }
+  function listItemCost(row){
+    var items = Array.isArray(row && row.items) ? row.items : [];
+    return items.reduce(function(sum, it){ return sum + unitCost(it, row); }, 0);
+  }
+  window.listItemCost = listItemCost;
+  window.listBarterCost = listBarterCost;
+  window.listBarterEventCost = function(row){ return listBarterCost(row, 'event'); };
+  window.listBarterTotalCost = function(row){ return listBarterCost(row); };
+  window.listBarterWon = won;
+
+  function autoFillBarterItem(ii, value, field){
+    var row = (window.creators || [])[barterIdx];
+    if(!row) return;
+    var item = normalizeBarterItems(row).filter(function(x){return x.type === barterMode;})[ii];
+    if(!item) return;
+    if(field === 'code') item.code = value;
+    if(field === 'uid') item.uid = value;
+    if(field === 'name') item.name = value;
+    var p = findProductByItem(item, row);
+    if(p){
+      item.platform = item.platform || row.platform || '';
+      item.uid = uidByPlatform(p, item.platform || row.platform || '') || item.uid || '';
+      item.code = p.code || item.code || '';
+      item.name = p.name || item.name || '';
+      if(!item.color){
+        var m = String(p.name || '').match(/\(([^()]*)\)\s*$/);
+        item.color = m ? m[1].trim() : '';
+      }
+      item.cost = onlyNum(p.cost);
+    }
+    renderBarterItems();
+  }
+  window.autoFillBarterItem = autoFillBarterItem;
+
+  function currentItems(){
+    var row = (window.creators || [])[barterIdx];
+    return normalizeBarterItems(row).filter(function(it){ return it.type === barterMode; });
+  }
+  function currentRealIndex(viewIndex){
+    var row = (window.creators || [])[barterIdx];
+    var count = -1;
+    return normalizeBarterItems(row).findIndex(function(it){
+      if(it.type !== barterMode) return false;
+      count += 1;
+      return count === viewIndex;
+    });
+  }
+
+  function renderBarterItems(){
+    var row = (window.creators || [])[barterIdx];
+    if(!row) return;
+    document.querySelectorAll('#barter-mode-tabs .ov-pbtn').forEach(function(btn){
+      btn.classList.toggle('active', btn.getAttribute('data-mode') === barterMode);
+    });
+    var head = document.getElementById('barter-modal-head');
+    var body = document.getElementById('barter-modal-body');
+    var total = document.getElementById('barter-modal-total');
+    if(!head || !body) return;
+    head.innerHTML = '<th>플랫폼</th><th>UID</th><th>상품 코드</th><th>제품명</th><th>컬러</th>' + (barterMode === 'event' ? '<th style="width:70px;">수량</th>' : '') + '<th style="text-align:right;">원가</th><th></th>';
+    var items = currentItems();
+    body.innerHTML = items.map(function(it, ii){
+      var realIndex = currentRealIndex(ii);
+      var cost = unitCost(it, row);
+      return '<tr>'
+        + '<td>' + esc(it.platform || row.platform || '-') + '</td>'
+        + '<td><input type="text" value="' + esc(it.uid || '') + '" onchange="window.creators['+barterIdx+'].barterItems['+realIndex+'].uid=this.value;autoFillBarterItem('+ii+',this.value,\'uid\');"></td>'
+        + '<td><input type="text" value="' + esc(it.code || '') + '" onchange="window.creators['+barterIdx+'].barterItems['+realIndex+'].code=this.value;autoFillBarterItem('+ii+',this.value,\'code\');"></td>'
+        + '<td><input type="text" value="' + esc(it.name || '') + '" onchange="window.creators['+barterIdx+'].barterItems['+realIndex+'].name=this.value;autoFillBarterItem('+ii+',this.value,\'name\');"></td>'
+        + '<td><input type="text" value="' + esc(it.color || '') + '" onchange="window.creators['+barterIdx+'].barterItems['+realIndex+'].color=this.value;"></td>'
+        + (barterMode === 'event' ? '<td><input type="number" min="0" value="' + esc(it.qty || 1) + '" onchange="window.creators['+barterIdx+'].barterItems['+realIndex+'].qty=Number(this.value)||0;renderBarterItems();"></td>' : '')
+        + '<td style="text-align:right;font-family:monospace;">' + won(cost * (barterMode === 'event' ? (onlyNum(it.qty)||0) : 1)) + '</td>'
+        + '<td><span class="del-btn" onclick="window.creators['+barterIdx+'].barterItems.splice('+realIndex+',1);renderBarterItems();">×</span></td>'
+        + '</tr>';
+    }).join('') || '<tr><td colspan="'+(barterMode === 'event' ? 8 : 7)+'" style="text-align:center;color:var(--color-text-tertiary);padding:20px;">+ 아이템 추가 버튼을 눌러 등록해주세요.</td></tr>';
+    if(total) total.textContent = won(listBarterCost(row));
+    if(typeof window.applyListFilter === 'function') setTimeout(function(){ try{ window.applyListFilter(); }catch(e){} }, 0);
+  }
+  window.renderBarterItems = renderBarterItems;
+
+  window.openBarterModal = function(ri){
+    barterIdx = ri;
+    barterMode = 'replace';
+    var row = (window.creators || [])[ri];
+    if(!row) return;
+    normalizeBarterItems(row);
+    var title = document.getElementById('barter-modal-name');
+    if(title) title.textContent = 'BARTER - ' + (row.name || '크리에이터');
+    renderBarterItems();
+    var modal = document.getElementById('barter-modal');
+    if(modal) modal.classList.add('open');
+  };
+  window.closeBarterModal = function(){
+    var modal = document.getElementById('barter-modal');
+    if(modal) modal.classList.remove('open');
+    if(typeof window.applyListFilter === 'function') window.applyListFilter();
+  };
+  window.saveBarterModal = function(){
+    if(typeof window.fbSaveCreators === 'function') window.fbSaveCreators();
+    window.closeBarterModal();
+  };
+  window.setBarterMode = function(mode){
+    barterMode = mode === 'event' ? 'event' : 'replace';
+    renderBarterItems();
+  };
+  window.addBarterItem = function(){
+    var row = (window.creators || [])[barterIdx];
+    if(!row) return;
+    normalizeBarterItems(row).push({type:barterMode, platform:row.platform || '', uid:'', code:'', name:'', color:'', qty:barterMode === 'event' ? 1 : 1, cost:0});
+    renderBarterItems();
+  };
+
+  function patchWeeklyReportData(){
+    if(typeof window.openWeeklyReport !== 'function' || window.openWeeklyReport.__barterCostPatched) return;
+    var old = window.openWeeklyReport;
+    window.openWeeklyReport = function(){
+      (window.creators || []).forEach(function(r){
+        if(!r) return;
+        r._barterEventCost = listBarterCost(r, 'event');
+        r._barterTotalCost = listBarterCost(r);
+      });
+      return old.apply(this, arguments);
+    };
+    window.openWeeklyReport.__barterCostPatched = true;
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', patchWeeklyReportData);
+  else patchWeeklyReportData();
 })();
 </script>
 
