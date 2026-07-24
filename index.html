@@ -26970,6 +26970,15 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
   #pg-list .list-card-stable-actions{display:flex!important;align-items:center!important;gap:6px!important;margin-left:auto!important}
   #pg-list .list-card-stable-actions>button{display:inline-flex!important;align-items:center!important;justify-content:center!important;visibility:visible!important;opacity:1!important;white-space:nowrap!important}
   #pg-list #list-progress-filter-btn.active{background:#111!important;border-color:#111!important;color:#fff!important}
+  #pg-list #list-v36-head .list-v36-control-btn{
+    display:inline-flex!important;align-items:center!important;justify-content:center!important;
+    height:28px!important;padding:0 13px!important;border-radius:8px!important;
+    border:.5px solid var(--color-border-secondary)!important;
+    background:var(--color-background-primary)!important;color:var(--color-text-secondary)!important;
+    font-size:11px!important;font-weight:500!important;line-height:1!important;
+    cursor:pointer!important;white-space:nowrap!important;margin:0!important;
+  }
+  #pg-list #list-v36-head #list-progress-filter-btn.active{background:#111!important;border-color:#111!important;color:#fff!important}
 </style>
 <script id="list-creator-controls-final-script">
 (function(){
@@ -27004,8 +27013,8 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
       var page=document.getElementById('pg-list');
       if(!page)return;
       var creatorBody=document.getElementById('creator-body');
-      var activeCard=creatorBody&&creatorBody.closest('.list-card-stable,.list-v13-card');
-      var head=(activeCard&&activeCard.querySelector('.list-card-stable-head,.list-v13-head'))||page.querySelector('.list-card-stable-head,.list-v13-head');
+      var activeCard=creatorBody&&creatorBody.closest('#list-v36-card,.list-card-stable,.list-v13-card');
+      var head=document.getElementById('list-v36-head')||(activeCard&&activeCard.querySelector('.list-card-stable-head,.list-v13-head'))||page.querySelector('.list-card-stable-head,.list-v13-head');
       if(!head)return;
       var title=head.querySelector('.list-card-stable-title,.list-v13-title');
       if(title&&title.textContent!=='크리에이터 목록')title.textContent='크리에이터 목록';
@@ -27019,9 +27028,16 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
         if(b.parentNode!==actions)actions.appendChild(b);
         return b;
       }
-      var add=button('list-add-stable-btn','+ 추가');
+      var add=document.getElementById('creator-add-btn-v36')||document.getElementById('list-add-stable-btn')||button('creator-add-btn-v36','+ 추가');
+      add.id='creator-add-btn-v36';add.textContent='+ 추가';add.className='creator-add-btn-v36 list-v36-control-btn';
+      if(add.parentNode!==actions)actions.appendChild(add);
       var sort=button('list-upload-sort-btn','순서 정리');
       var progress=button('list-progress-filter-btn','진행');
+      sort.className='list-v36-control-btn list-control-stable-btn';
+      progress.className='list-v36-control-btn list-control-stable-btn';
+      if(actions.children[0]!==add)actions.insertBefore(add,actions.firstChild);
+      if(add.nextElementSibling!==sort)actions.insertBefore(sort,add.nextSibling);
+      if(sort.nextElementSibling!==progress)actions.insertBefore(progress,sort.nextSibling);
       add.onclick=function(e){e.preventDefault();e.stopPropagation();if(typeof window.addCreator==='function')window.addCreator();};
       sort.onclick=function(e){
         e.preventDefault();e.stopPropagation();
