@@ -1935,7 +1935,11 @@ html[data-user-role="viewer"] [data-delete]{opacity:.35!important;cursor:not-all
 <div class="list-card-stable">
 <div class="list-card-stable-head">
 <div class="list-card-stable-title">크리에이터 목록</div>
+<div class="list-card-stable-actions">
 <button class="list-add-stable-btn" id="list-add-stable-btn" type="button">+ 추가</button>
+<button class="list-add-stable-btn list-control-stable-btn" id="list-upload-sort-btn" type="button">순서 정리</button>
+<button class="list-add-stable-btn list-control-stable-btn" id="list-progress-filter-btn" type="button">진행</button>
+</div>
 </div>
 <div class="tbl-wrap" style="overflow-x:auto;"><table style="table-layout:auto;width:100%;"><thead><tr>
 <th class="col-sticky" style="left:0;min-width:110px;z-index:3;">크리에이터</th>
@@ -26999,7 +27003,9 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
     try{
       var page=document.getElementById('pg-list');
       if(!page)return;
-      var head=page.querySelector('.list-card-stable-head,.list-v13-head');
+      var creatorBody=document.getElementById('creator-body');
+      var activeCard=creatorBody&&creatorBody.closest('.list-card-stable,.list-v13-card');
+      var head=(activeCard&&activeCard.querySelector('.list-card-stable-head,.list-v13-head'))||page.querySelector('.list-card-stable-head,.list-v13-head');
       if(!head)return;
       var title=head.querySelector('.list-card-stable-title,.list-v13-title');
       if(title&&title.textContent!=='크리에이터 목록')title.textContent='크리에이터 목록';
