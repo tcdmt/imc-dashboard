@@ -27065,5 +27065,42 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
 </script>
+<!-- Seeding v11 sample design: basic/items/upload-link sub popup only -->
+<style id="seeding-v11-subpopup-sample-design-final">
+#pg-seeding #seed-sub-modal-v11{font-family:inherit!important}
+#pg-seeding #seed-sub-modal-v11 .sub-box{width:min(860px,94vw)!important;max-height:84vh!important;overflow:auto!important;background:var(--color-background-primary)!important;border-radius:14px!important;box-shadow:0 20px 70px rgba(0,0,0,.28)!important;display:flex!important;flex-direction:column!important}
+#pg-seeding #seed-sub-modal-v11 .sub-head{display:flex!important;align-items:center!important;justify-content:space-between!important;padding:16px 18px!important;border-bottom:.5px solid var(--color-border-tertiary)!important;position:sticky!important;top:0!important;background:var(--color-background-primary)!important;z-index:1!important;border-radius:14px 14px 0 0!important}
+#pg-seeding #seed-sub-modal-v11 .sub-title{font-size:15px!important;font-weight:800!important;color:var(--color-text-primary)!important}
+#pg-seeding #seed-sub-modal-v11 .close-btn{display:inline-flex!important;align-items:center!important;justify-content:center!important;width:30px!important;height:30px!important;padding:0!important;border:none!important;border-radius:50%!important;background:var(--color-background-secondary)!important;color:var(--color-text-secondary)!important;font-size:18px!important;line-height:1!important;cursor:pointer!important}
+#pg-seeding #seed-sub-modal-v11 .sub-body{padding:16px 18px!important;background:var(--color-background-primary)!important}
+#pg-seeding #seed-sub-modal-v11 .sub-foot{display:flex!important;justify-content:flex-end!important;gap:8px!important;padding:12px 18px!important;border-top:.5px solid var(--color-border-tertiary)!important;background:var(--color-background-secondary)!important;border-radius:0 0 14px 14px!important}
+#pg-seeding #seed-sub-modal-v11 .form-grid{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:8px!important}
+#pg-seeding #seed-sub-modal-v11 .form-field{display:flex!important;flex-direction:column!important;gap:4px!important;min-width:0!important}
+#pg-seeding #seed-sub-modal-v11 .form-field label{display:block!important;font-size:10px!important;line-height:1.4!important;color:var(--color-text-tertiary)!important;font-weight:700!important}
+#pg-seeding #seed-sub-modal-v11 .form-field input,
+#pg-seeding #seed-sub-modal-v11 .form-field select{box-sizing:border-box!important;width:100%!important;height:auto!important;font-family:inherit!important;font-size:12px!important;line-height:1.4!important;border:.5px solid var(--color-border-secondary)!important;border-radius:8px!important;background:var(--color-background-primary)!important;color:var(--color-text-primary)!important;padding:7px 8px!important;outline:none!important}
+#pg-seeding #seed-sub-modal-v11 .form-field input:focus,
+#pg-seeding #seed-sub-modal-v11 .form-field select:focus{border-color:var(--color-border-primary)!important;box-shadow:none!important}
+#pg-seeding #seed-sub-modal-v11 .form-field.address{grid-column:1/span 3!important}
+#pg-seeding #seed-sub-modal-v11 .form-field.tracking{grid-column:4/span 1!important}
+#pg-seeding #seed-sub-modal-v11 .small-btn,
+#pg-seeding #seed-sub-modal-v11 .ghost-btn,
+#pg-seeding #seed-sub-modal-v11 .save-btn{font-family:inherit!important;border-radius:8px!important;cursor:pointer!important;line-height:1.4!important}
+#pg-seeding #seed-sub-modal-v11 .small-btn{font-size:11px!important;padding:4px 9px!important;border:.5px solid var(--color-border-secondary)!important;background:var(--color-background-primary)!important;color:var(--color-text-secondary)!important}
+#pg-seeding #seed-sub-modal-v11 .ghost-btn{font-size:12px!important;padding:7px 12px!important;border:.5px solid var(--color-border-secondary)!important;background:var(--color-background-primary)!important;color:var(--color-text-secondary)!important}
+#pg-seeding #seed-sub-modal-v11 .save-btn{font-size:12px!important;padding:7px 14px!important;border:none!important;background:var(--color-text-primary)!important;color:var(--color-background-primary)!important}
+#pg-seeding #seed-sub-modal-v11 .item-table{width:100%!important;border-collapse:collapse!important;table-layout:auto!important;font-size:11px!important;background:var(--color-background-primary)!important;border-radius:10px!important;overflow:hidden!important}
+#pg-seeding #seed-sub-modal-v11 .item-table th{background:var(--color-background-secondary)!important;color:var(--color-text-secondary)!important;font-weight:500!important;padding:7px 8px!important;text-align:left!important;border-bottom:.5px solid var(--color-border-tertiary)!important;white-space:nowrap!important}
+#pg-seeding #seed-sub-modal-v11 .item-table td{padding:5px 8px!important;border-bottom:.5px solid var(--color-border-tertiary)!important;border-right:.5px solid var(--color-border-tertiary)!important;vertical-align:middle!important;white-space:nowrap!important}
+#pg-seeding #seed-sub-modal-v11 .item-table input,
+#pg-seeding #seed-sub-modal-v11 .item-table select{box-sizing:border-box!important;width:100%!important;min-width:100%!important;height:30px!important;font-family:inherit!important;font-size:11px!important;border:.5px solid var(--color-border-secondary)!important;border-radius:6px!important;background:var(--color-background-primary)!important;color:var(--color-text-primary)!important;padding:5px 6px!important}
+#pg-seeding #seed-sub-modal-v11 .helper{font-size:11px!important;color:var(--color-text-tertiary)!important;margin-top:8px!important}
+#pg-seeding #seed-sub-modal-v11 .link-list{display:flex!important;flex-direction:column!important;gap:6px!important}
+#pg-seeding #seed-sub-modal-v11 .link-row{display:grid!important;grid-template-columns:1fr 3fr auto!important;gap:6px!important;align-items:center!important}
+#pg-seeding #seed-sub-modal-v11 .link-row input{box-sizing:border-box!important;width:100%!important;font-family:inherit!important;font-size:12px!important;border:.5px solid var(--color-border-secondary)!important;border-radius:8px!important;background:var(--color-background-primary)!important;color:var(--color-text-primary)!important;padding:7px 8px!important}
+#pg-seeding #seed-sub-modal-v11 .link-empty{font-size:12px!important;color:var(--color-text-secondary)!important;line-height:1.7!important}
+#pg-seeding #seed-sub-modal-v11 .del-btn{display:inline-flex!important;align-items:center!important;justify-content:center!important;height:22px!important;padding:0 8px!important;border:.5px solid var(--color-border-secondary)!important;background:var(--color-background-primary)!important;color:var(--color-text-tertiary)!important;border-radius:999px!important;font-weight:600!important;font-size:11px!important;line-height:1!important;cursor:pointer!important;font-family:inherit!important}
+@media(max-width:720px){#pg-seeding #seed-sub-modal-v11 .form-grid{grid-template-columns:1fr 1fr!important}#pg-seeding #seed-sub-modal-v11 .form-field.address,#pg-seeding #seed-sub-modal-v11 .form-field.tracking{grid-column:auto!important}}
+</style>
 </body>
 </html>
