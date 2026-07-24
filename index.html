@@ -26700,5 +26700,262 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
 })();
 </script>
 
+
+<!-- CHOI PATCH: Seeding popup tabs + List-style cells only -->
+<style id="seeding-popup-tabs-columns-fix-style">
+  #pg-seeding .seed-summary-tabs-v11{
+    display:flex!important;
+    gap:5px!important;
+    border-bottom:.5px solid var(--color-border-tertiary)!important;
+    margin-bottom:12px!important;
+  }
+  #pg-seeding .seed-summary-tab-v11{
+    font-size:12px!important;
+    padding:8px 15px!important;
+    border:none!important;
+    background:transparent!important;
+    color:var(--color-text-secondary)!important;
+    cursor:pointer!important;
+    border-bottom:2px solid transparent!important;
+    margin-bottom:-1px!important;
+    border-radius:8px 8px 0 0!important;
+    font-family:inherit!important;
+  }
+  #pg-seeding .seed-summary-tab-v11.active{
+    color:var(--color-text-primary)!important;
+    font-weight:700!important;
+    border-bottom-color:var(--color-text-primary)!important;
+    background:var(--color-background-secondary)!important;
+  }
+  #pg-seeding .seed-dc-cell{
+    display:block!important;
+    min-width:78px!important;
+    min-height:20px!important;
+    padding:2px 4px!important;
+    cursor:pointer!important;
+    border-radius:5px!important;
+    color:var(--color-text-primary)!important;
+  }
+  #pg-seeding .seed-dc-cell:hover{
+    background:rgba(24,95,165,.05)!important;
+  }
+  #pg-seeding .seed-dc-cell.r{
+    text-align:right!important;
+    font-family:monospace!important;
+    color:var(--color-text-secondary)!important;
+  }
+  #pg-seeding .seed-inline-input{
+    font-size:11px!important;
+    padding:3px 6px!important;
+    border:.5px solid var(--color-border-secondary)!important;
+    border-radius:6px!important;
+    background:var(--color-background-primary)!important;
+    color:var(--color-text-primary)!important;
+    font-family:inherit!important;
+    width:100%!important;
+    min-width:80px!important;
+  }
+  #pg-seeding .seed-inline-input.r{
+    text-align:right!important;
+    font-family:monospace!important;
+  }
+  #pg-seeding #seed-sub-modal-v11{
+    position:fixed!important;
+    inset:0!important;
+    background:rgba(0,0,0,.35)!important;
+    z-index:13000!important;
+    align-items:center!important;
+    justify-content:center!important;
+    padding:24px!important;
+  }
+  #pg-seeding #seed-sub-modal-v11:not(.open){
+    display:none!important;
+    visibility:hidden!important;
+    opacity:0!important;
+    pointer-events:none!important;
+  }
+  #pg-seeding #seed-sub-modal-v11.open{
+    display:flex!important;
+    visibility:visible!important;
+    opacity:1!important;
+    pointer-events:auto!important;
+  }
+  #pg-seeding #seed-sub-modal-v11 .sub-box{
+    width:min(860px,94vw)!important;
+    max-height:84vh!important;
+    overflow:auto!important;
+    background:var(--color-background-primary)!important;
+    border-radius:14px!important;
+    box-shadow:0 20px 70px rgba(0,0,0,.28)!important;
+    display:flex!important;
+    flex-direction:column!important;
+  }
+  #pg-seeding #seed-sub-modal-v11 .sub-head{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    padding:16px 18px!important;
+    border-bottom:.5px solid var(--color-border-tertiary)!important;
+    position:sticky!important;
+    top:0!important;
+    background:var(--color-background-primary)!important;
+    z-index:1!important;
+    border-radius:14px 14px 0 0!important;
+  }
+  #pg-seeding #seed-sub-modal-v11 .sub-body{padding:16px 18px!important;}
+  #pg-seeding #seed-sub-modal-v11 .sub-foot{
+    display:flex!important;
+    justify-content:flex-end!important;
+    gap:8px!important;
+    padding:12px 18px!important;
+    border-top:.5px solid var(--color-border-tertiary)!important;
+    background:var(--color-background-secondary)!important;
+    border-radius:0 0 14px 14px!important;
+  }
+</style>
+<script id="seeding-popup-tabs-columns-fix-script">
+(function(){
+  'use strict';
+  if(window.__seedingPopupTabsColumnsFix) return;
+  window.__seedingPopupTabsColumnsFix = true;
+
+  var currentIndex = -1;
+  var currentTab = 'summary';
+  var subType = null;
+
+  var STATUS_OPTS=['리스트업','컨택','회신','거절','취합','발송','업로드','스냅'];
+  var STATUS_COLOR={리스트업:{bg:'#F3F4F6',color:'#6B7280',border:'#E5E7EB'},컨택:{bg:'#EFF6FF',color:'#1E3A8A',border:'#BFDBFE'},회신:{bg:'#FEF3C7',color:'#92400E',border:'#FDE68A'},거절:{bg:'#FEF2F2',color:'#991B1B',border:'#FECACA'},취합:{bg:'#F0FDF4',color:'#166534',border:'#BBF7D0'},발송:{bg:'#EDE9FE',color:'#5B21B6',border:'#DDD6FE'},업로드:{bg:'#ECFDF5',color:'#065F46',border:'#A7F3D0'},스냅:{bg:'#FFF7ED',color:'#9A3412',border:'#FED7AA'}};
+  var CH_COLOR={Instagram:{bg:'#FBEAF0',color:'#993556',border:'#F3C2D3'},Youtube:{bg:'#FCEBEB',color:'#A32D2D',border:'#F5C2C2'},YouTube:{bg:'#FCEBEB',color:'#A32D2D',border:'#F5C2C2'},Tiktok:{bg:'#E6F1FB',color:'#185FA5',border:'#B9D8F2'},TikTok:{bg:'#E6F1FB',color:'#185FA5',border:'#B9D8F2'},X:{bg:'#F1EFE8',color:'#1a1a1a',border:'#D8D5CB'},Blog:{bg:'#EAF3DE',color:'#3B6D11',border:'#CDE8B4'}};
+  var COLLAB_OPTS=['유가','무가','선물'];
+  var COLLAB_COLOR={유가:{bg:'#EDE9FE',color:'#5B21B6'},무가:{bg:'#DCFCE7',color:'#166534'},선물:{bg:'#FEF3C7',color:'#92400E'},선택:{bg:'#F3F4F6',color:'#6B7280'}};
+  var SECOND_OPTS=['선택','진행','미진행'];
+  var SECOND_COLOR={'선택':{bg:'#F3F4F6',color:'#6B7280'},'진행':{bg:'#DCFCE7',color:'#166534'},'미진행':{bg:'#E5E7EB',color:'#374151'}};
+  var LAYER_OPTS=['선택','비주얼','확산','핵심'];
+  var LAYER_COLOR={'선택':{bg:'#F3F4F6',color:'#6B7280'},'비주얼':{bg:'#EDE9FE',color:'#5B21B6'},'확산':{bg:'#DBEAFE',color:'#1E40AF'},'핵심':{bg:'#DCFCE7',color:'#166534'}};
+  var RECOOP_OPTS=['선택','진행','미진행','논의 필요'];
+  var RECOOP_COLOR={'선택':{bg:'#F3F4F6',color:'#6B7280'},'진행':{bg:'#DCFCE7',color:'#166534'},'미진행':{bg:'#E5E7EB',color:'#374151'},'논의 필요':{bg:'#FEF3C7',color:'#92400E'}};
+  var LONG_OPTS=['선택','상','중','하'];
+  var LONG_COLOR={'선택':{bg:'#F3F4F6',color:'#6B7280'},'상':{bg:'#DCFCE7',color:'#166534'},'중':{bg:'#FEF3C7',color:'#92400E'},'하':{bg:'#FEE2E2',color:'#991B1B'}};
+
+  function rows(){window.seedData=Array.isArray(window.seedData)?window.seedData:[];return window.seedData;}
+  function row(){return rows()[currentIndex]||null;}
+  function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});}
+  function num(v){return Number(String(v==null?'':v).replace(/[^0-9.-]/g,''))||0;}
+  function fmtNum(v){return Number(v||0).toLocaleString('ko-KR');}
+  function fmtWon(v){var n=Math.round(Number(v)||0);return n?'₩'+n.toLocaleString('ko-KR'):'-';}
+  function dateLabel(v,plus){var d=new Date((v||'')+'T00:00:00');if(isNaN(d.getTime()))return '-';d.setDate(d.getDate()+(plus||0));return (d.getMonth()+1)+'월 '+d.getDate()+'일';}
+  function fmtFollower(v){var n=parseInt(String(v||'').replace(/[^0-9]/g,''),10);if(!n)return v?String(v):'-';if(n>=1000000)return (n/1000000).toFixed(1).replace('.0','')+'M';if(n>=1000)return (n/1000).toFixed(1).replace('.0','')+'K';return String(n);}
+  function save(){if(typeof window.fbSaveBatch==='function')window.fbSaveBatch('seeding',rows());else if(typeof window.fbSaveSettingDoc==='function')window.fbSaveSettingDoc('seeding',{rows:rows()});}
+  function ensure(r){if(!r.basic)r.basic={};if(!Array.isArray(r.items))r.items=[];if(!Array.isArray(r.links))r.links=[];if(!Array.isArray(r.daily))r.daily=[];if(!r.collab)r.collab=r.method||r.type||'무가';if(!r.ch&&r.channel)r.ch=normCh(r.channel);if(!r.channel&&r.ch)r.channel=normCh(r.ch);return r;}
+  function normCh(v){var s=String(v||'');if(s==='YouTube')return 'Youtube';if(s==='TikTok')return 'Tiktok';return s;}
+  function badge(text,map){var t=text||'선택',c=(map&&map[t])||{bg:'#F3F4F6',color:'#6B7280',border:'#E5E7EB'};return '<span class="seed-badge-cell" style="background:'+c.bg+';color:'+c.color+';border-color:'+(c.border||'transparent')+'">'+esc(t)+'</span>';}
+  function score(r){return (num(r.fit)+num(r.style)+num(r.mood)+num(r.relation))>=9?'진행':'논의 필요';}
+  function star(field,i,r){var v=num(r[field]),out='<span class="seed-rate">';for(var k=1;k<=4;k++)out+='<span class="star '+(k<=v?'':'off')+'" onclick="event.stopPropagation();seedV11SetStar('+i+',\''+field+'\','+k+')">★</span>';return out+'</span>';}
+  function profileUrl(r){var id=String(r.id||r.handle||'').trim().replace(/^@/,'');var ch=normCh(r.ch||r.channel);if(!id)return '';if(ch==='Instagram')return 'https://www.instagram.com/'+id;if(ch==='Youtube')return 'https://www.youtube.com/@'+id;if(ch==='Tiktok')return 'https://www.tiktok.com/@'+id;if(ch==='X')return 'https://x.com/'+id;if(ch==='Blog')return 'https://blog.naver.com/'+id;return '';}
+  function idHtml(r){var v=r.id||r.handle||'';var url=profileUrl(r);return url?'<a class="seed-id-link" href="'+esc(url)+'" target="_blank" rel="noopener" onclick="event.stopPropagation();">'+esc(v||'-')+'</a>':esc(v||'-');}
+  function uidByPlatform(p,platform){if(!p)return '';if(platform==='무신사')return p.musinsaUid||p.uid||'';if(platform==='29CM')return p.cmUid||p.uid||'';if(platform==='자사몰')return p.storeUid||p.uid||'';return p.uid||p.musinsaUid||p.cmUid||p.storeUid||'';}
+  function findProduct(it,r){var platform=(it&&it.platform)||r.platform||r.landing||'';var keys=[it&&it.code,it&&it.uid,it&&it.name].map(function(x){return String(x||'').trim().toLowerCase();}).filter(Boolean);var best=null,score=0;(window.products||[]).forEach(function(p){var vals=[p.code,uidByPlatform(p,platform),p.name].map(function(x){return String(x||'').trim().toLowerCase();});var s=0;keys.forEach(function(k){vals.forEach(function(v){if(v===k)s+=100;else if(v&&v.indexOf(k)>-1)s+=20;});});if(s>score){score=s;best=p;}});return best;}
+  function itemCost(r){ensure(r);return r.items.reduce(function(sum,it){var p=findProduct(it,r);return sum+(p?num(p.cost):num(it.cost));},0);}
+  function autoFillItem(r,it){var p=findProduct(it,r);if(!p)return;var platform=it.platform||r.platform||r.landing||'';it.uid=uidByPlatform(p,platform)||it.uid||'';it.code=p.code||it.code||'';it.name=p.name||it.name||'';if(!it.color){var m=String(p.name||'').match(/\(([^()]*)\)\s*$/);it.color=m?m[1].trim():'';}it.cost=num(p.cost)||it.cost||0;}
+  function daily(r,i){ensure(r);if(!r.daily[i])r.daily[i]={likes:0,comments:0,productLikes:0,sales:0,revenue:0,totalSales:0};return r.daily[i];}
+
+  function dcCell(i,field,value,type,align){
+    var cls='seed-dc-cell'+(align==='right'?' r':'');
+    var label=type==='money'?fmtWon(value):type==='date'?dateLabel(value,0):(value?esc(value):'-');
+    return '<span class="'+cls+'" ondblclick="seedV11StartInlineEdit(this,'+i+',\''+field+'\',\''+(type||'text')+'\',\''+(align||'')+'\')">'+label+'</span>';
+  }
+  window.seedV11StartInlineEdit=function(span,i,field,type,align){
+    var r=ensure(rows()[i]);var raw=r[field]||'';if(field==='adCost'&&!raw)raw=r.cost1||'';if(field==='reuseCost'&&!raw)raw=r.cost2||'';
+    span.innerHTML='<input class="seed-inline-input '+(align==='right'?'r':'')+'" type="'+(type==='date'?'date':type==='money'?'number':'text')+'" value="'+esc(raw)+'">';
+    var inp=span.querySelector('input');inp.focus();inp.select();
+    inp.onblur=function(){r[field]=inp.value;if(field==='adCost')r.cost1=num(inp.value);if(field==='reuseCost')r.cost2=num(inp.value);save();renderList();if(currentIndex===i)renderDetail();};
+    inp.onkeydown=function(e){if(e.key==='Enter')inp.blur();if(e.key==='Escape')renderList();};
+  };
+  window.seedV11SetStar=function(i,field,val){ensure(rows()[i])[field]=val;save();renderList();};
+  window.seedV11ToggleFixed=function(i){var r=ensure(rows()[i]);r.fixed=!r.fixed;save();renderList();};
+  window.seedV11Delete=function(i){if(confirm('삭제하시겠습니까?')){rows().splice(i,1);save();renderList();}};
+  window.seedV11AddRow=function(){rows().push({_id:'seed_'+Date.now(),name:'',id:'',followers:'',ch:'Instagram',channel:'Instagram',fit:0,style:0,mood:0,relation:0,collab:'무가',status:'리스트업',second:'선택',uploadDate:'',standard:'선택',recoop:'선택',longcoop:'선택',note:'',items:[],links:[],basic:{},daily:[],_order:rows().length});save();renderList();};
+  window.seedV11SortRows=function(){rows().sort(function(a,b){return (b.fixed?1:0)-(a.fixed?1:0)||String(a.uploadDate||'9999').localeCompare(String(b.uploadDate||'9999'));});rows().forEach(function(r,i){r._order=i;});save();renderList();};
+
+  function dropdownCell(i,field,val,opts,map){return '<td style="text-align:center" ondblclick="seedV11Dropdown(this,'+i+',\''+field+'\')">'+badge(val||'선택',map)+'</td>';}
+  window.seedV11Dropdown=function(td,i,field){
+    var old=document.getElementById('seed-dd-popup-v11');if(old)old.remove();
+    var opts=field==='ch'?['Instagram','Youtube','Tiktok','X','Blog']:field==='status'?STATUS_OPTS:field==='collab'?COLLAB_OPTS:field==='second'?SECOND_OPTS:field==='standard'?LAYER_OPTS:field==='recoop'?RECOOP_OPTS:LONG_OPTS;
+    var maps={ch:CH_COLOR,status:STATUS_COLOR,collab:COLLAB_COLOR,second:SECOND_COLOR,standard:LAYER_COLOR,recoop:RECOOP_COLOR,longcoop:LONG_COLOR};
+    var rect=td.getBoundingClientRect(),pop=document.createElement('div');pop.id='seed-dd-popup-v11';pop.style.cssText='position:fixed;top:'+(rect.bottom+2)+'px;left:'+rect.left+'px;background:var(--color-background-primary);border:.5px solid var(--color-border-secondary);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);z-index:9999;padding:4px;min-width:120px;';
+    opts.forEach(function(o){var c=(maps[field]&&maps[field][o])||{bg:'#F3F4F6',color:'#6B7280'};var el=document.createElement('div');el.style.cssText='padding:5px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:500;margin:2px 0;background:'+c.bg+';color:'+c.color;el.textContent=o;el.onclick=function(){var r=ensure(rows()[i]);r[field]=(o==='선택'?'':o);if(field==='ch'){r.channel=o;}save();pop.remove();renderList();if(currentIndex===i)renderDetail();};pop.appendChild(el);});
+    document.body.appendChild(pop);setTimeout(function(){document.addEventListener('mousedown',function close(e){if(!pop.contains(e.target)){pop.remove();document.removeEventListener('mousedown',close);}});},30);
+  };
+
+  function filtered(){
+    return rows().map(function(r,i){return {r:ensure(r),i:i};}).filter(function(x){return true;}).sort(function(a,b){return (b.r.fixed?1:0)-(a.r.fixed?1:0)||((a.r._order||0)-(b.r._order||0));});
+  }
+  function renderList(){
+    var body=document.getElementById('seed-body-v11');if(!body)return;
+    body.innerHTML=filtered().map(function(x){
+      var r=x.r,i=x.i;
+      return '<tr><td onclick="seedV11OpenDetail('+i+')" ondblclick="event.stopPropagation();seedV11StartInlineEdit(this,'+i+',\'name\',\'text\',\'\')" class="seed-editable"><span class="seed-name">'+esc(r.name||'-')+'</span></td>'+
+      '<td ondblclick="event.stopPropagation();seedV11StartInlineEdit(this,'+i+',\'id\',\'text\',\'\')" class="seed-editable">'+idHtml(r)+'</td>'+
+      '<td style="text-align:right" ondblclick="event.stopPropagation();seedV11StartInlineEdit(this,'+i+',\'followers\',\'text\',\'right\')">'+fmtFollower(r.followers)+'</td>'+
+      dropdownCell(i,'ch',normCh(r.ch||r.channel),null,CH_COLOR)+
+      '<td>'+star('fit',i,r)+'</td><td>'+star('style',i,r)+'</td><td>'+star('mood',i,r)+'</td><td>'+star('relation',i,r)+'</td>'+
+      '<td style="text-align:center">'+badge((num(r.fit)+num(r.style)+num(r.mood)+num(r.relation))>=9?'진행':'논의 필요',{진행:{bg:'#EAF3DE',color:'#3B6D11'},'논의 필요':{bg:'#FFF3CD',color:'#856404'}})+'</td>'+
+      dropdownCell(i,'collab',r.collab||'무가',COLLAB_OPTS,COLLAB_COLOR)+dropdownCell(i,'status',r.status,STATUS_OPTS,STATUS_COLOR)+
+      '<td class="seed-cost-cell">'+fmtWon(itemCost(r))+'</td><td>'+dcCell(i,'adCost',r.adCost||r.cost1,'money','right')+'</td>'+
+      dropdownCell(i,'second',r.second,SECOND_OPTS,SECOND_COLOR)+'<td>'+dcCell(i,'reuseCost',r.reuseCost||r.cost2,'money','right')+'</td>'+
+      '<td>'+dcCell(i,'uploadDate',r.uploadDate,'date','')+'</td>'+dropdownCell(i,'standard',r.standard||r.layer,LAYER_OPTS,LAYER_COLOR)+dropdownCell(i,'recoop',r.recoop||r.recolab,RECOOP_OPTS,RECOOP_COLOR)+dropdownCell(i,'longcoop',r.longcoop||r.longterm,LONG_OPTS,LONG_COLOR)+
+      '<td>'+dcCell(i,'note',r.note,'text','')+'</td><td style="text-align:center"><button class="seed-lock-btn '+(r.fixed?'active':'')+'" onclick="seedV11ToggleFixed('+i+')">고정</button></td><td style="text-align:center"><button class="del-btn" onclick="seedV11Delete('+i+')">삭제</button></td></tr>';
+    }).join('')||'<tr><td colspan="22" style="text-align:center;padding:20px;color:var(--color-text-tertiary)">데이터가 없습니다.</td></tr>';
+  }
+  window.seedV11RenderList=renderList;
+
+  function renderTabs(r){
+    var tabs=document.getElementById('seed-summary-tabs-v11');
+    if(!tabs){var box=document.getElementById('seed-summary-content-v11'); if(box){tabs=document.createElement('div');tabs.id='seed-summary-tabs-v11';tabs.className='seed-summary-tabs-v11';box.parentNode.insertBefore(tabs,box);}}
+    if(!tabs)return;
+    var items=[{id:'summary',label:'요약'}];
+    for(var i=0;i<4;i++)items.push({id:'day'+i,label:dateLabel(r.uploadDate,i)});
+    tabs.innerHTML=items.map(function(t){return '<button class="seed-summary-tab-v11 '+(currentTab===t.id?'active':'')+'" onclick="seedV11SetDetailTab(\''+t.id+'\')">'+t.label+'</button>';}).join('');
+  }
+  function detailBadges(r){return '<span class="seed-detail-badge">업로드일 '+dateLabel(r.uploadDate,0)+'</span><span class="seed-detail-badge">채널 '+esc(normCh(r.ch||r.channel)||'-')+'</span><span class="seed-detail-badge">진행 방식 '+esc(r.collab||'-')+'</span><span class="seed-detail-badge">랜딩 '+esc(r.platform||r.landing||'-')+'</span><span class="seed-detail-badge">셀렉 상품 '+((r.items||[]).length)+'개</span>';}
+  function productSummary(r){ensure(r);if(!r.items.length)return '<div style="padding:16px;color:var(--color-text-tertiary);font-size:12px;">선택된 상품이 없습니다.</div>';return '<table class="seed-feedback-table"><thead><tr><th>UID</th><th>상품코드</th><th>상품명</th><th>컬러</th><th>원가</th></tr></thead><tbody>'+r.items.map(function(it){return '<tr><td>'+esc(it.uid||'-')+'</td><td>'+esc(it.code||'-')+'</td><td>'+esc(it.name||'-')+'</td><td>'+esc(it.color||'-')+'</td><td>'+fmtWon(it.cost||0)+'</td></tr>';}).join('')+'<tr class="ttl"><td colspan="4">TTL</td><td>'+fmtWon(itemCost(r))+'</td></tr></tbody></table>';}
+  function renderSummary(r){var likes=(r.daily||[]).reduce(function(s,d){return s+num(d.likes);},0),comments=(r.daily||[]).reduce(function(s,d){return s+num(d.comments);},0);return '<div class="seed-feedback-kpi"><div class="s-card"><div class="s-label">좋아요</div><div class="s-val">'+fmtNum(likes)+'</div><div class="s-sub">전체 합계</div></div><div class="s-card"><div class="s-label">댓글</div><div class="s-val">'+fmtNum(comments)+'</div><div class="s-sub">전체 합계</div></div></div><div class="seed-feedback-panel"><div class="seed-feedback-panel-title">기준일별 성과 요약</div><table class="seed-feedback-table"><thead><tr><th>기준일</th><th>좋아요</th><th>댓글</th></tr></thead><tbody>'+[0,1,2,3].map(function(i){var d=daily(r,i);return '<tr><td>'+dateLabel(r.uploadDate,i)+'</td><td>'+fmtNum(d.likes)+'</td><td>'+fmtNum(d.comments)+'</td></tr>';}).join('')+'</tbody></table></div><div class="seed-feedback-panel"><div class="seed-feedback-panel-title">상품 별 성과 요약</div>'+productSummary(r)+'</div>';}
+  function renderDay(r,di){var d=daily(r,di);return '<div class="seed-feedback-kpi"><div class="s-card"><div class="s-label">좋아요</div><div class="s-val">'+fmtNum(d.likes)+'</div><div class="s-sub">'+dateLabel(r.uploadDate,di)+'</div></div><div class="s-card"><div class="s-label">댓글</div><div class="s-val">'+fmtNum(d.comments)+'</div><div class="s-sub">'+dateLabel(r.uploadDate,di)+'</div></div></div><div class="seed-feedback-panel"><div class="seed-feedback-panel-title">상품 별 성과 요약</div>'+productSummary(r)+'</div>';}
+  function renderDetail(){
+    var r=row();if(!r)return;ensure(r);
+    var name=document.getElementById('seed-detail-name-v11');if(name)name.textContent=r.name||'-';
+    var badges=document.getElementById('seed-detail-badges-v11');if(badges)badges.innerHTML=detailBadges(r);
+    var summaryBtn=document.getElementById('seed-tab-summary-v11');if(summaryBtn)summaryBtn.style.display='none';
+    var box=document.getElementById('seed-summary-content-v11');renderTabs(r);if(!box)return;
+    if(currentTab.indexOf('day')===0)box.innerHTML=renderDay(r,parseInt(currentTab.replace('day',''),10)||0);else box.innerHTML=renderSummary(r);
+  }
+  window.seedV11OpenDetail=function(i){currentIndex=i;currentTab='summary';var m=document.getElementById('seed-detail-modal-v11');if(m){m.classList.add('open');m.style.setProperty('display','flex','important');m.style.setProperty('visibility','visible','important');m.style.setProperty('opacity','1','important');m.style.setProperty('pointer-events','auto','important');m.setAttribute('aria-hidden','false');}renderDetail();};
+  window.seedV11CloseDetail=function(){var m=document.getElementById('seed-detail-modal-v11');if(m){m.classList.remove('open');m.style.setProperty('display','none','important');m.style.setProperty('visibility','hidden','important');m.style.setProperty('opacity','0','important');m.style.setProperty('pointer-events','none','important');m.setAttribute('aria-hidden','true');}seedV11CloseSubModal();};
+  window.seedV11SetDetailTab=function(tab){currentTab=tab||'summary';renderDetail();};
+
+  function renderSub(){
+    var r=row();if(!r)return;ensure(r);
+    var title=document.getElementById('seed-sub-title-v11');if(title)title.textContent=subType==='basic'?'기본 정보':subType==='items'?'아이템':'업로드 링크';
+    ['basic','items','links'].forEach(function(t){var el=document.getElementById('seed-sub-'+t+'-v11');if(el)el.style.display=t===subType?'block':'none';});
+    if(subType==='basic'){var b=r.basic||{};[['height','seed-basic-height-v11'],['weight','seed-basic-weight-v11'],['phone','seed-basic-phone-v11'],['post','seed-basic-post-v11'],['address','seed-basic-address-v11'],['tracking','seed-basic-tracking-v11']].forEach(function(p){var el=document.getElementById(p[1]);if(el)el.value=b[p[0]]||'';});}
+    if(subType==='items'){var body=document.getElementById('seed-item-body-v11');if(body)body.innerHTML=r.items.map(function(it,i){return '<tr><td>'+esc(it.platform||r.platform||'-')+'</td><td><input value="'+esc(it.uid||'')+'" onchange="seedV11ItemChange('+i+',\'uid\',this.value)"></td><td><input value="'+esc(it.code||'')+'" onchange="seedV11ItemChange('+i+',\'code\',this.value)"></td><td><input value="'+esc(it.name||'')+'" onchange="seedV11ItemChange('+i+',\'name\',this.value)"></td><td><input value="'+esc(it.color||'')+'" onchange="seedV11ItemChange('+i+',\'color\',this.value)"></td><td><input value="'+esc(it.size||'')+'" onchange="seedV11ItemChange('+i+',\'size\',this.value)"></td><td><button class="del-btn" onclick="seedV11DeleteItem('+i+')">삭제</button></td></tr>';}).join('');}
+    if(subType==='links'){var wrap=document.getElementById('seed-link-list-v11'),empty=document.getElementById('seed-link-empty-v11');if(empty)empty.style.display=r.links.length?'none':'block';if(wrap)wrap.innerHTML=r.links.map(function(l,i){return '<div class="link-row"><input value="'+esc(l.title||'업로드 링크')+'" onchange="seedV11LinkChange('+i+',\'title\',this.value)"><input value="'+esc(l.url||'')+'" onchange="seedV11LinkChange('+i+',\'url\',this.value)"><button class="del-btn" onclick="seedV11DeleteLink('+i+')">삭제</button></div>';}).join('');}
+  }
+  window.seedV11OpenSubModal=function(type){subType=type;var m=document.getElementById('seed-sub-modal-v11');if(m){m.classList.add('open');m.style.setProperty('display','flex','important');m.style.setProperty('visibility','visible','important');m.style.setProperty('opacity','1','important');m.style.setProperty('pointer-events','auto','important');}renderSub();};
+  window.seedV11CloseSubModal=function(){var m=document.getElementById('seed-sub-modal-v11');if(m){m.classList.remove('open');m.style.setProperty('display','none','important');m.style.setProperty('visibility','hidden','important');m.style.setProperty('opacity','0','important');m.style.setProperty('pointer-events','none','important');}};
+  window.seedV11SaveSubModal=function(){var r=row();if(!r)return;ensure(r);if(subType==='basic'){r.basic={height:document.getElementById('seed-basic-height-v11').value,weight:document.getElementById('seed-basic-weight-v11').value,phone:document.getElementById('seed-basic-phone-v11').value,post:document.getElementById('seed-basic-post-v11').value,address:document.getElementById('seed-basic-address-v11').value,tracking:document.getElementById('seed-basic-tracking-v11').value};}save();seedV11CloseSubModal();renderDetail();};
+  window.seedV11AddItem=function(){var r=row();if(!r)return;ensure(r);r.items.push({platform:r.platform||'무신사',uid:'',code:'',name:'',color:'',size:'',cost:0});save();renderSub();renderList();renderDetail();};
+  window.seedV11ItemChange=function(i,k,v){var r=row();if(!r)return;ensure(r);r.items[i][k]=v;autoFillItem(r,r.items[i]);save();renderSub();renderList();renderDetail();};
+  window.seedV11DeleteItem=function(i){var r=row();if(!r)return;ensure(r);r.items.splice(i,1);save();renderSub();renderList();renderDetail();};
+  window.seedV11AddLink=function(){var r=row();if(!r)return;ensure(r);r.links.push({title:'업로드 링크',url:''});save();renderSub();renderDetail();};
+  window.seedV11LinkChange=function(i,k,v){var r=row();if(!r)return;ensure(r);r.links[i][k]=v;save();renderSub();renderDetail();};
+  window.seedV11DeleteLink=function(i){var r=row();if(!r)return;ensure(r);r.links.splice(i,1);save();renderSub();renderDetail();};
+
+  function boot(){renderList();var m=document.getElementById('seed-detail-modal-v11');if(m&&!m.classList.contains('open'))m.style.setProperty('display','none','important');var s=document.getElementById('seed-sub-modal-v11');if(s&&!s.classList.contains('open'))s.style.setProperty('display','none','important');}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else setTimeout(boot,0);
+  window.addEventListener('load',function(){setTimeout(boot,100);});
+})();
+</script>
+
 </body>
 </html>
