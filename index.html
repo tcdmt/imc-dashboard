@@ -5109,6 +5109,7 @@ window.renderProducts=function(){
       onblur="const n=parseFloat(this.value.replace(/[^0-9.]/g,''))||0;window.products[${i}].${key}=n;this.value=n?n+'%':'';fbSaveProducts();">`;
   };
   const itemBody=document.getElementById('product-body');
+  if(!itemBody)return;
   itemBody.innerHTML=(window.products||[]).map((p,i)=>{
     if(!p.musinsaUid && p.platform==='무신사') p.musinsaUid=p.uid||'';
     if(!p.cmUid && p.platform==='29CM') p.cmUid=p.uid||'';
