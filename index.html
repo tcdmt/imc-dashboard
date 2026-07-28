@@ -27141,5 +27141,66 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
   window.addEventListener('load',boot);
 })();
 </script>
+<!-- CHOI PATCH: Feedback values durable save only -->
+<script id="feedback-values-durable-save-fix">
+(function(){
+  'use strict';
+  if(window.__feedbackValuesDurableSaveFix)return;
+  window.__feedbackValuesDurableSaveFix=true;
+  var STORAGE_KEY='choi_feedback_pending_v1';
+  function clone(v){try{return JSON.parse(JSON.stringify(v));}catch(e){return v;}}
+  function idOf(r,i){return String((r&&r._id)||('creators_'+i));}
+  function read(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')||{};}catch(e){return {};}}
+  function write(v){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(v));}catch(e){}}
+  function same(a,b){try{return JSON.stringify(a||{})===JSON.stringify(b||{});}catch(e){return false;}}
+  function capture(rows){
+    var pending=read();
+    (rows||[]).forEach(function(r,i){
+      if(r&&r._fbData&&Object.keys(r._fbData).length){
+        pending[idOf(r,i)]={data:clone(r._fbData),updatedAt:Date.now()};
+      }
+    });
+    write(pending);
+    return pending;
+  }
+  function mergePending(rows){
+    var pending=read(),changed=false;
+    (rows||[]).forEach(function(r,i){
+      if(!r)return;
+      var id=idOf(r,i),p=pending[id];
+      if(!p)return;
+      if(same(r._fbData,p.data)){delete pending[id];changed=true;}
+      else r._fbData=clone(p.data);
+    });
+    if(changed)write(pending);
+    return rows;
+  }
+  var previousMerge=window.fbMergeLinkClicks;
+  window.fbMergeLinkClicks=function(rows){
+    var result=typeof previousMerge==='function'?previousMerge(rows):rows;
+    return mergePending(result||[]);
+  };
+  try{fbMergeLinkClicks=window.fbMergeLinkClicks;}catch(e){}
+
+  var previousBatch=window.fbSaveBatch;
+  if(typeof previousBatch==='function'){
+    window.fbSaveBatch=function(collName,items){
+      if(collName!=='creators')return previousBatch.apply(this,arguments);
+      var rows=Array.isArray(items)?items:[];
+      capture(rows);
+      return Promise.resolve(previousBatch.apply(this,arguments)).then(function(result){
+        if(typeof db==='undefined'||!db||!db.collection)return result;
+        var writes=[];
+        rows.forEach(function(r,i){
+          if(!r||!r._fbData||!Object.keys(r._fbData).length)return;
+          writes.push(db.collection('creators').doc(idOf(r,i)).set({_fbData:clone(r._fbData)},{merge:true}));
+        });
+        return Promise.all(writes).then(function(){return result;});
+      });
+    };
+  }
+  mergePending(window.creators||[]);
+})();
+</script>
 </body>
 </html>
