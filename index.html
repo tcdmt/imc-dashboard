@@ -27345,5 +27345,101 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
   hydrate(window.creators||[]);
 })();
 </script>
+<!-- CHOI PATCH: Complete-remove Feedback product-like independent matching only -->
+<script id="complete-remove-feedback-product-like-fix">
+(function(){
+  'use strict';
+  if(window.__completeRemoveFeedbackProductLikeFix)return;
+  window.__completeRemoveFeedbackProductLikeFix=true;
+  function clean(v){return String(v==null?'':v).trim();}
+  function norm(v){return clean(v).toLowerCase().replace(/[\s,_\-]/g,'').replace(/\.0+$/,'');}
+  function num(v){var n=Number(clean(v).replace(/[^0-9.\-]/g,''));return isFinite(n)?n:0;}
+  function val(o,keys){o=o||{};for(var i=0;i<keys.length;i++){var v=o[keys[i]];if(v!==undefined&&v!==null&&clean(v)!=='')return v;}return '';}
+  function platform(v){
+    var s=norm(v);
+    if(s.indexOf('musinsa')>-1||s.indexOf('무신사')>-1)return'musinsa';
+    if(s.indexOf('29cm')>-1||s==='29')return'29cm';
+    if(s.indexOf('store')>-1||s.indexOf('자사몰')>-1||s.indexOf('자사')>-1)return'store';
+    return s;
+  }
+  function dateKey(v){
+    if(v instanceof Date&&!isNaN(v.getTime()))return v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0');
+    var s=clean(v),m=s.match(/(20\d{2})\D+(\d{1,2})\D+(\d{1,2})/);
+    return m?m[1]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[3]).padStart(2,'0'):s.slice(0,10);
+  }
+  function itemUid(it,p){
+    it=it||{};var pk=platform(p||it.platform);
+    if(pk==='musinsa')return val(it,['uid','UID','musinsaUid','musinsaUID']);
+    if(pk==='29cm')return val(it,['uid','UID','cmUid','cmUID','29cmUid','29CMUid']);
+    if(pk==='store')return val(it,['uid','UID','storeUid','storeUID']);
+    return val(it,['uid','UID']);
+  }
+  function itemCode(it){return val(it,['code','productCode','itemCode','상품 코드','상품코드']);}
+  function itemName(it){return val(it,['name','product','productName','itemName','상품명','제품명']);}
+  function rowDate(r){return dateKey(val(r,['날짜','일자','기준일','date','Date','수집일','collectDate']));}
+  function rowPlatform(r){return platform(val(r,['플랫폼','플랫폼명','판매 채널','판매채널','채널','channel','Channel']));}
+  function rowUid(r){return val(r,['UID','uid','Uid','상품 UID','상품UID','상품 uid','Product UID','goodsNo','itemNo']);}
+  function rowCode(r){return val(r,['상품코드','상품 코드','productCode','code','itemCode']);}
+  function rowName(r){return val(r,['상품명','제품명','상품 이름','product','productName','goodsName','itemName','name']);}
+  function rowLikes(r){return num(val(r,['좋아요','상품 좋아요','상품좋아요','좋아요 수','좋아요수','likes','heartCount','likeCount']));}
+  function matchStat(it,p,date){
+    var pk=platform(p||it.platform),uid=norm(itemUid(it,p)),code=norm(itemCode(it)),name=norm(itemName(it));
+    var dated=(window.productStatsRows||[]).filter(function(r){
+      var rp=rowPlatform(r);
+      return rowDate(r)===date&&(!pk||!rp||pk===rp);
+    });
+    var matched=[];
+    if(uid)matched=dated.filter(function(r){return norm(rowUid(r))===uid;});
+    if(!matched.length&&code)matched=dated.filter(function(r){return norm(rowCode(r))===code;});
+    if(!matched.length&&name)matched=dated.filter(function(r){return norm(rowName(r))===name;});
+    return matched.length?matched[matched.length-1]:null;
+  }
+  function itemKeys(it,p){
+    var keys=[],uid=itemUid(it,p),code=itemCode(it),name=itemName(it),pk=platform(p||it.platform);
+    try{if(typeof window.fbFeedbackAutoItemKey==='function')keys.push(window.fbFeedbackAutoItemKey(it,p));}catch(e){}
+    if(uid)keys.push('uid:'+pk+'|'+norm(uid));
+    if(code)keys.push('code:'+pk+'|'+norm(code));
+    if(name)keys.push('name:'+pk+'|'+norm(name));
+    return keys.filter(function(k,i,a){return k&&a.indexOf(k)===i;});
+  }
+  function apply(rows){
+    var updated=0;
+    (rows||[]).forEach(function(cr,ci){
+      var upload=cr&&cr.uploadDate?new Date(cr.uploadDate):null,items=cr&&(cr.items||cr.products)||[];
+      if(!cr||!upload||isNaN(upload.getTime())||!items.length)return;
+      cr._fbData=cr._fbData||{};
+      for(var off=-1;off<=6;off++){
+        var d=new Date(upload.getTime()+off*86400000),ds=dateKey(d),key=ci+'_d'+off;
+        var day=cr._fbData[key]=cr._fbData[key]||{};
+        day._itemData=day._itemData||{};
+        var total=0,found=false;
+        items.forEach(function(it){
+          var stat=matchStat(it,it.platform||cr.platform,ds);
+          if(!stat)return;
+          var likes=rowLikes(stat),keys=itemKeys(it,it.platform||cr.platform);
+          keys.forEach(function(k){day._itemData[k]=day._itemData[k]||{};day._itemData[k].productLike=likes;});
+          total+=likes;found=true;updated++;
+        });
+        if(found)day.productLike=total;
+      }
+    });
+    return updated;
+  }
+  window.applyCompleteRemoveFeedbackProductLikes=function(){return apply(window.creators||[]);};
+  var oldMerge=window.fbMergeLinkClicks;
+  window.fbMergeLinkClicks=function(rows){var result=typeof oldMerge==='function'?oldMerge(rows):rows;apply(result||[]);return result;};
+  try{fbMergeLinkClicks=window.fbMergeLinkClicks;}catch(e){}
+  ['loadProductStatsFromSheet','refreshProductStatsFromSheet'].forEach(function(name){
+    var fn=window[name];if(typeof fn!=='function')return;
+    window[name]=async function(){var result=await fn.apply(this,arguments);var count=apply(window.creators||[]);if(count&&typeof window.fbSaveCreators==='function')window.fbSaveCreators();if(typeof window.applyFeedbackFilter==='function')window.applyFeedbackFilter();return result;};
+  });
+  var oldApply=window.applyFeedbackFilter;
+  if(typeof oldApply==='function'){
+    window.applyFeedbackFilter=function(){apply(window.creators||[]);return oldApply.apply(this,arguments);};
+    try{applyFeedbackFilter=window.applyFeedbackFilter;}catch(e){}
+  }
+  if((window.productStatsRows||[]).length)apply(window.creators||[]);
+})();
+</script>
 </body>
 </html>
