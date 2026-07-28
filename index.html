@@ -27202,5 +27202,71 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
   mergePending(window.creators||[]);
 })();
 </script>
+<!-- CHOI PATCH: Feedback day-card close/reopen restore only -->
+<script id="feedback-day-card-close-reopen-restore-fix">
+(function(){
+  'use strict';
+  if(window.__feedbackDayCardCloseReopenRestoreFix)return;
+  window.__feedbackDayCardCloseReopenRestoreFix=true;
+  function idOf(r){return r&&String(r._id||[r.name||'',r.id||'',r.uploadDate||'',r.ch||''].join('|'));}
+  function hydrate(rows){
+    var drafts=window.__feedbackMetricDrafts||{};
+    (rows||[]).forEach(function(r,index){
+      if(!r)return;
+      var id=idOf(r);
+      r._fbData=r._fbData||{};
+      Object.keys(drafts).forEach(function(draftKey){
+        var prefix=id+'::';
+        if(draftKey.slice(0,prefix.length)!==prefix)return;
+        var offset=Number(draftKey.slice(prefix.length));
+        if(!isFinite(offset))return;
+        var suffix='_d'+offset,key=index+suffix;
+        var day=r._fbData[key];
+        if(!day){
+          var oldKey=Object.keys(r._fbData).find(function(k){return String(k).slice(-suffix.length)===suffix;});
+          day=oldKey?r._fbData[oldKey]:{};
+        }
+        r._fbData[key]=day||{};
+        ['view','like','comment'].forEach(function(field){
+          if(drafts[draftKey]&&drafts[draftKey][field]!==undefined)r._fbData[key][field]=drafts[draftKey][field];
+        });
+      });
+    });
+    return rows;
+  }
+  var previousMerge=window.fbMergeLinkClicks;
+  window.fbMergeLinkClicks=function(rows){
+    var result=typeof previousMerge==='function'?previousMerge(rows):rows;
+    return hydrate(result||[]);
+  };
+  try{fbMergeLinkClicks=window.fbMergeLinkClicks;}catch(e){}
+
+  var previousOpen=window.fbV15OpenModal;
+  if(typeof previousOpen==='function'){
+    window.fbV15OpenModal=function(){
+      hydrate(window.creators||[]);
+      return previousOpen.apply(this,arguments);
+    };
+  }
+  var previousClose=window.fbV15CloseModal;
+  if(typeof previousClose==='function'){
+    window.fbV15CloseModal=function(){
+      var input=document.querySelector('#fb-v15-modal .fb-v15-input');
+      if(input)input.blur();
+      hydrate(window.creators||[]);
+      return previousClose.apply(this,arguments);
+    };
+  }
+  var previousApply=window.applyFeedbackFilter;
+  if(typeof previousApply==='function'){
+    window.applyFeedbackFilter=function(){
+      hydrate(window.creators||[]);
+      return previousApply.apply(this,arguments);
+    };
+    try{applyFeedbackFilter=window.applyFeedbackFilter;}catch(e){}
+  }
+  hydrate(window.creators||[]);
+})();
+</script>
 </body>
 </html>
