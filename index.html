@@ -27268,5 +27268,82 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
   hydrate(window.creators||[]);
 })();
 </script>
+<!-- CHOI PATCH: Feedback day cards stable creator/day save only -->
+<script id="feedback-day-cards-stable-creator-key-fix">
+(function(){
+  'use strict';
+  if(window.__feedbackDayCardsStableCreatorKeyFix)return;
+  window.__feedbackDayCardsStableCreatorKeyFix=true;
+  var KEY='choi_feedback_day_cards_stable_v2';
+  function number(v){var n=Number(String(v==null?'':v).replace(/[^0-9.-]/g,''));return isFinite(n)?n:0;}
+  function idOf(r){return r&&String(r._id||[r.name||'',r.id||r.handle||r.idName||'',r.uploadDate||'',r.ch||r.channel||''].join('|'));}
+  function read(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')||{};}catch(e){return {};}}
+  function write(v){try{localStorage.setItem(KEY,JSON.stringify(v));}catch(e){}}
+  function findRow(id,fallback){
+    var rows=window.creators||[];
+    for(var i=0;i<rows.length;i++)if(idOf(rows[i])===id)return {row:rows[i],index:i};
+    return {row:rows[fallback],index:fallback};
+  }
+  function syncDay(r,index,offset,values){
+    if(!r)return;
+    r._fbData=r._fbData||{};
+    var suffix='_d'+offset,key=index+suffix;
+    var keys=Object.keys(r._fbData).filter(function(k){return String(k).slice(-suffix.length)===suffix;});
+    if(keys.indexOf(key)<0)keys.push(key);
+    keys.forEach(function(k){
+      var day=r._fbData[k]=r._fbData[k]||{};
+      ['view','like','comment'].forEach(function(f){if(values&&values[f]!==undefined)day[f]=number(values[f]);});
+      day._itemData=day._itemData||{};
+    });
+  }
+  function hydrate(rows){
+    var store=read();
+    (rows||[]).forEach(function(r,index){
+      var saved=store[idOf(r)]||{};
+      Object.keys(saved).forEach(function(offset){syncDay(r,index,Number(offset),saved[offset]);});
+    });
+    return rows;
+  }
+  function saveDay(id,offset,values){
+    var store=read();
+    store[id]=store[id]||{};
+    store[id][String(offset)]={view:number(values.view),like:number(values.like),comment:number(values.comment),updatedAt:Date.now()};
+    write(store);
+  }
+  var previousEdit=window.fbV15StartEdit;
+  if(typeof previousEdit==='function'){
+    window.fbV15StartEdit=function(el,ci,offset,field){
+      if(['view','like','comment'].indexOf(field)<0)return previousEdit.apply(this,arguments);
+      var initial=(window.creators||[])[ci],id=idOf(initial);
+      var result=previousEdit.apply(this,arguments);
+      var input=el&&el.querySelector&&el.querySelector('input');
+      if(!input)return result;
+      input.addEventListener('blur',function(){
+        setTimeout(function(){
+          var found=findRow(id,ci),drafts=window.__feedbackMetricDrafts||{},draft=drafts[id+'::'+offset]||{};
+          var suffix='_d'+offset,key=found.index+suffix,day=found.row&&found.row._fbData&&found.row._fbData[key]||{};
+          var values={view:draft.view!==undefined?draft.view:day.view,like:draft.like!==undefined?draft.like:day.like,comment:draft.comment!==undefined?draft.comment:day.comment};
+          values[field]=number(input.value);
+          syncDay(found.row,found.index,offset,values);
+          saveDay(id,offset,values);
+          if(typeof window.fbSaveCreators==='function')window.fbSaveCreators();
+        },0);
+      },{once:true});
+      return result;
+    };
+  }
+  var previousMerge=window.fbMergeLinkClicks;
+  window.fbMergeLinkClicks=function(rows){
+    var result=typeof previousMerge==='function'?previousMerge(rows):rows;
+    return hydrate(result||[]);
+  };
+  try{fbMergeLinkClicks=window.fbMergeLinkClicks;}catch(e){}
+  var previousOpen=window.fbV15OpenModal;
+  if(typeof previousOpen==='function')window.fbV15OpenModal=function(){hydrate(window.creators||[]);return previousOpen.apply(this,arguments);};
+  var previousBatch=window.fbSaveBatch;
+  if(typeof previousBatch==='function')window.fbSaveBatch=function(collName,items){if(collName==='creators')hydrate(items||[]);return previousBatch.apply(this,arguments);};
+  hydrate(window.creators||[]);
+})();
+</script>
 </body>
 </html>
