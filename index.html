@@ -25586,5 +25586,77 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
   try{fbSaveAllDashboardNow=run;}catch(e){}
 })();
 </script>
+<script id="codex-seeding-partial-safe-save-v31">
+(function(){
+  'use strict';
+  if(window.__codexSeedingPartialSafeSaveV31)return;
+  window.__codexSeedingPartialSafeSaveV31=true;
+
+  var baseline=null,loading=null,chain=Promise.resolve(),timer=null,latest=null,waiters=[];
+  var previousBatch=window.fbSaveBatch;
+  var previousTracker=window.__codexTrackFirestoreRows;
+
+  function clone(value){try{return JSON.parse(JSON.stringify(value));}catch(e){return value;}}
+  function stable(value){try{return JSON.stringify(value);}catch(e){return '';}}
+  function idOf(row,index){return String((row&&row._id)||('seed_'+index));}
+  function mapRows(rows){
+    var map={};
+    (rows||[]).forEach(function(source,index){var row=clone(source||{}),id=idOf(row,index);row._id=id;map[id]=row;});
+    return map;
+  }
+  function track(rows){baseline=mapRows(rows||[]);}
+  window.__codexTrackFirestoreRows=function(collection,rows){
+    if(typeof previousTracker==='function')previousTracker.apply(this,arguments);
+    if(collection==='seeding')track(rows);
+  };
+  function waitFirebase(){
+    return new Promise(function(resolve,reject){var tries=0,t=setInterval(function(){if(window.db&&window.isFirebaseReady){clearInterval(t);resolve();}else if(++tries>=240){clearInterval(t);reject(new Error('Firebase 연결 시간이 초과되었습니다.'));}},250);});
+  }
+  async function ensureBaseline(){
+    if(baseline!==null)return baseline;
+    if(loading)return loading;
+    loading=(async function(){
+      await waitFirebase();
+      var snap=await window.db.collection('seeding').get();
+      var rows=(snap.docs||[]).map(function(doc){return Object.assign({_id:doc.id},doc.data()||{});});
+      track(rows);
+      if(typeof window.__firebaseMetricV4==='function')window.__firebaseMetricV4('read','seeding',rows.length,'seeding-v31-baseline','seeding');
+      return baseline;
+    })().finally(function(){loading=null;});
+    return loading;
+  }
+  async function save(rows){
+    if(typeof window.isCurrentUserEditor==='function'&&!window.isCurrentUserEditor())throw new Error('수정 권한이 없습니다.');
+    await ensureBaseline();
+    var local=mapRows(rows||[]);
+    var changed=Object.keys(local).filter(function(id){return !baseline[id]||stable(baseline[id])!==stable(local[id]);});
+    if(!changed.length)return true;
+    var collection=window.db.collection('seeding');
+    for(var start=0;start<changed.length;start+=400){
+      var ids=changed.slice(start,start+400),batch=window.db.batch();
+      ids.forEach(function(id){batch.set(collection.doc(id),local[id],{merge:true});});
+      await batch.commit();
+      if(typeof window.__firebaseMetricV4==='function')window.__firebaseMetricV4('write','seeding',ids.length,'seeding-v31-partial-upsert','seeding');
+    }
+    changed.forEach(function(id){baseline[id]=clone(local[id]);});
+    /* Remote documents absent from the current UI remain untouched in baseline and Firestore. */
+    return true;
+  }
+  function enqueue(rows){
+    latest=clone(Array.isArray(rows)?rows:[]);
+    var promise=new Promise(function(resolve,reject){waiters.push({resolve:resolve,reject:reject});});
+    clearTimeout(timer);
+    timer=setTimeout(function(){
+      var payload=latest,pending=waiters.splice(0);
+      chain=chain.catch(function(){return true;}).then(function(){return save(payload);});
+      chain.then(function(value){pending.forEach(function(item){item.resolve(value);});},function(error){console.error('Seeding 부분 저장 실패:',error);pending.forEach(function(item){item.reject(error);});});
+    },180);
+    return promise;
+  }
+  window.fbSaveBatch=function(collection,rows){if(collection==='seeding')return enqueue(rows);return previousBatch.apply(this,arguments);};
+  window.saveSeedingNowV25=function(){return enqueue(window.seedData||[]);};
+  window.saveSeedingNowV31=window.saveSeedingNowV25;
+})();
+</script>
 </body>
 </html>
