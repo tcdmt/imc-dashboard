@@ -25411,5 +25411,180 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
   window.addEventListener('load',install);
 })();
 </script>
+<script id="codex-safe-backup-import-v29">
+(function(){
+  'use strict';
+  if(window.__codexSafeBackupImportV29)return;
+  window.__codexSafeBackupImportV29=true;
+
+  function clone(value){try{return JSON.parse(JSON.stringify(value));}catch(e){return value;}}
+  function isEditor(){return typeof window.isCurrentUserEditor!=='function'||window.isCurrentUserEditor();}
+  function rowId(row,index,prefix){
+    row=row||{};
+    return String(row._id||row.id||(prefix+'_backup_'+index));
+  }
+  function mergeRows(current,incoming,prefix){
+    current=Array.isArray(current)?current:[];
+    incoming=Array.isArray(incoming)?incoming:[];
+    var result=current.map(clone),positions={};
+    result.forEach(function(row,index){positions[rowId(row,index,prefix)]=index;});
+    incoming.forEach(function(source,index){
+      var row=clone(source||{}),id=rowId(row,index,prefix);
+      if(!row._id&&/^((promo|creator|product|seed|celeb|org|crm)_)/.test(id))row._id=id;
+      if(Object.prototype.hasOwnProperty.call(positions,id))result[positions[id]]=row;
+      else{positions[id]=result.length;result.push(row);}
+    });
+    return result;
+  }
+  function validate(data){
+    if(!data||typeof data!=='object'||Array.isArray(data))throw new Error('올바른 JSON 백업 파일이 아닙니다.');
+    var keys=['promos','creators','products','crmData','seedData','celebData','organicData'];
+    keys.forEach(function(key){if(data[key]!==undefined&&!Array.isArray(data[key]))throw new Error(key+' 데이터 형식이 배열이 아닙니다.');});
+    if(data._counts){
+      var mismatches=keys.filter(function(key){return data._counts[key]!=null&&Number(data._counts[key])!==(Array.isArray(data[key])?data[key].length:0);});
+      if(mismatches.length)throw new Error('백업 행 수 검증 실패: '+mismatches.join(', '));
+    }
+    return data;
+  }
+  function summary(data){
+    return ['creators','crmData','seedData','celebData','organicData'].map(function(key){return key+' '+(Array.isArray(data[key])?data[key].length:0)+'행';}).join(' · ');
+  }
+  function renderAll(){
+    ['applyPromoFilter','applyListFilter','applyFeedbackFilter','crmRender','renderBudget','seedRender','seedV11RenderList','celebRender','orgRender','buildCal'].forEach(function(name){
+      try{if(typeof window[name]==='function')window[name]();}catch(e){console.warn(name+' 갱신 실패:',e);}
+    });
+  }
+  async function saveAllMerged(){
+    var jobs=[];
+    if(typeof window.fbSaveBatch==='function'){
+      jobs.push(window.fbSaveBatch('promos',window.promos||[]));
+      jobs.push(window.fbSaveBatch('creators',window.creators||[]));
+      jobs.push(window.fbSaveBatch('products',window.products||[]));
+      jobs.push(window.fbSaveBatch('seeding',window.seedData||[]));
+      jobs.push(window.fbSaveBatch('celebs',window.celebData||[]));
+      jobs.push(window.fbSaveBatch('organic',window.organicData||[]));
+      jobs.push(window.fbSaveBatch('crm',window.crmData||[]));
+    }
+    await Promise.all(jobs);
+    if(typeof window.fbSaveSettingDoc==='function')await window.fbSaveSettingDoc('budgetMemos',{values:window.budgetMemos||{}});
+    if(typeof window.fbSaveBudget==='function'){
+      for(var i=0;i<(window.budgets||[]).length;i++)await window.fbSaveBudget(i,window.budgets[i]||[]);
+    }
+  }
+  async function ensureCurrentData(){
+    var active=window.__firebaseActiveTab||'monthly';
+    try{
+      if(typeof window.__firebaseEnsureTabDataV4==='function'){
+        await window.__firebaseEnsureTabDataV4('list');
+        await window.__firebaseEnsureTabDataV4('seeding');
+        await window.__firebaseEnsureTabDataV4('celeb');
+        await window.__firebaseEnsureTabDataV4('organic');
+      }
+      if(typeof window.crmEnsureLoadedV3==='function')await window.crmEnsureLoadedV3();
+    }finally{window.__firebaseActiveTab=active;}
+  }
+  async function importData(data){
+    data=validate(data);
+    if(!window.confirm('백업을 불러올까요?\n'+summary(data)+'\n\n현재 데이터에 없는 기존 행은 삭제하지 않습니다.'))return{cancelled:true};
+    await ensureCurrentData();
+
+    if(Array.isArray(data.promos))window.promos=mergeRows(window.promos,data.promos,'promo');
+    if(Array.isArray(data.creators))window.creators=mergeRows(window.creators,data.creators,'creator');
+    if(Array.isArray(data.products))window.products=mergeRows(window.products,data.products,'product');
+    if(Array.isArray(data.crmData))window.crmData=mergeRows(window.crmData,data.crmData,'crm');
+    if(Array.isArray(data.seedData))window.seedData=mergeRows(window.seedData,data.seedData,'seed');
+    if(Array.isArray(data.celebData))window.celebData=mergeRows(window.celebData,data.celebData,'celeb');
+    if(Array.isArray(data.organicData))window.organicData=mergeRows(window.organicData,data.organicData,'org');
+    if(Array.isArray(data.budgets))window.budgets=clone(data.budgets);
+    if(data.budgetMemos&&typeof data.budgetMemos==='object')window.budgetMemos=clone(data.budgetMemos);
+
+    renderAll();
+    await saveAllMerged();
+    renderAll();
+    return{ok:true};
+  }
+
+  window.handleFileLoad=function(event){
+    var input=event&&event.target,file=input&&input.files&&input.files[0];
+    if(!file)return Promise.resolve({cancelled:true});
+    return file.text().then(function(text){return importData(JSON.parse(text));}).then(function(result){
+      if(result&&result.ok)alert('백업 불러오기가 완료되었습니다. 기존 행은 삭제하지 않고 Firebase에 증분 저장했습니다.');
+      return result;
+    }).catch(function(error){
+      console.error('백업 불러오기 실패:',error);
+      alert('백업 파일 오류: '+(error.message||error));
+      throw error;
+    }).finally(function(){if(input){input.value='';setTimeout(function(){try{input.remove();}catch(e){}},0);}});
+  };
+  window.loadFromFile=function(){
+    if(!isEditor()){alert('백업 불러오기는 수정 권한이 있는 계정에서만 사용할 수 있습니다.');return false;}
+    var input=document.createElement('input');
+    input.type='file';input.accept='.json,application/json';input.style.position='fixed';input.style.left='-9999px';
+    input.onchange=function(event){window.handleFileLoad(event).catch(function(){});};
+    document.body.appendChild(input);input.click();return false;
+  };
+  window.importDashboardBackupV29=importData;
+})();
+</script>
+<script id="codex-active-tab-firebase-save-v30">
+(function(){
+  'use strict';
+  if(window.__codexActiveTabFirebaseSaveV30)return;
+  window.__codexActiveTabFirebaseSaveV30=true;
+
+  function activeTab(){
+    var known=['monthly','promotion','meta','list','feedback','crm','seeding','celeb','organic','budget'];
+    for(var i=0;i<known.length;i++){
+      var page=document.getElementById('pg-'+known[i]);
+      if(page&&(page.classList.contains('imc-main-tab-active')||page.style.display==='block'))return known[i];
+    }
+    return window.__firebaseActiveTab||'monthly';
+  }
+  async function saveBudget(){
+    if(typeof window.fbSaveSettingDoc==='function')await window.fbSaveSettingDoc('budgetMemos',{values:window.budgetMemos||{}});
+    if(typeof window.fbSaveBudget==='function'){
+      for(var i=0;i<(window.budgets||[]).length;i++)await window.fbSaveBudget(i,window.budgets[i]||[]);
+    }
+    return true;
+  }
+  async function saveTab(tab){
+    if(!window.isFirebaseReady)throw new Error('Firebase 연결이 아직 완료되지 않았습니다.');
+    if(typeof window.isCurrentUserEditor==='function'&&!window.isCurrentUserEditor())throw new Error('수정 권한이 없습니다.');
+    if(tab==='seeding'&&typeof window.saveSeedingNowV25==='function')return window.saveSeedingNowV25();
+    if(tab==='promotion')return window.fbSaveBatch('promos',window.promos||[]);
+    if(tab==='list')return Promise.all([window.fbSaveBatch('creators',window.creators||[]),window.fbSaveBatch('products',window.products||[])]).then(function(){return true;});
+    if(tab==='feedback')return window.fbSaveBatch('creators',window.creators||[]);
+    if(tab==='crm')return typeof window.crmSaveVerifiedV3==='function'?window.crmSaveVerifiedV3():window.fbSaveBatch('crm',window.crmData||[]);
+    if(tab==='celeb')return window.fbSaveBatch('celebs',window.celebData||[]);
+    if(tab==='organic')return window.fbSaveBatch('organic',window.organicData||[]);
+    if(tab==='budget')return saveBudget();
+    if(tab==='monthly')return Promise.all([window.fbSaveBatch('promos',window.promos||[]),window.fbSaveBatch('creators',window.creators||[])]).then(function(){return true;});
+    return true;
+  }
+  function badge(ok,message){
+    var el=document.getElementById('saving-badge');
+    if(!el)return;
+    el.textContent=ok?'✅ 현재 탭 Firebase 저장 완료':'⚠️ Firebase 저장 실패'+(message?': '+message:'');
+    el.classList.add('show');
+    setTimeout(function(){el.classList.remove('show');el.textContent='저장 중...';},3500);
+  }
+  var run=async function(){
+    var tab=activeTab();
+    try{
+      if(typeof window.showSaving==='function')window.showSaving();
+      await saveTab(tab);
+      badge(true,'');
+      return true;
+    }catch(error){
+      console.error('현재 탭 Firebase 저장 실패:',tab,error);
+      badge(false,error.message||String(error));
+      alert('현재 탭 Firebase 저장 실패:\n'+(error.message||error));
+      return false;
+    }
+  };
+  window.fbSaveAllDashboardNow=run;
+  try{fbSaveAllDashboardNow=run;}catch(e){}
+})();
+</script>
 </body>
 </html>
