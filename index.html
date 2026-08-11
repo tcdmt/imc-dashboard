@@ -24543,6 +24543,7 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
           var count=snapshotReadCount(snapshot,first);
           metric('read',collection,count,first?'listener-initial':'listener-change',window.__firebaseActiveTab);
           var rows=rowsFromSnapshot(snapshot);
+          if(collection==='seeding')rows=rows.filter(function(row){return !row._deleted;});
           baselines[collection]=mapRows(collection,rows);
           var localName=localNames[collection];
           if(rows.length||!Array.isArray(window[localName])||!window[localName].length){
@@ -25656,6 +25657,41 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
   window.fbSaveBatch=function(collection,rows){if(collection==='seeding')return enqueue(rows);return previousBatch.apply(this,arguments);};
   window.saveSeedingNowV25=function(){return enqueue(window.seedData||[]);};
   window.saveSeedingNowV31=window.saveSeedingNowV25;
+})();
+</script>
+<script id="codex-seeding-soft-delete-v32">
+(function(){
+  'use strict';
+  if(window.__codexSeedingSoftDeleteV32)return;
+  window.__codexSeedingSoftDeleteV32=true;
+
+  function render(){
+    try{if(typeof window.seedV11RenderList==='function')window.seedV11RenderList();else if(typeof window.seedRender==='function')window.seedRender();}catch(e){}
+  }
+  async function remove(index){
+    var rows=window.seedData||[],row=rows[index];
+    if(!row)return false;
+    if(!window.confirm('이 Seeding 행을 삭제할까요?'))return false;
+    if(!window.db||!window.isFirebaseReady)throw new Error('Firebase 연결이 완료되지 않았습니다.');
+    if(typeof window.isCurrentUserEditor==='function'&&!window.isCurrentUserEditor())throw new Error('수정 권한이 없습니다.');
+    var id=String(row._id||'');
+    if(!id)throw new Error('Seeding 문서 ID를 찾을 수 없습니다.');
+
+    await window.db.collection('seeding').doc(id).set({
+      _deleted:true,
+      _deletedAt:new Date().toISOString(),
+      _deletedBy:(window.currentUser&&window.currentUser.email)||''
+    },{merge:true});
+    if(typeof window.__firebaseMetricV4==='function')window.__firebaseMetricV4('write','seeding',1,'seeding-v32-soft-delete','seeding');
+    window.seedData=rows.filter(function(item,i){return i!==index;});
+    render();
+    return true;
+  }
+  window.seedV11Delete=function(index){
+    remove(index).catch(function(error){console.error('Seeding 행 삭제 실패:',error);alert('Seeding 행 삭제 실패:\n'+(error.message||error));});
+    return false;
+  };
+  window.deleteSeedingRowV32=remove;
 })();
 </script>
 </body>
