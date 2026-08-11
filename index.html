@@ -24543,7 +24543,7 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
           var count=snapshotReadCount(snapshot,first);
           metric('read',collection,count,first?'listener-initial':'listener-change',window.__firebaseActiveTab);
           var rows=rowsFromSnapshot(snapshot);
-          if(collection==='seeding')rows=rows.filter(function(row){return !row._deleted;});
+          if(collection==='seeding'||collection==='creators')rows=rows.filter(function(row){return !row._deleted;});
           baselines[collection]=mapRows(collection,rows);
           var localName=localNames[collection];
           if(rows.length||!Array.isArray(window[localName])||!window[localName].length){
@@ -25553,7 +25553,7 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
     if(typeof window.isCurrentUserEditor==='function'&&!window.isCurrentUserEditor())throw new Error('수정 권한이 없습니다.');
     if(tab==='seeding'&&typeof window.saveSeedingNowV25==='function')return window.saveSeedingNowV25();
     if(tab==='promotion')return window.fbSaveBatch('promos',window.promos||[]);
-    if(tab==='list')return Promise.all([window.fbSaveBatch('creators',window.creators||[]),window.fbSaveBatch('products',window.products||[])]).then(function(){return true;});
+    if(tab==='list')return window.fbSaveBatch('creators',window.creators||[]);
     if(tab==='feedback')return window.fbSaveBatch('creators',window.creators||[]);
     if(tab==='crm')return typeof window.crmSaveVerifiedV3==='function'?window.crmSaveVerifiedV3():window.fbSaveBatch('crm',window.crmData||[]);
     if(tab==='celeb')return window.fbSaveBatch('celebs',window.celebData||[]);
@@ -25692,6 +25692,84 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
     return false;
   };
   window.deleteSeedingRowV32=remove;
+})();
+</script>
+<script id="codex-list-incremental-soft-delete-v33">
+(function(){
+  'use strict';
+  if(window.__codexListIncrementalSoftDeleteV33)return;
+  window.__codexListIncrementalSoftDeleteV33=true;
+
+  var baseline=null,loading=null,chain=Promise.resolve(),timer=null,latest=null,waiters=[];
+  var previousBatch=window.fbSaveBatch;
+  var previousTracker=window.__codexTrackFirestoreRows;
+
+  function clone(value){try{return JSON.parse(JSON.stringify(value));}catch(e){return value;}}
+  function stable(value){try{return JSON.stringify(value);}catch(e){return '';}}
+  function idOf(row,index){return String((row&&row._id)||('creator_'+index));}
+  function mapRows(rows){
+    var map={};
+    (rows||[]).forEach(function(source,index){var row=clone(source||{}),id=idOf(row,index);row._id=id;map[id]=row;});
+    return map;
+  }
+  function track(rows){baseline=mapRows(rows||[]);}
+  window.__codexTrackFirestoreRows=function(collection,rows){
+    if(typeof previousTracker==='function')previousTracker.apply(this,arguments);
+    if(collection==='creators')track(rows);
+  };
+  function waitFirebase(){
+    return new Promise(function(resolve,reject){var tries=0,t=setInterval(function(){if(window.db&&window.isFirebaseReady){clearInterval(t);resolve();}else if(++tries>=240){clearInterval(t);reject(new Error('Firebase 연결 시간이 초과되었습니다.'));}},250);});
+  }
+  async function ensureBaseline(){
+    if(baseline!==null)return baseline;
+    if(loading)return loading;
+    loading=(async function(){
+      await waitFirebase();
+      var snap=await window.db.collection('creators').get();
+      var rows=(snap.docs||[]).map(function(doc){return Object.assign({_id:doc.id},doc.data()||{});});
+      baseline=mapRows(rows);
+      if(typeof window.__firebaseMetricV4==='function')window.__firebaseMetricV4('read','creators',rows.length,'list-v33-baseline','list');
+      return baseline;
+    })().finally(function(){loading=null;});
+    return loading;
+  }
+  async function save(rows){
+    if(typeof window.isCurrentUserEditor==='function'&&!window.isCurrentUserEditor())throw new Error('수정 권한이 없습니다.');
+    await ensureBaseline();
+    var local=mapRows(rows||[]),collection=window.db.collection('creators');
+    var missing=Object.keys(baseline).filter(function(id){return !baseline[id]._deleted&&!Object.prototype.hasOwnProperty.call(local,id);});
+    var changed=Object.keys(local).filter(function(id){return !baseline[id]||stable(baseline[id])!==stable(local[id]);});
+    var operations=[];
+    missing.forEach(function(id){operations.push({id:id,data:{_deleted:true,_deletedAt:new Date().toISOString(),_deletedBy:(window.currentUser&&window.currentUser.email)||''},deleted:true});});
+    changed.forEach(function(id){operations.push({id:id,data:local[id],deleted:false});});
+    if(!operations.length)return true;
+    for(var start=0;start<operations.length;start+=400){
+      var group=operations.slice(start,start+400),batch=window.db.batch();
+      group.forEach(function(op){batch.set(collection.doc(op.id),op.data,{merge:true});});
+      await batch.commit();
+      if(typeof window.__firebaseMetricV4==='function')window.__firebaseMetricV4('write','creators',group.length,'list-v33-incremental-soft-delete','list');
+    }
+    operations.forEach(function(op){
+      if(op.deleted)baseline[op.id]=Object.assign({},baseline[op.id]||{},clone(op.data));
+      else baseline[op.id]=clone(op.data);
+    });
+    return true;
+  }
+  function enqueue(rows){
+    latest=clone(Array.isArray(rows)?rows:[]);
+    var promise=new Promise(function(resolve,reject){waiters.push({resolve:resolve,reject:reject});});
+    clearTimeout(timer);
+    timer=setTimeout(function(){
+      var payload=latest,pending=waiters.splice(0);
+      chain=chain.catch(function(){return true;}).then(function(){return save(payload);});
+      chain.then(function(value){pending.forEach(function(item){item.resolve(value);});},function(error){console.error('List 증분 저장 실패:',error);pending.forEach(function(item){item.reject(error);});});
+    },180);
+    return promise;
+  }
+  window.fbSaveBatch=function(collection,rows){if(collection==='creators')return enqueue(rows);return previousBatch.apply(this,arguments);};
+  window.fbSaveCreators=function(){try{if(typeof window.fbCaptureLinkClicks==='function')window.fbCaptureLinkClicks();}catch(e){}return enqueue(window.creators||[]);};
+  try{fbSaveCreators=window.fbSaveCreators;}catch(e){}
+  window.saveListNowV33=function(){return enqueue(window.creators||[]);};
 })();
 </script>
 </body>
