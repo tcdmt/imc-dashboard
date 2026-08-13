@@ -25925,5 +25925,39 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
  setTimeout(fix,0);setTimeout(fix,500);setTimeout(fix,1500);
 })();
 </script>
+<style id="codex-promotion-picker-v43-style">
+#promotion-picker-v43{position:fixed;z-index:130000;box-sizing:border-box;width:min(340px,calc(100vw - 16px));padding:8px;border:.5px solid var(--color-border-secondary);border-radius:13px;background:var(--color-background-primary);box-shadow:0 14px 38px rgba(0,0,0,.22)}
+#promotion-picker-v43 .promo-search-v43{display:block;width:100%;height:32px;padding:6px 10px;border:.5px solid var(--color-border-secondary);border-radius:8px;background:var(--color-background-primary);color:var(--color-text-primary);font:inherit;font-size:11px;outline:none}
+#promotion-picker-v43 .promo-search-v43:focus{border-color:#85B7EB;box-shadow:0 0 0 2px rgba(24,95,165,.12)}
+#promotion-picker-v43 .promo-results-v43{margin-top:6px;max-height:280px;overflow:auto;overscroll-behavior:contain}
+#promotion-picker-v43 .promo-item-v43{display:block;width:100%;margin:3px 0;padding:8px 10px;border:0;border-radius:8px;background:var(--color-background-secondary);color:var(--color-text-primary);font:inherit;font-size:11px;font-weight:600;text-align:left;white-space:normal;cursor:pointer}
+#promotion-picker-v43 .promo-item-v43:hover{filter:brightness(.98);transform:translateX(1px)}
+#promotion-picker-v43 .promo-item-v43.selected{box-shadow:inset 0 0 0 1.5px #185FA5;color:#185FA5}
+#promotion-picker-v43 .promo-use-v43{background:#E6F1FB;color:#185FA5}
+#promotion-picker-v43 .promo-empty-v43{padding:12px 8px;color:var(--color-text-tertiary);font-size:11px;text-align:center}
+</style>
+<script id="codex-promotion-picker-v43">
+(function(){
+ 'use strict';
+ if(window.__codexPromotionPickerV43)return;
+ window.__codexPromotionPickerV43=true;
+ window.__IMC_DASHBOARD_BUILD__='v43-promotion-picker';
+ var popup=null,anchor=null,target=null,outsideHandler=null;
+ function names(){var seen=Object.create(null);return (window.promos||[]).map(function(p,i){var raw=String(p&&p.startDate||'').trim(),time=raw?new Date(raw+'T00:00:00').getTime():Number.NEGATIVE_INFINITY;return{p:p||{},i:i,time:isNaN(time)?Number.NEGATIVE_INFINITY:time};}).sort(function(a,b){return b.time-a.time||(Number(b.p._order)||b.i)-(Number(a.p._order)||a.i);}).reduce(function(out,x){var n=String(x.p.name||'').trim(),k=n.toLowerCase();if(n&&!seen[k]){seen[k]=1;out.push(n);}return out;},[]);}
+ function esc(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(m){return{'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m];});}
+ function close(){if(popup)popup.remove();popup=anchor=target=null;if(outsideHandler){document.removeEventListener('mousedown',outsideHandler,true);outsideHandler=null;}}
+ function position(){if(!popup||!anchor)return;var r=anchor.getBoundingClientRect(),m=8,g=5,w=Math.min(340,innerWidth-m*2),left=Math.max(m,Math.min(r.left,innerWidth-w-m));popup.style.width=w+'px';popup.style.left=left+'px';popup.style.visibility='hidden';var h=Math.min(popup.scrollHeight||340,360),below=innerHeight-r.bottom-g-m,above=r.top-g-m,up=below<h&&above>below,avail=Math.max(120,up?above:below),height=Math.min(h,avail);popup.style.maxHeight=height+'px';popup.style.overflow='hidden';popup.style.top=Math.max(m,Math.min(up?r.top-g-height:r.bottom+g,innerHeight-height-m))+'px';popup.style.visibility='visible';}
+ function saveValue(value){if(!target)return;var v=String(value||'').trim();if(target.type==='list'){var r=(window.creators||[])[target.index];if(!r)return;r.campaign=v;if(typeof window.fbSaveCreators==='function')window.fbSaveCreators();else if(typeof window.fbSaveBatch==='function')window.fbSaveBatch('creators',window.creators||[]);if(typeof window.applyListFilter==='function')window.applyListFilter();}else{var c=(window.crmData||[])[target.index];if(!c)return;c.promotion=v;if(typeof window.fbSaveBatch==='function')window.fbSaveBatch('crm',window.crmData||[]).catch(function(e){console.error('CRM 프로모션 저장 실패:',e);});if(typeof window.crmRender==='function')window.crmRender();}close();}
+ function render(query){if(!popup)return;var box=popup.querySelector('.promo-results-v43'),q=String(query||'').trim(),lower=q.toLowerCase(),all=names(),filtered=all.filter(function(n){return !lower||n.toLowerCase().indexOf(lower)>-1;});var current=target&&target.value||'';var html='';if(q&&!all.some(function(n){return n.toLowerCase()===lower;}))html+='<button type="button" class="promo-item-v43 promo-use-v43" data-use="'+esc(q)+'">“'+esc(q)+'” 직접 입력</button>';html+=filtered.map(function(n){return '<button type="button" class="promo-item-v43'+(n===current?' selected':'')+'" data-use="'+esc(n)+'">'+esc(n)+'</button>';}).join('');box.innerHTML=html||'<div class="promo-empty-v43">일치하는 프로모션이 없습니다.<br>검색어를 입력하면 직접 사용할 수 있어요.</div>';Array.prototype.forEach.call(box.querySelectorAll('[data-use]'),function(b){b.onclick=function(e){e.preventDefault();e.stopPropagation();saveValue(b.getAttribute('data-use'));};});position();}
+ function open(cell,info){close();anchor=cell;target=info;popup=document.createElement('div');popup.id='promotion-picker-v43';popup.innerHTML='<input class="promo-search-v43" placeholder="Promotion 탭의 프로모션명 검색"><div class="promo-results-v43"></div>';document.body.appendChild(popup);var input=popup.querySelector('input');input.value=info.value||'';input.addEventListener('input',function(){render(input.value);});input.addEventListener('keydown',function(e){if(e.key==='Escape')close();if(e.key==='Enter'){e.preventDefault();var first=popup.querySelector('[data-use]');if(first)saveValue(first.getAttribute('data-use'));else if(input.value.trim())saveValue(input.value);}});render(input.value);input.focus();input.select();setTimeout(function(){outsideHandler=function(e){if(popup&&!popup.contains(e.target)&&e.target!==anchor)close();};document.addEventListener('mousedown',outsideHandler,true);},0);}
+ function listInfo(cell){var tr=cell&&cell.closest('#creator-body > tr');if(!tr||Array.prototype.indexOf.call(tr.children,cell)!==15)return null;var btn=tr.querySelector('button[onclick^="openModal("]'),m=btn&&(btn.getAttribute('onclick')||'').match(/openModal\((\d+)\)/);if(!m)return null;var i=parseInt(m[1],10),r=(window.creators||[])[i];return r?{type:'list',index:i,value:r.campaign||''}:null;}
+ function crmInfo(cell){var tr=cell&&cell.closest('#crm-tbody > tr');if(!tr||Array.prototype.indexOf.call(tr.children,cell)!==4)return null;var span=cell.querySelector('[ondblclick*="crmEditCell"]'),m=span&&(span.getAttribute('ondblclick')||'').match(/crmEditCell\(this,(\d+),'promotion'/);if(!m)return null;var i=parseInt(m[1],10),r=(window.crmData||[])[i];return r?{type:'crm',index:i,value:r.promotion||''}:null;}
+ document.addEventListener('dblclick',function(e){var cell=e.target&&e.target.closest?e.target.closest('td'):null;if(!cell)return;var info=listInfo(cell)||crmInfo(cell);if(!info)return;e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation();open(cell,info);},true);
+ window.addEventListener('resize',position,true);window.addEventListener('scroll',position,true);
+})();
+</script>
+<script id="codex-promotion-picker-latest-marker-v44">
+window.__IMC_DASHBOARD_BUILD__='v44-promotion-picker-latest';
+</script>
 </body>
 </html>
