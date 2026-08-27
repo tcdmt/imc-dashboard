@@ -6078,7 +6078,7 @@ async function loadMetaFromSheets(){
     mBuildMonthTabsFromData(months);mResetFilter();
     const btn=document.getElementById('meta-sheet-refresh');if(btn)btn.style.display='inline-block';
     setMetaSheetStatus('✅ 연동 완료! '+loadedLabels.join(' / '),'ok');
-  }catch(e){setMetaSheetStatus('❌ '+e.message,'error');}
+  }catch(e){setMetaSheetStatus('❌ '+e.message,'error');throw e;}
 }
 async function refreshMetaFromSheets(){
   const defs=[
@@ -6102,7 +6102,7 @@ async function refreshMetaFromSheets(){
     if(months.length)mMonth=months[months.length-1];
     mBuildMonthTabsFromData(months);mRender();
     setMetaSheetStatus('✅ 새로고침 완료! '+loadedLabels.join(' / '),'ok');
-  }catch(e){setMetaSheetStatus('❌ '+e.message,'error');}
+  }catch(e){setMetaSheetStatus('❌ '+e.message,'error');throw e;}
 }
 function buildMetaBrandTabs(){const brands=[...new Set(getMetaAllRows().map(r=>r['브랜드']))].filter(Boolean);const bt=document.getElementById('meta-brand-tabs');if(!bt)return;bt.innerHTML='';brands.forEach((b,i)=>{const el=document.createElement('div');el.className='brand-tab'+(i===0?' active':'');el.textContent=b;el.onclick=()=>{mBrand=b;document.querySelectorAll('#meta-brand-tabs .brand-tab').forEach(x=>x.classList.remove('active'));el.classList.add('active');mResetFilter();};bt.appendChild(el);});if(brands.length)mBrand=brands[0];}
 function mBuildMonthTabsFromData(months){mBuildMonthTabs();}
@@ -15106,7 +15106,7 @@ if(document.readyState==='loading'){
     localStorage.setItem('product_stats_sheet_url', url);
     if(window.setSheetSyncStatus) window.setSheetSyncStatus('상품 좋아요/후기 통합 시트 불러오는 중...','loading');
     try{
-      var text = await fetchCsvWithTimeout(url, 45000);
+      var text = await fetchCsvWithTimeout(url, 120000);
       window.productStatsRows = await parseCSVObjectsAsync(text);
       productStatsCacheRef = null;
       if(!window.productStatsRows.length) throw new Error('상품 좋아요/후기 통합 시트에서 데이터를 찾지 못했어요.');
@@ -15348,10 +15348,10 @@ if(document.readyState==='loading'){
   }
 
   function install(){
-    wrapAsyncWithTimeout('loadProductStatsFromSheet', '상품 좋아요/후기 시트 연동', 20000);
-    wrapAsyncWithTimeout('refreshProductStatsFromSheet', '상품 좋아요/후기 시트 새로고침', 20000);
-    wrapAsyncWithTimeout('loadUnifiedSheets', '전체 시트 연동', 30000);
-    wrapAsyncWithTimeout('refreshUnifiedSheets', '전체 시트 새로고침', 30000);
+    wrapAsyncWithTimeout('loadProductStatsFromSheet', '상품 좋아요/후기 시트 연동', 180000);
+    wrapAsyncWithTimeout('refreshProductStatsFromSheet', '상품 좋아요/후기 시트 새로고침', 180000);
+    wrapAsyncWithTimeout('loadUnifiedSheets', '전체 시트 연동', 300000);
+    wrapAsyncWithTimeout('refreshUnifiedSheets', '전체 시트 새로고침', 300000);
   }
 
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(install, 0); });
@@ -19538,7 +19538,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 
   var installed=false;
   var running=false;
-  var STEP_TIMEOUT=90000;
+  var STEP_TIMEOUT=180000;
 
   function sleep(ms){ return new Promise(function(resolve){ setTimeout(resolve,ms); }); }
   function nextFrame(){ return new Promise(function(resolve){
@@ -19691,7 +19691,9 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
           await withTimeout(step.fn.call(window),step.label,STEP_TIMEOUT);
           completed=completed.concat(step.sources);
         }catch(e){
-          failed.push(step.label);
+          var reason=String((e&&e.message)||e||'알 수 없는 오류').replace(/\s+/g,' ').trim();
+          if(reason.length>90)reason=reason.slice(0,87)+'...';
+          failed.push(step.label+' ('+reason+')');
           console.warn(step.label+' 연동 실패:',e);
         }
         await nextFrame();
@@ -23853,7 +23855,9 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
       [{id:'meta-url-ad',key:'metaRawAd',old:before.ad,label:'광고 성과'},
        {id:'meta-url-adp',key:'metaRawAdP',old:before.adp,label:'광고 콘텐츠 소재 성과'},
        {id:'meta-url-sales',key:'metaRawSales',old:before.sales,label:'플랫폼별 매출'}].forEach(function(x){
-        if(configured(x.id)&&(window[x.key]===x.old||!metaRows(x.key).length))failed.push(x.label);
+         /* Unchanged content is a valid successful refresh. Only a configured
+            source with no usable rows is considered a failure. */
+         if(configured(x.id)&&!metaRows(x.key).length)failed.push(x.label);
       });
       if(failed.length)throw new Error('Meta 연동 실패: '+failed.join(', '));
       return result;
@@ -24418,9 +24422,56 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
     }
   };
 
-  window.crmDelete=function(){
-    alert('CRM 안전 검증본에서는 삭제 기능을 잠갔습니다.');
-    return false;
+  window.crmDelete=function(index){
+    var rows=Array.isArray(window.crmData)?window.crmData:[];
+    var target=rows[index];
+    if(!target){
+      alert('삭제할 CRM 행을 찾지 못했습니다. 화면을 새로고침한 뒤 다시 시도해주세요.');
+      return false;
+    }
+
+    var execute=async function(){
+      try{
+        await loadRemote();
+        var id=rowId(target,index);
+        var documentId=Object.keys(remoteRows).find(function(key){
+          return key===id||rowId(remoteRows[key],0)===id;
+        })||id;
+
+        saving++;
+        setUiLocked(true,'CRM 삭제 확인 중...');
+        try{
+          var ref=window.db.collection('crm').doc(documentId);
+          await ref.delete();
+          if(typeof window.__firebaseMetricV4==='function')window.__firebaseMetricV4('delete','crm',1,'crm-verified-delete','crm');
+
+          var verify=await ref.get();
+          if(typeof window.__firebaseMetricV4==='function')window.__firebaseMetricV4('read','crm',1,'crm-delete-verification','crm');
+          if(verify.exists)throw new Error('Firebase에서 삭제 완료를 확인하지 못했습니다.');
+
+          delete remoteRows[documentId];
+          window.crmData=(window.crmData||[]).filter(function(row){
+            return row!==target&&rowId(row,0)!==id;
+          });
+          if(typeof window.__codexTrackFirestoreRows==='function')window.__codexTrackFirestoreRows('crm',window.crmData);
+          if(typeof window.crmRender==='function')window.crmRender();
+        }finally{
+          saving=Math.max(0,saving-1);
+          setUiLocked(false);
+        }
+      }catch(error){
+        console.error('CRM 행 삭제 실패:',error);
+        alert('CRM 행을 삭제하지 못했습니다. 기존 데이터는 유지됩니다.\n'+(error.message||error));
+        if(typeof window.crmRender==='function')window.crmRender();
+      }
+    };
+
+    if(typeof window.imcOpenDeleteConfirm==='function'){
+      window.imcOpenDeleteConfirm(execute);
+    }else if(confirm('선택한 CRM 행을 삭제할까요?')){
+      execute();
+    }
+    return true;
   };
 
   window.switchMain=function(tab){
@@ -25352,7 +25403,8 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
     /* no-store means a manual fresh sheet request; propagate it through the shared cache. */
     if(next.cache==='no-store'){
       next.cache='reload';
-      next.headers.set('x-tcm-force-refresh','1');
+      /* cache mode alone marks an explicit refresh. A custom header would
+         trigger a CORS preflight that Google Sheets CSV does not accept. */
     }
     var response=await previousFetch(input,next);
     if(!response||!response.ok)return response;
@@ -25957,7 +26009,79 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
 })();
 </script>
 <script id="codex-promotion-picker-latest-marker-v44">
-window.__IMC_DASHBOARD_BUILD__='v44-promotion-picker-latest';
+window.__IMC_DASHBOARD_BUILD__='v48-crm-safe-delete';
+</script>
+<!-- CHOI PATCH v46: explicit sheet sync without cross-origin custom request headers -->
+<script id="sheet-sync-explicit-request-fix-v46">
+(function(){
+  'use strict';
+  if(window.__sheetSyncExplicitRequestFixV46)return;
+  window.__sheetSyncExplicitRequestFixV46=true;
+
+  var nativeGuardedFetch=window.fetch;
+  var activeCalls=0;
+  var savedFetch=null;
+
+  function forcedFetch(input,init){
+    var options=Object.assign({},init||{});
+    var headers;
+    try{ headers=new Headers((init&&init.headers)||{}); }
+    catch(e){ headers=new Headers(); }
+    options.headers=headers;
+    options.cache='reload';
+    return nativeGuardedFetch(input,options);
+  }
+
+  async function runAsExplicitSheetSync(fn,ctx,args){
+    if(activeCalls===0){
+      savedFetch=window.fetch;
+      nativeGuardedFetch=savedFetch;
+      window.fetch=forcedFetch;
+    }
+    activeCalls++;
+    try{
+      return await fn.apply(ctx,args);
+    }finally{
+      activeCalls=Math.max(0,activeCalls-1);
+      if(activeCalls===0){
+        window.fetch=savedFetch||nativeGuardedFetch;
+        savedFetch=null;
+      }
+    }
+  }
+
+  function wrap(name){
+    var fn=window[name];
+    if(typeof fn!=='function'||fn.__sheetExplicitV45)return;
+    var wrapped=function(){
+      return runAsExplicitSheetSync(fn,this,Array.prototype.slice.call(arguments));
+    };
+    wrapped.__sheetExplicitV45=true;
+    wrapped.__sheetExplicitOriginal=fn;
+    /* Preserve earlier wrapper markers so their installers do not wrap this
+       function repeatedly while the page is open. */
+    if(fn.__metaResultValidated)wrapped.__metaResultValidated=true;
+    if(fn.__durableSnapshotWrapped)wrapped.__durableSnapshotWrapped=true;
+    if(fn.__tcmManualOnlyWrapped)wrapped.__tcmManualOnlyWrapped=true;
+    if(fn.__tcmSyncFreezeGuard)wrapped.__tcmSyncFreezeGuard=true;
+    window[name]=wrapped;
+  }
+
+  function install(){
+    /* The panel buttons call these two unified entry points. Wrapping the
+       whole run keeps every configured sub-sheet inside one explicit request. */
+    wrap('loadUnifiedSheets');
+    wrap('refreshUnifiedSheets');
+    wrap('loadMetaFromSheets');
+    wrap('refreshMetaFromSheets');
+    wrap('loadBudgetFromSheet');
+    wrap('loadSalesGoalFromSheet');
+  }
+
+  install();
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);
+  else setTimeout(install,0);
+})();
 </script>
 </body>
 </html>
