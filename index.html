@@ -41,17 +41,18 @@
     "huin_choi@socialetiquette.co.kr",
     "minhyuk_park@socialetiquette.co.kr",
     "bogyung_jung@socialetiquette.co.kr",
+    "heeyeon_roh@socialetiquette.co.kr",
+    "jonghyeok_lee@socialetiquette.co.kr",
     "choichoy101@gmail.com",
     "jihwan_kim@socialetiquette.co.kr",
+    "chaeheon_yeom@socialetiquette.co.kr",
     "mingyeong_chang@socialetiquette.co.kr",
-    "hyojeong_kim@socialetiquette.co.kr",
+    "roha_kim@socialetiquette.co.kr",
     "jiyoung_heo@socialetiquette.co.kr"
   ].map(function(email){ return String(email).trim().toLowerCase(); });
 
   const TEAM_VIEWER_EMAILS = [
     "yeeun_ko@socialetiquette.co.kr",
-    "seowon_lee@socialetiquette.co.kr",
-    "heeyeon_roh@socialetiquette.co.kr",
     "mireu_gwon@socialetiquette.co.kr",
     "jiyu_kim@socialetiquette.co.kr",
     "soyoung_ryu@socialetiquette.co.kr",
@@ -4898,9 +4899,16 @@ function renderFeedbackRows(list){
     };
     const productLikeEntered=activeDays.filter(d=>dayProductLikeValue(d)!==0);
     const totalProductLike=productLikeEntered.length?dayProductLikeValue(productLikeEntered[productLikeEntered.length-1]):(activeDays.length?dayProductLikeValue(activeDays[activeDays.length-1]):0);
-    const totalSales=activeDays.reduce((s,d)=>s+(d.data.sales||0),0);
-    const totalRevenue=activeDays.reduce((s,d)=>s+(d.data.revenue||0),0);
-    const totalTotal=activeDays.reduce((s,d)=>Math.max(s,d.data.total||0),0);
+    const hasProductLikeData=activeDays.some(d=>(items||[]).some(item=>{
+      const ik=(typeof window.fbFeedbackAutoItemKey==='function')?window.fbFeedbackAutoItemKey(item,r.platform):fbFeedbackItemKey(item,r.platform);
+      const value=d.data&&d.data._itemData&&d.data._itemData[ik]?d.data._itemData[ik].productLike:undefined;
+      return value!==undefined&&value!==null&&String(value)!=='';
+    }));
+    // 판매 수량/매출 TTL은 업로드 당일(D+0)부터 마지막 집계일(D+6)까지 합산
+    const salesDays=dayData.filter(d=>d.dayOffset>=0);
+    const totalSales=salesDays.reduce((s,d)=>s+(Number(d.data.sales)||0),0);
+    const totalRevenue=salesDays.reduce((s,d)=>s+(Number(d.data.revenue)||0),0);
+    const totalTotal=salesDays.reduce((s,d)=>Math.max(s,Number(d.data.total)||0),0);
     const ttlCTR=totalView>0?totalClick/totalView*100:NaN;
     const ttlCVR=totalClick>0?totalSales/totalClick*100:NaN;
     const ttlRevShare=totalTotal>0?totalRevenue/totalTotal*100:NaN;
@@ -4925,7 +4933,7 @@ function renderFeedbackRows(list){
       +`<td style="text-align:right;">${fmtNum(totalLike)}</td>`
       +`<td style="text-align:right;">${fmtNum(totalClick)}</td>`
       +`<td style="text-align:center;">${isNaN(ttlCTR)?'-':ttlCTR.toFixed(1)+'%'}</td>`
-      +`<td style="text-align:right;">${fmtNum(totalProductLike)}</td>`
+       +`<td style="text-align:right;">${hasProductLikeData?fmtNum(totalProductLike):'-'}</td>`
       +`<td style="text-align:right;">${fmtNum(totalSales)}</td>`
       +`<td style="text-align:right;">${fmtWon2(totalRevenue)}</td>`
       +`<td>-</td>`
@@ -13521,7 +13529,8 @@ if(document.readyState==='loading'){
       var uploadD = r.uploadDate ? new Date(r.uploadDate) : null;
       if(!uploadD || isNaN(uploadD.getTime())) return;
       var creatorPlatform = normalizePlatform(r.platform);
-      var items = (r.items && r.items.length ? r.items : []).filter(function(item){
+      var sourceItems=(r.items&&r.items.length)?r.items:(Array.isArray(r.products)?r.products:[]);
+      var items = sourceItems.filter(function(item){
         return item && (fbFeedbackClean(item.uid||item.UID) || fbFeedbackClean(item.code) || fbFeedbackClean(item.name));
       });
 
@@ -13663,6 +13672,7 @@ if(document.readyState==='loading'){
   function rowDate(row){ return normDate(rowVal(row, ['날짜','일자','date','Date'])); }
   function rowPlatform(row){ return normPlatform(rowVal(row, ['플랫폼','판매 채널','판매채널','채널','channel','Channel'])); }
   function rowUid(row){ return normUid(rowVal(row, ['UID','uid','Uid','상품 UID','상품UID','상품 uid','Product UID'])); }
+  function rowName(row){ return normText(rowVal(row, ['상품명','제품명','상품 이름','product','productName','name','Name'])); }
   function rowQty(row){ return rowNum(row, ['실구매수량','실 구매 수량','실 구매수량','판매수량','판매 수량','수량','qty','Qty']); }
   function rowRevenue(row){ return rowNum(row, ['실구매금액','실 구매 금액','실 구매금액','실 수매 금액','실수매금액','실수매 금액','판매금액','판매 금액','매출','실매출','revenue','Revenue','amount','Amount']); }
   function productCode(product){ return clean((product || {}).code || (product || {}).productCode || (product || {}).itemCode || (product || {})['상품코드'] || (product || {})['상품 코드']); }
@@ -13688,10 +13698,11 @@ if(document.readyState==='loading'){
   }
   function itemUid(item, platform){
     item = item || {};
-    var direct = normUid(item.uid || item.UID || item['UID']);
-    if(direct && direct !== '-') return direct;
     var product = findProductForItem(item, platform);
-    return normUid(productUid(product, platform));
+    var platformUid = normUid(productUid(product || item, platform));
+    if(platformUid && platformUid !== '-') return platformUid;
+    var direct = normUid(item.uid || item.UID || item['UID']);
+    return direct && direct !== '-' ? direct : '';
   }
   function baseItemKey(item, platform){
     if(typeof window.fbFeedbackItemKey === 'function') return window.fbFeedbackItemKey(item, platform);
@@ -13713,13 +13724,16 @@ if(document.readyState==='loading'){
       return;
     }
 
+    var updated=false;
     (window.creators || []).forEach(function(r, ci){
       if(!r || r.checked!==true) return;
       var uploadD = r.uploadDate ? new Date(r.uploadDate) : null;
       if(!uploadD || isNaN(uploadD.getTime())) return;
 
       var platformKey = normPlatform(r.platform);
-      var items = (r.items && r.items.length ? r.items : []).filter(function(item){
+      /* 구버전 Feedback 데이터는 선택 상품을 products에 저장한 행도 있다. */
+      var sourceItems = (r.items && r.items.length) ? r.items : (Array.isArray(r.products) ? r.products : []);
+      var items = sourceItems.filter(function(item){
         return item && (clean(item.uid || item.UID) || clean(item.code) || clean(item.name));
       });
       if(!r._fbData) r._fbData = {};
@@ -13730,38 +13744,50 @@ if(document.readyState==='loading'){
         var key = ci + '_d' + dayOffset;
         if(!r._fbData[key]) r._fbData[key] = {view:0,comment:0,like:0,click:0,productLike:0,sales:0,revenue:0,total:0,rankAll:0,rankCat:0};
         var dayData = r._fbData[key];
-        dayData._itemData = {};
+        dayData._itemData = dayData._itemData || {};
 
         var dayQty = 0;
         var dayRev = 0;
 
         items.forEach(function(item){
+          var product = findProductForItem(item, r.platform) || item;
           var uid = itemUid(item, r.platform);
-          if(!uid) return;
+          var targetName = normText(productName(product) || productName(item));
+          if(!uid&&!targetName) return;
           var autoKey = window.fbFeedbackAutoItemKey(item, r.platform);
           var originalKey = baseItemKey(item, r.platform);
           var matched = salesRows.filter(function(row){
-            return rowDate(row) === ds
-              && rowPlatform(row) === platformKey
-              && rowUid(row) === uid;
+            if(rowDate(row) !== ds || rowPlatform(row) !== platformKey) return false;
+            if(uid&&rowUid(row) === uid) return true;
+            /* 자사몰은 과거 Item UID 체계가 달랐던 행이 있어 상품명을
+               보조 키로 사용한다. 날짜와 플랫폼은 항상 일치해야 한다. */
+            return platformKey === 'store' && !!targetName && rowName(row) === targetName;
           });
           var qty = matched.reduce(function(sum,row){ return sum + rowQty(row); }, 0);
           var revenue = matched.reduce(function(sum,row){ return sum + rowRevenue(row); }, 0);
-          dayData._itemData[autoKey] = {sales:qty, revenue:revenue};
-          if(originalKey && originalKey !== autoKey) dayData._itemData[originalKey] = {sales:qty, revenue:revenue};
+          var autoMetric=dayData._itemData[autoKey]=dayData._itemData[autoKey]||{};
+          if(autoMetric.sales!==qty||autoMetric.revenue!==revenue)updated=true;
+          autoMetric.sales=qty;autoMetric.revenue=revenue;
+          if(originalKey && originalKey !== autoKey){
+            var originalMetric=dayData._itemData[originalKey]=dayData._itemData[originalKey]||{};
+            if(originalMetric.sales!==qty||originalMetric.revenue!==revenue)updated=true;
+            originalMetric.sales=qty;originalMetric.revenue=revenue;
+          }
           dayQty += qty;
           dayRev += revenue;
         });
 
-        dayData.sales = dayQty;
-        dayData.revenue = dayRev;
-        dayData.total = salesRows.filter(function(row){
+        var totalForDay = salesRows.filter(function(row){
           return rowDate(row) === ds && rowPlatform(row) === platformKey;
         }).reduce(function(sum,row){ return sum + rowRevenue(row); }, 0);
+        if(dayData.sales!==dayQty||dayData.revenue!==dayRev||dayData.total!==totalForDay)updated=true;
+        dayData.sales = dayQty;
+        dayData.revenue = dayRev;
+        dayData.total = totalForDay;
       }
     });
 
-    if(typeof window.fbSaveCreators === 'function') window.fbSaveCreators();
+    if(updated&&typeof window.fbSaveCreators === 'function') window.fbSaveCreators();
     if(typeof window.applyFeedbackFilter === 'function') window.applyFeedbackFilter();
     if(typeof window.ovBuildItemTable === 'function') window.ovBuildItemTable();
     if(typeof window.ovBuildItemRankChart === 'function') window.ovBuildItemRankChart();
@@ -15490,11 +15516,11 @@ if(document.readyState==='loading'){
   function itemKey(it, platform){ try{ if(typeof window.fbFeedbackAutoItemKey==='function') return window.fbFeedbackAutoItemKey(it, platform); }catch(e){} return fallbackItemKey(it, platform); }
   function getItemData(day, it, platform){ var data=(day && day._itemData)||{}; var k=itemKey(it, platform); var f=fallbackItemKey(it, platform); var u=itemUid(it, platform); var byUid=u ? 'uid:'+norm(platform)+'|'+norm(u) : ''; return data[k] || data[f] || (byUid?data[byUid]:null) || {}; }
   function ensureItemData(day, it, platform){ if(!day._itemData) day._itemData={}; var k=itemKey(it,platform); if(!day._itemData[k]) day._itemData[k]={}; return day._itemData[k]; }
-  function itemsOf(r){ return ((r && r.items)||[]).filter(function(it){ return it && (itemUid(it,r.platform)||itemCode(it)||itemName(it)); }); }
+  function itemsOf(r){ var source=(r&&r.items&&r.items.length)?r.items:((r&&Array.isArray(r.products))?r.products:[]); return source.filter(function(it){ return it && (itemUid(it,r.platform)||itemCode(it)||itemName(it)); }); }
   function isIndividualLink(r){ return clean(r&&r.linkType)==='개별'; }
   function costOf(r){ return num(r && r.cost1) + num(r && r.cost2); }
   function dayMetrics(r, ci, d){ var day=ensureDay(r,ci,d); var items=itemsOf(r); var sales=0, revenue=0, productLike=0, itemClick=0; items.forEach(function(it){ var id=getItemData(day,it,r.platform); sales += num(id.sales); revenue += num(id.revenue); productLike += num(id.productLike); itemClick += num(id.click); }); if(!sales) sales=num(day.sales); if(!revenue) revenue=num(day.revenue); if(!productLike) productLike=num(day.productLike); var total=num(day.total); var click=isIndividualLink(r)?itemClick:num(day.click); var view=num(day.view); var cost=costOf(r); return {day:day, view:view, like:num(day.like), comment:num(day.comment), click:click, ctr:view?click/view*100:0, productLike:productLike, sales:sales, revenue:revenue, total:total, delta:null, cvr:click?sales/click*100:0, share:total?revenue/total*100:0, roas:cost?revenue/cost*100:0}; }
-  function creatorTotals(r, ci){ var t={view:0,like:0,comment:0,click:0,productLike:0,sales:0,revenue:0,total:0}; function entered(v){return v!=null&&String(v).trim()!==''&&num(v)!==0;} activeDays(r).forEach(function(d){ var m=dayMetrics(r,ci,d); if(entered(m.view)) t.view=m.view; if(entered(m.like)) t.like=m.like; if(entered(m.comment)) t.comment=m.comment; if(entered(m.productLike)) t.productLike=m.productLike; t.click+=m.click; if(entered(m.sales)) t.sales=m.sales; if(entered(m.revenue)) t.revenue=m.revenue; if(entered(m.total)) t.total=m.total; }); var cost=costOf(r); t.ctr=t.view?t.click/t.view*100:0; t.roas=cost?t.revenue/cost*100:0; return t; }
+  function creatorTotals(r, ci){ var t={view:0,like:0,comment:0,click:0,productLike:0,sales:0,revenue:0,total:0}; function entered(v){return v!=null&&String(v).trim()!==''&&num(v)!==0;} activeDays(r).forEach(function(d){ var m=dayMetrics(r,ci,d); if(entered(m.view)) t.view=m.view; if(entered(m.like)) t.like=m.like; if(entered(m.comment)) t.comment=m.comment; if(entered(m.productLike)) t.productLike=m.productLike; if(d!==-1){ t.click+=m.click; t.sales+=num(m.sales); t.revenue+=num(m.revenue); } if(entered(m.total)) t.total=m.total; }); var cost=costOf(r); t.ctr=t.view?t.click/t.view*100:0; t.roas=cost?t.revenue/cost*100:0; return t; }
   function deltaHtml(r,ci,d){ var idx=DAYS.indexOf(d); if(idx<=0) return '<span class="fb-v15-delta-neutral">-</span>'; var prev=dayMetrics(r,ci,DAYS[idx-1]).revenue; var now=dayMetrics(r,ci,d).revenue; if(!prev) return '<span class="fb-v15-delta-neutral">-</span>'; var v=(now-prev)/prev*100; if(v>0) return '<span class="fb-v15-delta-up">+'+v.toFixed(1)+'%</span>'; if(v<0) return '<span class="fb-v15-delta-down">'+v.toFixed(1)+'%</span>'; return '<span class="fb-v15-delta-neutral">0.0%</span>'; }
   function chBadge(ch){ var c=String(ch||''); var cls=c==='Instagram'?'fb-v15-badge-ig':c==='Youtube'?'fb-v15-badge-yt':c==='Tiktok'?'fb-v15-badge-tt':'fb-v15-badge-x'; var short={Instagram:'IG',Youtube:'YT',Tiktok:'TT',X:'X'}[c]||c||'-'; return '<span class="fb-v15-badge '+cls+'">'+esc(short)+'</span>'; }
   function feedbackPlatformColor(p){
@@ -15645,8 +15671,8 @@ if(document.readyState==='loading'){
           var data=getItemData(m.day,it,r.platform)||{};
           if(!Object.prototype.hasOwnProperty.call(data,'productLike')&&num(m.productLike)) out.productLike=num(m.productLike);
           if(d!==-1){
-            if(!Object.prototype.hasOwnProperty.call(data,'sales')&&num(m.sales)) out.sales=num(m.sales);
-            if(!Object.prototype.hasOwnProperty.call(data,'revenue')&&num(m.revenue)) out.revenue=num(m.revenue);
+            if(!Object.prototype.hasOwnProperty.call(data,'sales')&&num(m.sales)) out.sales+=num(m.sales);
+            if(!Object.prototype.hasOwnProperty.call(data,'revenue')&&num(m.revenue)) out.revenue+=num(m.revenue);
           }
         });
       }
@@ -23744,9 +23770,9 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
   }
   function itemUid(it,p){
     it=it||{};var pk=platform(p||it.platform);
-    if(pk==='musinsa')return val(it,['uid','UID','musinsaUid','musinsaUID']);
-    if(pk==='29cm')return val(it,['uid','UID','cmUid','cmUID','29cmUid','29CMUid']);
-    if(pk==='store')return val(it,['uid','UID','storeUid','storeUID']);
+    if(pk==='musinsa')return val(it,['musinsaUid','musinsaUID','uid','UID']);
+    if(pk==='29cm')return val(it,['cmUid','cmUID','29cmUid','29CMUid','uid','UID']);
+    if(pk==='store')return val(it,['storeUid','storeUID','uid','UID']);
     return val(it,['uid','UID']);
   }
   function itemCode(it){return val(it,['code','productCode','itemCode','상품 코드','상품코드']);}
@@ -23777,7 +23803,9 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
     var pk=platform(p||it.platform),tests=[['uid',itemUid(it,p)],['code',itemCode(it)],['name',itemName(it)]];
     for(var i=0;i<tests.length;i++){
       var value=norm(tests[i][1]);if(!value)continue;
-      var found=pk?(index.get(statsKeyV13(date,tests[i][0],value,pk))||index.get(statsKeyV13(date,tests[i][0],value,''))):index.get(statsKeyV13(date,tests[i][0],value,'*'));
+      /* Feedback 행의 플랫폼이 있으면 같은 플랫폼 데이터만 허용한다.
+         플랫폼이 비어 있는 시트 행이나 다른 플랫폼 행으로 대체하지 않는다. */
+      var found=pk?index.get(statsKeyV13(date,tests[i][0],value,pk)):index.get(statsKeyV13(date,tests[i][0],value,'*'));
       if(found)return found;
     }
     return null;
@@ -23802,13 +23830,23 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
         day._itemData=day._itemData||{};
         var total=0,found=false;
         items.forEach(function(it){
-          var stat=matchStat(it,it.platform||cr.platform,ds);
-          if(!stat)return;
-          var likes=rowLikes(stat),keys=itemKeys(it,it.platform||cr.platform);
-          keys.forEach(function(k){day._itemData[k]=day._itemData[k]||{};day._itemData[k].productLike=likes;});
-          total+=likes;found=true;updated++;
+          /* Creator/Feedback 행의 플랫폼을 상품 객체의 임시 플랫폼보다 우선한다. */
+          var effectivePlatform=cr.platform||it.platform,keys=itemKeys(it,effectivePlatform);
+          var stat=matchStat(it,effectivePlatform,ds);
+          if(!stat){
+            keys.forEach(function(k){
+              day._itemData[k]=day._itemData[k]||{};
+              if(day._itemData[k].productLike!==''&&day._itemData[k].productLike!==undefined)updated++;
+              day._itemData[k].productLike='';
+            });
+            return;
+          }
+          var likes=rowLikes(stat);
+          keys.forEach(function(k){day._itemData[k]=day._itemData[k]||{};if(day._itemData[k].productLike!==likes)updated++;day._itemData[k].productLike=likes;});
+          total+=likes;found=true;
         });
-        if(found)day.productLike=total;
+        var nextTotal=found?total:'';
+        if(day.productLike!==nextTotal){day.productLike=nextTotal;updated++;}
       }
     });
     return updated;
@@ -23823,7 +23861,7 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
   });
   var oldApply=window.applyFeedbackFilter;
   if(typeof oldApply==='function'){
-    window.applyFeedbackFilter=function(){apply(window.creators||[]);return oldApply.apply(this,arguments);};
+    window.applyFeedbackFilter=function(){var count=apply(window.creators||[]);if(count&&typeof window.fbSaveCreators==='function')window.fbSaveCreators();return oldApply.apply(this,arguments);};
     try{applyFeedbackFilter=window.applyFeedbackFilter;}catch(e){}
   }
   if((window.productStatsRows||[]).length)apply(window.creators||[]);
@@ -26008,7 +26046,7 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
 })();
 </script>
 <script id="codex-promotion-picker-latest-marker-v44">
-window.__IMC_DASHBOARD_BUILD__='v48-crm-safe-delete';
+window.__IMC_DASHBOARD_BUILD__='v52-feedback-ttl-sum-final';
 </script>
 <!-- CHOI PATCH v46: explicit sheet sync without cross-origin custom request headers -->
 <script id="sheet-sync-explicit-request-fix-v46">
@@ -26077,6 +26115,33 @@ window.__IMC_DASHBOARD_BUILD__='v48-crm-safe-delete';
     wrap('loadSalesGoalFromSheet');
   }
 
+  install();
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);
+  else setTimeout(install,0);
+})();
+</script>
+<!-- CODEX PATCH v49: run the latest Feedback sales matcher after Meta refresh -->
+<script id="codex-feedback-store-sales-post-meta-v49">
+(function(){
+  'use strict';
+  if(window.__codexFeedbackStoreSalesPostMetaV49)return;
+  window.__codexFeedbackStoreSalesPostMetaV49=true;
+  function wrap(name){
+    var fn=window[name];
+    if(typeof fn!=='function'||fn.__storeSalesPostMetaV49)return;
+    var wrapped=async function(){
+      var result=await fn.apply(this,arguments);
+      if(typeof window.fbAutoFillSales==='function'){
+        await new Promise(function(resolve){setTimeout(resolve,0);});
+        window.fbAutoFillSales();
+      }
+      return result;
+    };
+    wrapped.__storeSalesPostMetaV49=true;
+    wrapped.__storeSalesPostMetaOriginal=fn;
+    window[name]=wrapped;
+  }
+  function install(){wrap('loadMetaFromSheets');wrap('refreshMetaFromSheets');}
   install();
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);
   else setTimeout(install,0);
