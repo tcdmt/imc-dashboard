@@ -2481,15 +2481,16 @@ h1{font-size:20px;margin:0 0 5px}.desc{font-size:12px;color:var(--muted)}
 .store-project-table th:nth-child(2),.store-project-table td:nth-child(2){min-width:100px!important}
 .store-project-table th:nth-child(3),.store-project-table td:nth-child(3){min-width:105px!important}
 .store-project-table th:nth-child(4),.store-project-table td:nth-child(4){min-width:100px!important}
-.store-project-table th:nth-child(5),.store-project-table td:nth-child(5){min-width:110px!important}
+.store-project-table th:nth-child(5),.store-project-table td:nth-child(5){width:auto!important;min-width:110px!important;max-width:190px!important}
 .store-project-table th:nth-child(6),.store-project-table td:nth-child(6){width:104px!important;min-width:104px!important;max-width:104px!important}
 .store-project-table th:nth-child(7),.store-project-table td:nth-child(7){min-width:92px!important}
-.store-project-table th:nth-child(8),.store-project-table td:nth-child(8){min-width:105px!important}
+.store-project-table th:nth-child(8),.store-project-table td:nth-child(8){width:auto!important;min-width:105px!important;max-width:220px!important}
 .store-project-table th:nth-child(9),.store-project-table td:nth-child(9){width:100%!important;min-width:220px!important;max-width:none!important}
 .store-project-table th:nth-child(10),.store-project-table td:nth-child(10){min-width:110px!important}
 .store-project-table th:nth-child(11),.store-project-table td:nth-child(11){min-width:64px!important}
 .store-project-table .fixed-cell{width:100%!important;min-width:0!important;max-width:100%!important;overflow:hidden!important;text-overflow:ellipsis!important}
 .store-project-table .inline-editor,.store-project-table select{width:100%!important;min-width:0!important;max-width:100%!important}
+.store-project-table .business-cell,.store-project-table .contents-cell{white-space:nowrap!important}
 .modal.barter-modal{width:min(1120px,calc(100vw - 32px))!important;max-width:none!important;max-height:88vh;overflow:hidden;display:flex;flex-direction:column;padding:20px!important}
 .barter-list{overflow-y:auto;overflow-x:hidden;border:1px solid var(--line);border-radius:10px;min-height:160px;max-height:58vh;margin-top:10px;width:100%}
 .barter-row{display:grid;grid-template-columns:minmax(120px,.85fr) minmax(250px,2fr) minmax(100px,.75fr) 82px 116px 32px;gap:8px;align-items:center;padding:7px 9px;border-bottom:1px solid var(--line);font-size:11px;width:100%;box-sizing:border-box}
@@ -3310,6 +3311,7 @@ function renderProjects(type){
             &lt;div class=&quot;project-action-buttons&quot;&gt;${projectActionFilterHtml(type, pi)}&lt;/div&gt;
           &lt;/div&gt;
           &lt;button class=&quot;btn primary&quot; data-add-row=&quot;${type}&quot; data-pi=&quot;${pi}&quot;&gt;+ 세부 내역 추가&lt;/button&gt;
+          ${type==='store'?`&lt;button class=&quot;btn&quot; data-sort-project-rows=&quot;${type}&quot; data-pi=&quot;${pi}&quot;&gt;순서 정리&lt;/button&gt;`:''}
         &lt;/div&gt;
         &lt;div class=&quot;table-wrap&quot; style=&quot;max-height:360px&quot;&gt;
           &lt;table class=&quot;project-table${type==='store'?' store-project-table':''}&quot;&gt;
@@ -3373,6 +3375,19 @@ function renderProjects(type){
       const wrap = card ? card.querySelector('.table-wrap') : null;
       if(wrap) wrap.scrollTop = wrap.scrollHeight;
     });
+  }));
+
+  target.querySelectorAll('[data-sort-project-rows]').forEach(btn=&gt;btn.addEventListener('click',()=&gt;{
+    const sortType=btn.dataset.sortProjectRows;
+    const pi=Number(btn.dataset.pi);
+    const project=projects[sortType] &amp;&amp; projects[sortType][pi];
+    if(!project || !Array.isArray(project.rows))return;
+    project.rows.sort((a,b)=&gt;{
+      const ad=String((a&amp;&amp;a.date)||'9999-12-31');
+      const bd=String((b&amp;&amp;b.date)||'9999-12-31');
+      return ad.localeCompare(bd);
+    });
+    renderProjects(sortType);
   }));
 
   target.querySelectorAll('[data-del-row]').forEach(btn=&gt;btn.addEventListener('click',()=&gt;{
@@ -26231,7 +26246,7 @@ window.seedInlineSelect = function(i,field,value,opts,colorMap){
 })();
 </script>
 <script id="codex-promotion-picker-latest-marker-v44">
-window.__IMC_DASHBOARD_BUILD__='v58-budget-offline-adaptive-columns';
+window.__IMC_DASHBOARD_BUILD__='v59-budget-offline-auto-business-contents-sort';
 </script>
 <!-- CHOI PATCH v46: explicit sheet sync without cross-origin custom request headers -->
 <script id="sheet-sync-explicit-request-fix-v46">
