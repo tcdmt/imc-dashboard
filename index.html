@@ -26500,5 +26500,103 @@ window.__IMC_DASHBOARD_BUILD__='v67-product-report-example';
   })(0);
 })();
 </script>
+<!-- CODEX PATCH v81: keep Feedback edits visible until Firestore confirms the same values -->
+<script id="codex-feedback-pending-write-overlay-v81">
+(function(){
+  'use strict';
+  if(window.__codexFeedbackPendingWriteOverlayV81)return;
+  window.__codexFeedbackPendingWriteOverlayV81=true;
+
+  var STORAGE_KEY='tcm_feedback_pending_edits_v81';
+  var pending=readPending();
+  var confirmed={};
+  var previousMerge=window.fbMergeLinkClicks;
+  var previousBatch=window.fbSaveBatch;
+  var previousCreatorSave=window.fbSaveCreators;
+
+  function clone(value){try{return JSON.parse(JSON.stringify(value));}catch(e){return value;}}
+  function stable(value){try{return JSON.stringify(value==null?{}:value);}catch(e){return '';}}
+  function rowId(row,index){row=row||{};return String(row._id||row.id||('creator_'+index));}
+  function readPending(){
+    try{
+      var value=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')||{};
+      var cutoff=Date.now()-24*60*60*1000;
+      Object.keys(value).forEach(function(id){if(!value[id]||Number(value[id].at||0)<cutoff)delete value[id];});
+      return value;
+    }catch(e){return {};}
+  }
+  function writePending(){
+    try{
+      if(Object.keys(pending).length)localStorage.setItem(STORAGE_KEY,JSON.stringify(pending));
+      else localStorage.removeItem(STORAGE_KEY);
+    }catch(e){console.warn('Feedback 임시 보존 실패:',e);}
+  }
+  function capture(rows){
+    (rows||[]).forEach(function(row,index){
+      if(!row||!row._fbData)return;
+      var id=rowId(row,index);
+      if(pending[id]||stable(row._fbData)!==stable(confirmed[id])){
+        pending[id]={at:Date.now(),fbData:clone(row._fbData)};
+      }
+    });
+    writePending();
+  }
+  function mergeIncoming(rows){
+    rows=Array.isArray(rows)?rows:[];
+    var changed=false;
+    rows.forEach(function(row,index){
+      var id=rowId(row,index),saved=pending[id];
+      if(!saved)return;
+      if(stable(row&&row._fbData)===stable(saved.fbData)){
+        delete pending[id];
+        changed=true;
+        return;
+      }
+      row._fbData=clone(saved.fbData);
+    });
+    if(changed)writePending();
+    return rows;
+  }
+
+  window.fbMergeLinkClicks=function(rows){
+    /* Compare the unmodified server snapshot first. Older click-only backup code
+       must not overwrite a newly confirmed Feedback value. */
+    var serverRows=clone(Array.isArray(rows)?rows:[]);
+    serverRows.forEach(function(row,index){confirmed[rowId(row,index)]=clone(row&&row._fbData||{});});
+    var merged=typeof previousMerge==='function'?previousMerge(rows):rows;
+    var byId={};
+    serverRows.forEach(function(row,index){byId[rowId(row,index)]=row;});
+    (merged||[]).forEach(function(row,index){
+      var id=rowId(row,index),saved=pending[id],server=byId[id];
+      if(!saved)return;
+      if(server&&stable(server._fbData)===stable(saved.fbData)){
+        row._fbData=clone(server._fbData);
+        delete pending[id];
+        writePending();
+      }else{
+        row._fbData=clone(saved.fbData);
+      }
+    });
+    return merged;
+  };
+  try{fbMergeLinkClicks=window.fbMergeLinkClicks;}catch(e){}
+
+  window.fbSaveBatch=function(collection,rows){
+    if(collection==='creators')capture(rows||window.creators||[]);
+    return previousBatch.apply(this,arguments);
+  };
+  window.fbSaveCreators=function(){
+    capture(window.creators||[]);
+    return typeof previousCreatorSave==='function'
+      ? previousCreatorSave.apply(this,arguments)
+      : window.fbSaveBatch('creators',window.creators||[]);
+  };
+  try{fbSaveCreators=window.fbSaveCreators;}catch(e){}
+
+  /* Restore a still-pending edit after an accidental refresh or a delayed listener. */
+  (window.creators||[]).forEach(function(row,index){confirmed[rowId(row,index)]=clone(row&&row._fbData||{});});
+  mergeIncoming(window.creators||[]);
+})();
+</script>
 </body>
 </html>
